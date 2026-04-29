@@ -196,6 +196,56 @@ ErrorHandler:
 End Function
 
 '================================================================================
+' FUNCOES DE CAMINHO - Estrutura do projeto
+'================================================================================
+
+Public Function GetProjectRootPath() As String
+    GetProjectRootPath = Environ("USERPROFILE") & "\z7_stdproposers"
+End Function
+
+Public Function GetZ7StdProposersBackupsPath() As String
+    GetZ7StdProposersBackupsPath = Environ("TEMP") & "\.z7_stdproposers\props\backups"
+End Function
+
+Public Function GetZ7StdProposersRecoveryPath() As String
+    GetZ7StdProposersRecoveryPath = GetProjectRootPath() & "\props\recovery_tmp"
+End Function
+
+Public Function GetZ7StdProposersLogsPath() As String
+    GetZ7StdProposersLogsPath = GetProjectRootPath() & "\source\logs"
+End Function
+
+Public Sub EnsureZ7StdProposersFolders()
+    On Error Resume Next
+
+    Dim fso As Object
+    Set fso = CreateObject("Scripting.FileSystemObject")
+
+    Dim propsPath As String
+    propsPath = GetProjectRootPath() & "\props"
+
+    Dim sourcePath As String
+    sourcePath = GetProjectRootPath() & "\source"
+
+    If Not fso.FolderExists(propsPath) Then fso.CreateFolder propsPath
+    If Not fso.FolderExists(sourcePath) Then fso.CreateFolder sourcePath
+
+    Dim z7TempRoot As String
+    z7TempRoot = Environ("TEMP") & "\.z7_stdproposers"
+
+    Dim z7TempProps As String
+    z7TempProps = z7TempRoot & "\props"
+
+    If Not fso.FolderExists(z7TempRoot) Then fso.CreateFolder z7TempRoot
+    If Not fso.FolderExists(z7TempProps) Then fso.CreateFolder z7TempProps
+    If Not fso.FolderExists(GetZ7StdProposersBackupsPath()) Then fso.CreateFolder GetZ7StdProposersBackupsPath()
+    If Not fso.FolderExists(GetZ7StdProposersRecoveryPath()) Then fso.CreateFolder GetZ7StdProposersRecoveryPath()
+    If Not fso.FolderExists(GetZ7StdProposersLogsPath()) Then fso.CreateFolder GetZ7StdProposersLogsPath()
+
+    Set fso = Nothing
+End Sub
+
+'================================================================================
 ' GERENCIAMENTO DE DIRETORIO DE BACKUP
 '================================================================================
 Public Function EnsureBackupDirectory(doc As Document) As String

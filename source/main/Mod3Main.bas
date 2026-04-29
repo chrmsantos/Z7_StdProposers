@@ -170,6 +170,19 @@ Public Sub PadronizarDocumentoMain()
         LogMessage "Aviso: Falha ao centralizar imagem apos Plenario", LOG_LEVEL_WARNING
     End If
 
+    ' Garantia final de fonte: reaplica Arial 12 em todo o documento apos todos os
+    ' ajustes pos-pipeline (substituicoes de texto, listas, imagens), pois operacoes
+    ' como Find/Replace com Replacement.ClearFormatting podem deixar trechos com
+    ' a fonte do estilo Normal (ex: Calibri) em vez de Arial 12.
+    IncrementProgress "Garantindo fonte final"
+    On Error Resume Next
+    With doc.Range.Font
+        .Name = STANDARD_FONT
+        .size = STANDARD_FONT_SIZE
+    End With
+    On Error GoTo 0
+    LogMessage "Fonte final garantida: " & STANDARD_FONT & " " & STANDARD_FONT_SIZE & "pt em todo o documento", LOG_LEVEL_INFO
+
     ' Restaura configuracoes de visualizacao originais (exceto zoom)
     IncrementProgress "Restaurando visualizacao"
     If Not RestoreViewSettings(doc) Then

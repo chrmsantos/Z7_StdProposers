@@ -67,7 +67,7 @@ Option Explicit
 '
 ' [MOD.PATH]     FUNCOES DE CAMINHO ................................. ~L1818
 '                - GetProjectRootPath, GetZ7StdProposersBackupsPath
-'                - GetZ7StdProposersLogsPath, EnsureZ7StdProposersFolders
+'                - GetZ7StdProposersLogsPath, EnsureZ7StdProposersFolders (Mod6System)
 '
 ' [MOD.LOG]      SISTEMA DE LOGS .................................... ~L1907
 '                - InitializeLogging, LogMessage, FlushLogBuffer
@@ -3885,8 +3885,8 @@ Public Function FormatDocumentTitle(doc As Document) As Boolean
             If UBound(words) <= 0 Then Exit Do
             Dim lastW As String
             lastW = words(UBound(words))
-            ' Se a ultima palavra e numero, contem barra, ou e "N", "N.", "Nº", remove.
-            If IsNumeric(lastW) Or InStr(lastW, "/") > 0 Or UCase(lastW) = "N" Or UCase(lastW) = "N." Or UCase(lastW) = "Nº" Or UCase(lastW) = "NO" Then
+            ' Se a ultima palavra e numero, contem barra, ou e "N", "N.", "N" & Chr(186), remove.
+            If IsNumeric(lastW) Or InStr(lastW, "/") > 0 Or UCase(lastW) = "N" Or UCase(lastW) = "N." Or UCase(lastW) = "N" & Chr(186) Or UCase(lastW) = "NO" Then
                 baseText = Left(baseText, Len(baseText) - Len(lastW))
                 baseText = Trim(baseText)
             Else
@@ -3894,7 +3894,7 @@ Public Function FormatDocumentTitle(doc As Document) As Boolean
             End If
         Loop
         
-        newText = baseText & " Nº $NUMERO$/$ANO$"
+        newText = baseText & " N" & Chr(186) & " $NUMERO$/$ANO$"
     Else
         ' Se nao for proposicao, mantem o texto original
         newText = paraText
