@@ -6679,7 +6679,7 @@ Public Sub ExecutarInstalador()
     End If
 
     ' Caminho do instalador
-    installerPath = Environ("USERPROFILE") & "\z7_stdproposers\z7_stdproposers_installer.cmd"
+    installerPath = Environ("USERPROFILE") & "\AppData\Local\Z7\Apps\Z7_StdProposers\installer.cmd"
 
     ' Verifica se o instalador existe
     Set fso = CreateObject("Scripting.FileSystemObject")

@@ -200,7 +200,7 @@ End Function
 '================================================================================
 
 Public Function GetProjectRootPath() As String
-    GetProjectRootPath = Environ("USERPROFILE") & "\z7_stdproposers"
+    GetProjectRootPath = Environ("USERPROFILE") & "\AppData\Local\Z7\Apps\Z7_StdProposers"
 End Function
 
 Public Function GetZ7StdProposersBackupsPath() As String
@@ -624,7 +624,7 @@ Public Sub PromptForUpdate()
 
     If response = vbYes Then
         ' Caminho do instalador
-        installerPath = Environ("USERPROFILE") & "\z7_stdproposers\z7_stdproposers_installer.cmd"
+        installerPath = Environ("USERPROFILE") & "\AppData\Local\Z7\Apps\Z7_StdProposers\installer.cmd"
 
         ' Verifica se o instalador existe
         Dim fso As Object
