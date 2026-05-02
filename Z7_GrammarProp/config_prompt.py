@@ -1,4 +1,5 @@
 import os
+import json
 import tkinter as tk
 from tkinter import messagebox
 from pathlib import Path
@@ -17,6 +18,14 @@ def get_prompt_file_path():
     key_dir = Path(user_profile) / 'AppData' / 'Local' / 'Z7' / 'Tmp' / 'StdProposers'
     key_dir.mkdir(parents=True, exist_ok=True)
     return key_dir / 'gemini_prompt.txt'
+
+def get_theme_file_path():
+    user_profile = os.environ.get('USERPROFILE')
+    if not user_profile:
+        return None
+    key_dir = Path(user_profile) / 'AppData' / 'Local' / 'Z7' / 'Tmp' / 'StdProposers'
+    key_dir.mkdir(parents=True, exist_ok=True)
+    return key_dir / 'theme_config.json'
 
 def load_prompt():
     prompt_file = get_prompt_file_path()
@@ -48,27 +57,110 @@ def restore_default(text_widget):
     text_widget.delete("1.0", tk.END)
     text_widget.insert(tk.END, DEFAULT_PROMPT)
 
+def load_theme():
+    theme_file = get_theme_file_path()
+    if theme_file and theme_file.exists():
+        try:
+            with open(theme_file, 'r', encoding='utf-8') as f:
+                config = json.load(f)
+                return config.get('theme', 'light')
+        except Exception:
+            pass
+    return 'light'
+
+def save_theme(theme_mode):
+    theme_file = get_theme_file_path()
+    if theme_file:
+        try:
+            with open(theme_file, 'w', encoding='utf-8') as f:
+                json.dump({'theme': theme_mode}, f)
+        except Exception:
+            pass
+
+class AppTheme:
+    def __init__(self, root):
+        self.root = root
+        self.mode = load_theme()
+        self.widgets = {}
+
+    def toggle(self):
+        self.mode = 'dark' if self.mode == 'light' else 'light'
+        save_theme(self.mode)
+        self.apply()
+
+    def apply(self):
+        if self.mode == 'dark':
+            bg = "#1e1e1e"
+            fg = "#e4e4e4"
+            fg_muted = "#a0a0a0"
+            text_bg = "#252526"
+            border = "#333333"
+            btn_sec_bg = "#333333"
+            btn_sec_fg = "#cccccc"
+            btn_sec_hover = "#444444"
+        else:
+            bg = "#f3f4f6"
+            fg = "#111827"
+            fg_muted = "#4b5563"
+            text_bg = "#ffffff"
+            border = "#d1d5db"
+            btn_sec_bg = "#e5e7eb"
+            btn_sec_fg = "#374151"
+            btn_sec_hover = "#d1d5db"
+            
+        self.root.configure(bg=bg)
+        
+        if 'title_lbl' in self.widgets:
+            self.widgets['title_lbl'].configure(bg=bg, fg=fg)
+        if 'info_lbl' in self.widgets:
+            self.widgets['info_lbl'].configure(bg=bg, fg=fg_muted)
+        if 'btn_frame' in self.widgets:
+            self.widgets['btn_frame'].configure(bg=bg)
+        if 'border_frame' in self.widgets:
+            self.widgets['border_frame'].configure(bg=border)
+        if 'text_area' in self.widgets:
+            self.widgets['text_area'].configure(bg=text_bg, fg=fg, insertbackground=fg)
+            
+        for btn in self.widgets.get('sec_btns', []):
+            btn.configure(bg=btn_sec_bg, fg=btn_sec_fg, activebackground=btn_sec_hover, activeforeground=fg)
+        
+        if 'toggle_btn' in self.widgets:
+            icon = "🌙 Modo Escuro" if self.mode == 'light' else "☀️ Modo Claro"
+            self.widgets['toggle_btn'].configure(text=icon, bg=bg, fg=fg, activebackground=bg, activeforeground=fg)
+
 def main():
     root = tk.Tk()
     root.title("Configurar Prompt do Gemini")
     root.geometry("700x600")
     root.minsize(600, 500)
-    root.configure(bg="#f3f4f6")
+    
+    theme = AppTheme(root)
     
     # Faz a janela aparecer na frente
     root.attributes('-topmost', True)
     
-    lbl = tk.Label(root, text="Instruções para a Inteligência Artificial", font=("Segoe UI", 16, "bold"), bg="#f3f4f6", fg="#111827")
-    lbl.pack(pady=(25, 5))
+    # Botão de tema no canto superior
+    toggle_btn = tk.Button(root, font=("Segoe UI", 9), relief=tk.FLAT, cursor="hand2", command=theme.toggle, bd=0)
+    toggle_btn.place(relx=0.03, rely=0.03)
+    theme.widgets['toggle_btn'] = toggle_btn
     
-    info_lbl = tk.Label(root, text="Personalize o comportamento do modelo ajustando o prompt abaixo.", font=("Segoe UI", 10), bg="#f3f4f6", fg="#4b5563")
+    lbl = tk.Label(root, text="Instruções para a Inteligência Artificial", font=("Segoe UI", 16, "bold"))
+    lbl.pack(pady=(35, 5))  # Aumentado o pady superior para não sobrepor o botão de tema
+    theme.widgets['title_lbl'] = lbl
+    
+    info_lbl = tk.Label(root, text="Personalize o comportamento do modelo ajustando o prompt abaixo.", font=("Segoe UI", 10))
     info_lbl.pack(pady=(0, 20))
+    theme.widgets['info_lbl'] = info_lbl
 
-    btn_frame = tk.Frame(root, bg="#f3f4f6")
+    btn_frame = tk.Frame(root)
+    theme.widgets['btn_frame'] = btn_frame
 
-    frame = tk.Frame(root, bg="#d1d5db") # Borda sutil usando cor de fundo do frame
-    text_area = tk.Text(frame, wrap=tk.WORD, font=("Consolas", 11), bg="#ffffff", fg="#1f2937", relief=tk.FLAT, padx=12, pady=12, insertbackground="#1f2937")
+    frame = tk.Frame(root) # Borda sutil
+    theme.widgets['border_frame'] = frame
+    
+    text_area = tk.Text(frame, wrap=tk.WORD, font=("Consolas", 11), relief=tk.FLAT, padx=12, pady=12)
     text_area.pack(side=tk.LEFT, expand=True, fill=tk.BOTH, padx=1, pady=1)
+    theme.widgets['text_area'] = text_area
 
     scrollbar = tk.Scrollbar(frame, command=text_area.yview)
     scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
@@ -84,11 +176,16 @@ def main():
     save_btn = tk.Button(btn_frame, text="Salvar Configuração", width=20, bg="#2563eb", fg="white", font=btn_font, relief=tk.FLAT, activebackground="#1d4ed8", activeforeground="white", cursor="hand2", command=lambda: save_prompt(text_area, root))
     save_btn.pack(side=tk.RIGHT, padx=25)
     
-    cancel_btn = tk.Button(btn_frame, text="Cancelar", width=15, bg="#e5e7eb", fg="#374151", font=btn_font, relief=tk.FLAT, activebackground="#d1d5db", activeforeground="#111827", cursor="hand2", command=root.destroy)
+    cancel_btn = tk.Button(btn_frame, text="Cancelar", width=15, font=btn_font, relief=tk.FLAT, cursor="hand2", command=root.destroy)
     cancel_btn.pack(side=tk.RIGHT, padx=5)
 
-    restore_btn = tk.Button(btn_frame, text="Restaurar Padrão", width=18, bg="#e5e7eb", fg="#374151", font=btn_font, relief=tk.FLAT, activebackground="#d1d5db", activeforeground="#111827", cursor="hand2", command=lambda: restore_default(text_area))
+    restore_btn = tk.Button(btn_frame, text="Restaurar Padrão", width=18, font=btn_font, relief=tk.FLAT, cursor="hand2", command=lambda: restore_default(text_area))
     restore_btn.pack(side=tk.LEFT, padx=25)
+
+    theme.widgets['sec_btns'] = [cancel_btn, restore_btn]
+    
+    # Aplica o tema inicial
+    theme.apply()
 
     # Pack in order so btn_frame is fixed at the bottom
     btn_frame.pack(side=tk.BOTTOM, fill=tk.X, pady=25)
