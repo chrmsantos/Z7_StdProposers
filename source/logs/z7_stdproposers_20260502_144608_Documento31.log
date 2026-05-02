@@ -1,0 +1,275 @@
+﻿================================================================================
+Z7_STDPROPOSERS - LOG DE PROCESSAMENTO DE DOCUMENTO
+================================================================================
+
+[SESSAO]
+  Inicio: 02/05/2026 14:46:08
+  ID: 20260502144608
+
+[AMBIENTE]
+  Usuario: csantos
+  Computador: NOTEPROCLEG01
+  Dominio: CMSBONET
+  SO: Windows Windows_NT
+  Word: 16.0 (Word 2016/2019/2021/365)
+
+[DOCUMENTO]
+  Nome: Documento31
+  Caminho: (Nao salvo)
+  Tamanho: 0 bytes
+  Paragrafos: 1
+  Paginas: 1
+  Protecao: Sem protecao
+  Idioma: 1046
+
+[CONFIGURACAO]
+  Debug: Desativado
+  Log: C:\Users\csantos\AppData\Local\Z7\Apps\Z7_StdProposers\source\logs\z7_stdproposers_20260502_144608_Documento31.log
+  Backup: C:\Users\csantos\AppData\Local\Temp\.z7_stdproposers\props\backups\
+
+================================================================================
+
+
+
+--------------------------------------------------------------------------------
+SECAO: VERIFICACOES INICIAIS
+--------------------------------------------------------------------------------
+14:46:08.961 [00:00,0] INFO  ? ? Iniciando: Validacao de documento
+14:46:08.965 [00:00,0] WARN  ? Documento vazio ou sem texto no inicio
+14:46:08.969 [00:00,0] INFO  ? ? Concluido: Validacao de documento | Todas as verificacoes passaram
+14:46:08.969 [00:00,0] INFO  ? Verificacoes de seguranca concluidas com sucesso
+
+14:46:13.867 [00:05,0] INFO  ? Backup criado com sucesso: Doc31_backup_2026-05-02_144613.docx
+14:46:13.984 [00:05,0] INFO  ? Backup das configuracoes de visualizacao concluido
+14:46:14.000 [00:06,0] INFO  ? Backup de propriedades de imagens concluido: 0 imagens catalogadas
+14:46:14.008 [00:06,0] INFO  ? Nenhuma lista encontrada no documento
+14:46:14.012 [00:06,0] INFO  ? UndoRecord iniciado
+14:46:14.012 [00:06,0] INFO  ? === PIPELINE DE FORMATACAO (2 PASSAGENS) ===
+14:46:14.016 [00:06,0] INFO  ? Iniciando construcao do cache de paragrafos...
+14:46:14.016 [00:06,0] INFO  ? Cache construido: 1 paragrafos em 0,00s
+14:46:14.016 [00:06,0] INFO  ? Identificando estrutura do documento...
+14:46:14.020 [00:06,0] INFO  ? === ESTRUTURA DO DOCUMENTO IDENTIFICADA ===
+14:46:14.020 [00:06,0] INFO  ? Titulo: paragrafo 0
+14:46:14.020 [00:06,0] INFO  ? Ementa: paragrafo 0
+14:46:14.020 [00:06,0] INFO  ? Proposicao: paragrafos 0 a 0
+14:46:14.020 [00:06,0] INFO  ? Titulo Justificativa: paragrafo 0
+14:46:14.020 [00:06,0] INFO  ? Justificativa: paragrafos 0 a 0
+14:46:14.020 [00:06,0] INFO  ? Data: paragrafo 0
+14:46:14.020 [00:06,0] INFO  ? Assinatura: paragrafos 0 a 0
+14:46:14.020 [00:06,0] INFO  ? Titulo Anexo: paragrafo 0
+14:46:14.020 [00:06,0] INFO  ? Anexo: paragrafos 0 a 0
+14:46:14.020 [00:06,0] INFO  ? ==========================================
+14:46:14.020 [00:06,0] INFO  ? === PASSAGEM 1 DE 2 ===
+
+
+--------------------------------------------------------------------------------
+SECAO: LIMPEZA E FORMATACAO
+--------------------------------------------------------------------------------
+14:46:14.391 [00:06,0] INFO  ? ? Iniciando: Limpeza de formatacao
+14:46:14.426 [00:06,0] INFO  ? Formatacao limpa: 1 paragrafos resetados
+14:46:14.426 [00:06,0] INFO  ? ? Concluido: Limpeza de formatacao
+14:46:14.426 [00:06,0] INFO  ? ? Iniciando: Normalizacao de quebras
+14:46:14.438 [00:06,0] INFO  ? ? Concluido: Normalizacao de quebras
+14:46:14.438 [00:06,0] INFO  ? ? Iniciando: Limpeza estrutural
+14:46:14.449 [00:06,0] INFO  ? ? Concluido: Limpeza estrutural
+14:46:14.449 [00:06,0] INFO  ? ? Iniciando: Limpeza de prefixo da ementa
+14:46:14.449 [00:06,0] INFO  ? ? Concluido: Limpeza de prefixo da ementa
+14:46:14.449 [00:06,0] INFO  ? ? Iniciando: Limpeza de sufixo da ementa
+14:46:14.449 [00:06,0] INFO  ? ? Concluido: Limpeza de sufixo da ementa
+14:46:14.449 [00:06,0] INFO  ? ? Iniciando: Formatacao de titulo
+14:46:14.449 [00:06,0] WARN  ? Nenhum texto encontrado para formatacao do titulo
+14:46:14.449 [00:06,0] INFO  ? ? Concluido: Formatacao de titulo
+14:46:14.449 [00:06,0] INFO  ? ? Iniciando: Aplicacao de fonte padrao
+14:46:14.449 [00:06,0] INFO  ? Aplicando fonte padrao (modo otimizado com cache)...
+14:46:14.449 [00:06,0] INFO  ? Fonte padrao aplicada: 0 paragrafos em 0,00s
+14:46:14.449 [00:06,0] INFO  ? ? Concluido: Aplicacao de fonte padrao | 1 paragrafos
+14:46:14.449 [00:06,0] INFO  ? ? Iniciando: Aplicacao de formatacao de paragrafos
+14:46:14.461 [00:06,0] INFO  ? ? Concluido: Aplicacao de formatacao de paragrafos
+
+
+--------------------------------------------------------------------------------
+SECAO: FORMATACOES ESPECIFICAS
+--------------------------------------------------------------------------------
+14:46:14.473 [00:06,0] INFO  ? ? Iniciando: Formatacao de paragrafos 1 e 2
+14:46:14.473 [00:06,0] WARN  ? 1 paragrafo nao encontrado para formatacao
+14:46:14.477 [00:06,0] WARN  ? 2 paragrafo nao encontrado para formatacao
+14:46:14.477 [00:06,0] INFO  ? ? Concluido: Formatacao de paragrafos 1 e 2
+14:46:14.477 [00:06,0] INFO  ? ? Iniciando: Formatacao de considerandos
+14:46:14.477 [00:06,0] INFO  ? ? Concluido: Formatacao de considerandos
+14:46:14.477 [00:06,0] INFO  ? ? Iniciando: Aplicacao de substituicoes de texto
+14:46:14.477 [00:06,0] INFO  ? Documento vazio - substituicoes de texto ignoradas
+14:46:14.477 [00:06,0] INFO  ? ? Concluido: Aplicacao de substituicoes de texto
+14:46:14.477 [00:06,0] INFO  ? ? Iniciando: Remocao de marca d'agua e insercao de carimbo
+14:46:14.848 [00:06,0] INFO  ? ? Concluido: Remocao de marca d'agua e insercao de carimbo
+
+
+--------------------------------------------------------------------------------
+SECAO: LIMPEZA FINAL
+--------------------------------------------------------------------------------
+14:46:14.859 [00:06,0] INFO  ? ? Iniciando: Limpeza de espacos multiplos
+14:46:14.914 [00:06,0] INFO  ? Limpeza de espacos concluida: 0 correcoes aplicadas (com protecao CONSIDERANDO)
+14:46:14.914 [00:06,0] INFO  ? ? Concluido: Limpeza de espacos multiplos
+14:46:14.914 [00:06,0] INFO  ? ? Iniciando: Controle de linhas em branco
+14:46:14.945 [00:06,0] INFO  ? Controle de linhas vazias concluido em 1 passada(s): 0 linhas excedentes removidas (maximo 1 sequencial)
+14:46:14.945 [00:06,0] INFO  ? ? Concluido: Controle de linhas em branco
+14:46:14.945 [00:06,0] INFO  ? ? Iniciando: Substituicao de datas do plenario
+14:46:14.945 [00:06,0] INFO  ? ? Concluido: Substituicao de datas do plenario
+
+
+--------------------------------------------------------------------------------
+SECAO: FINALIZACAO
+--------------------------------------------------------------------------------
+14:46:14.965 [00:06,0] INFO  ? ? Iniciando: Configuracao de visualizacao
+14:46:14.973 [00:06,0] INFO  ? Visualizacao configurada: zoom definido para 120%, demais configuracoes preservadas
+14:46:14.973 [00:06,0] INFO  ? ? Concluido: Configuracao de visualizacao
+14:46:14.973 [00:06,0] INFO  ? ? Iniciando: Insercao de rodape
+14:46:15.043 [00:07,0] INFO  ? ? Concluido: Insercao de rodape
+14:46:15.043 [00:07,0] INFO  ? ? Iniciando: Ajustes finais de negrito e formatacao
+14:46:15.043 [00:07,0] INFO  ? Negrito e alinhamento aplicados a 0 paragrafos especiais
+14:46:15.043 [00:07,0] INFO  ? ? Concluido: Ajustes finais de negrito e formatacao
+14:46:15.043 [00:07,0] INFO  ? ? Iniciando: Formatacoes especiais (diante do exposto, requeiro)
+14:46:15.047 [00:07,0] INFO  ? ? Concluido: Formatacoes especiais (diante do exposto, requeiro)
+14:46:15.047 [00:07,0] INFO  ? ? Iniciando: Remocao de realces e bordas
+14:46:15.066 [00:07,0] INFO  ? Realce removido do documento completo
+14:46:15.070 [00:07,0] INFO  ? Realces e bordas removidos: 1 realces, 1 paragrafos com bordas
+14:46:15.070 [00:07,0] INFO  ? ? Concluido: Remocao de realces e bordas
+14:46:15.070 [00:07,0] INFO  ? ? Iniciando: Remocao de paginas vazias no final
+14:46:15.086 [00:07,0] INFO  ? Nenhuma pagina vazia no final do documento
+14:46:15.086 [00:07,0] INFO  ? ? Concluido: Remocao de paginas vazias no final
+14:46:15.086 [00:07,0] INFO  ? ? Iniciando: Aplicacao de formatacao final universal
+14:46:15.086 [00:07,0] INFO  ? Aplicando formatacao final universal: Arial 12, espacamento 1.0, 1 linha entre paragrafos...
+14:46:15.094 [00:07,0] INFO  ? Formatacao final aplicada: 1 de 1 paragrafos
+14:46:15.094 [00:07,0] INFO  ? ? Concluido: Aplicacao de formatacao final universal
+14:46:15.094 [00:07,0] INFO  ? ? Iniciando: Adicao de espacamento especial (ementa, justificativa, data)
+14:46:15.094 [00:07,0] INFO  ? Adicionando espacamento especial para ementa, justificativa e data...
+14:46:15.094 [00:07,0] INFO  ? Espacamento especial aplicado a 0 elementos
+14:46:15.094 [00:07,0] INFO  ? ? Concluido: Adicao de espacamento especial (ementa, justificativa, data)
+14:46:15.094 [00:07,0] INFO  ? ? Iniciando: Ajuste final de recuos para Vereador (travessoes)
+14:46:15.094 [00:07,0] INFO  ? ? Concluido: Ajuste final de recuos para Vereador (travessoes)
+14:46:15.094 [00:07,0] INFO  ? Formatacao completa aplicada com sucesso
+14:46:15.094 [00:07,0] INFO  ? ?? Total de paragrafos: 1
+14:46:15.102 [00:07,0] INFO  ? === PASSAGEM 2 DE 2 ===
+
+
+--------------------------------------------------------------------------------
+SECAO: LIMPEZA E FORMATACAO
+--------------------------------------------------------------------------------
+14:46:15.207 [00:07,0] INFO  ? ? Iniciando: Limpeza de formatacao
+14:46:15.227 [00:07,0] INFO  ? Formatacao limpa: 1 paragrafos resetados
+14:46:15.227 [00:07,0] INFO  ? ? Concluido: Limpeza de formatacao
+14:46:15.227 [00:07,0] INFO  ? ? Iniciando: Normalizacao de quebras
+14:46:15.234 [00:07,0] INFO  ? ? Concluido: Normalizacao de quebras
+14:46:15.234 [00:07,0] INFO  ? ? Iniciando: Limpeza estrutural
+14:46:15.242 [00:07,0] INFO  ? ? Concluido: Limpeza estrutural
+14:46:15.242 [00:07,0] INFO  ? ? Iniciando: Limpeza de prefixo da ementa
+14:46:15.242 [00:07,0] INFO  ? ? Concluido: Limpeza de prefixo da ementa
+14:46:15.242 [00:07,0] INFO  ? ? Iniciando: Limpeza de sufixo da ementa
+14:46:15.242 [00:07,0] INFO  ? ? Concluido: Limpeza de sufixo da ementa
+14:46:15.242 [00:07,0] INFO  ? ? Iniciando: Formatacao de titulo
+14:46:15.246 [00:07,0] WARN  ? Nenhum texto encontrado para formatacao do titulo
+14:46:15.246 [00:07,0] INFO  ? ? Concluido: Formatacao de titulo
+14:46:15.246 [00:07,0] INFO  ? ? Iniciando: Aplicacao de fonte padrao
+14:46:15.246 [00:07,0] INFO  ? Aplicando fonte padrao (modo otimizado com cache)...
+14:46:15.246 [00:07,0] INFO  ? Fonte padrao aplicada: 0 paragrafos em 0,00s
+14:46:15.246 [00:07,0] INFO  ? ? Concluido: Aplicacao de fonte padrao | 1 paragrafos
+14:46:15.246 [00:07,0] INFO  ? ? Iniciando: Aplicacao de formatacao de paragrafos
+14:46:15.254 [00:07,0] INFO  ? ? Concluido: Aplicacao de formatacao de paragrafos
+
+
+--------------------------------------------------------------------------------
+SECAO: FORMATACOES ESPECIFICAS
+--------------------------------------------------------------------------------
+14:46:15.266 [00:07,0] INFO  ? ? Iniciando: Formatacao de paragrafos 1 e 2
+14:46:15.266 [00:07,0] WARN  ? 1 paragrafo nao encontrado para formatacao
+14:46:15.270 [00:07,0] WARN  ? 2 paragrafo nao encontrado para formatacao
+14:46:15.270 [00:07,0] INFO  ? ? Concluido: Formatacao de paragrafos 1 e 2
+14:46:15.270 [00:07,0] INFO  ? ? Iniciando: Formatacao de considerandos
+14:46:15.270 [00:07,0] INFO  ? ? Concluido: Formatacao de considerandos
+14:46:15.270 [00:07,0] INFO  ? ? Iniciando: Aplicacao de substituicoes de texto
+14:46:15.270 [00:07,0] INFO  ? Documento vazio - substituicoes de texto ignoradas
+14:46:15.270 [00:07,0] INFO  ? ? Concluido: Aplicacao de substituicoes de texto
+14:46:15.270 [00:07,0] INFO  ? ? Iniciando: Remocao de marca d'agua e insercao de carimbo
+14:46:15.527 [00:07,0] INFO  ? ? Concluido: Remocao de marca d'agua e insercao de carimbo
+
+
+--------------------------------------------------------------------------------
+SECAO: LIMPEZA FINAL
+--------------------------------------------------------------------------------
+14:46:15.539 [00:07,0] INFO  ? ? Iniciando: Limpeza de espacos multiplos
+14:46:15.598 [00:07,0] INFO  ? Limpeza de espacos concluida: 0 correcoes aplicadas (com protecao CONSIDERANDO)
+14:46:15.598 [00:07,0] INFO  ? ? Concluido: Limpeza de espacos multiplos
+14:46:15.598 [00:07,0] INFO  ? ? Iniciando: Controle de linhas em branco
+14:46:15.617 [00:07,0] INFO  ? Controle de linhas vazias concluido em 1 passada(s): 0 linhas excedentes removidas (maximo 1 sequencial)
+14:46:15.617 [00:07,0] INFO  ? ? Concluido: Controle de linhas em branco
+14:46:15.617 [00:07,0] INFO  ? ? Iniciando: Substituicao de datas do plenario
+14:46:15.617 [00:07,0] INFO  ? ? Concluido: Substituicao de datas do plenario
+
+
+--------------------------------------------------------------------------------
+SECAO: FINALIZACAO
+--------------------------------------------------------------------------------
+14:46:15.629 [00:07,0] INFO  ? ? Iniciando: Configuracao de visualizacao
+14:46:15.633 [00:07,0] INFO  ? Visualizacao configurada: zoom definido para 120%, demais configuracoes preservadas
+14:46:15.633 [00:07,0] INFO  ? ? Concluido: Configuracao de visualizacao
+14:46:15.633 [00:07,0] INFO  ? ? Iniciando: Insercao de rodape
+14:46:15.676 [00:07,0] INFO  ? ? Concluido: Insercao de rodape
+14:46:15.676 [00:07,0] INFO  ? ? Iniciando: Ajustes finais de negrito e formatacao
+14:46:15.676 [00:07,0] INFO  ? Negrito e alinhamento aplicados a 0 paragrafos especiais
+14:46:15.676 [00:07,0] INFO  ? ? Concluido: Ajustes finais de negrito e formatacao
+14:46:15.676 [00:07,0] INFO  ? ? Iniciando: Formatacoes especiais (diante do exposto, requeiro)
+14:46:15.680 [00:07,0] INFO  ? ? Concluido: Formatacoes especiais (diante do exposto, requeiro)
+14:46:15.680 [00:07,0] INFO  ? ? Iniciando: Remocao de realces e bordas
+14:46:15.691 [00:07,0] INFO  ? Realce removido do documento completo
+14:46:15.691 [00:07,0] INFO  ? Realces e bordas removidos: 1 realces, 1 paragrafos com bordas
+14:46:15.691 [00:07,0] INFO  ? ? Concluido: Remocao de realces e bordas
+14:46:15.691 [00:07,0] INFO  ? ? Iniciando: Remocao de paginas vazias no final
+14:46:15.699 [00:07,0] INFO  ? Nenhuma pagina vazia no final do documento
+14:46:15.699 [00:07,0] INFO  ? ? Concluido: Remocao de paginas vazias no final
+14:46:15.699 [00:07,0] INFO  ? ? Iniciando: Aplicacao de formatacao final universal
+14:46:15.699 [00:07,0] INFO  ? Aplicando formatacao final universal: Arial 12, espacamento 1.0, 1 linha entre paragrafos...
+14:46:15.703 [00:07,0] INFO  ? Formatacao final aplicada: 1 de 1 paragrafos
+14:46:15.703 [00:07,0] INFO  ? ? Concluido: Aplicacao de formatacao final universal
+14:46:15.703 [00:07,0] INFO  ? ? Iniciando: Adicao de espacamento especial (ementa, justificativa, data)
+14:46:15.703 [00:07,0] INFO  ? Adicionando espacamento especial para ementa, justificativa e data...
+14:46:15.703 [00:07,0] INFO  ? Espacamento especial aplicado a 0 elementos
+14:46:15.703 [00:07,0] INFO  ? ? Concluido: Adicao de espacamento especial (ementa, justificativa, data)
+14:46:15.703 [00:07,0] INFO  ? ? Iniciando: Ajuste final de recuos para Vereador (travessoes)
+14:46:15.703 [00:07,0] INFO  ? ? Concluido: Ajuste final de recuos para Vereador (travessoes)
+14:46:15.703 [00:07,0] INFO  ? Formatacao completa aplicada com sucesso
+14:46:15.703 [00:07,0] INFO  ? ?? Total de paragrafos: 1
+14:46:15.883 [00:07,0] INFO  ? Removendo linhas em branco extras e aplicando ajustes...
+14:46:15.934 [00:07,0] INFO  ? Linhas em branco removidas: 0, substituicoes: 0
+14:46:15.965 [00:07,0] INFO  ? Paragrafo do Plenario nao encontrado para centralizar imagem
+14:46:15.969 [00:07,0] INFO  ? Fonte final garantida: Arial 12pt em todo o documento
+14:46:16.281 [00:08,0] INFO  ? Configuracoes de visualizacao originais restauradas (zoom mantido em 120%)
+14:46:16.320 [00:08,0] INFO  ? Documento padronizado com sucesso
+14:46:16.328 [00:08,0] INFO  ? UndoRecord finalizado com sucesso
+14:46:16.379 [00:08,0] INFO  ? Variaveis de protecao de imagens limpas
+14:46:16.379 [00:08,0] INFO  ? Variaveis de configuracoes de visualizacao limpas
+
+
+================================================================================
+RESUMO DA SESSAO
+================================================================================
+
+[STATUS]
+  Final: CONCLUIDO COM AVISOS ?
+  Termino: 02/05/2026 14:46:16
+  Duracao: 8,0s
+
+[ESTATISTICAS]
+  Total de eventos: 171
+  Informacoes: 164 (95,9%)
+  Avisos: 7 (4,1%)
+  Erros: 0 (0,0%)
+
+[PERFORMANCE]
+  Eventos/segundo: 21,4
+  Tempo medio/evento: 46,8ms
+
+[RECOMENDACOES]
+   Multiplos avisos detectados - revise o documento manualmente
+
+================================================================================
+FIM DO LOG
+================================================================================

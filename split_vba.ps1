@@ -2,18 +2,15 @@ $inputFile = "source\main\Proposers.bas"
 $outputDir = "source\main"
 
 $mappings = @{
-    "ModConfig" = @("CONSTANTES", "VARIAVEIS GLOBAIS", "VARIAVEIS DE IDENTIFICACAO", "Indices dos elementos", "GERENCIAMENTO DE ESTADO", "CONFIGURE DOCUMENT VIEW", "VIEW SETTINGS PROTECTION SYSTEM")
-    "ModMain" = @("PONTO DE ENTRADA PRINCIPAL", "SUBROTINAS PUBLICAS", "API PUBLICA", "FUNCOES PUBLICAS", "CONCLUIR", "ABRIR REPOSITORIO", "CONFIRMAR DESFAZIMENTO", "DESFAZER COM CONFIRMACAO")
-    "ModSystem" = @("SISTEMA DE LOGS", "BARRA DE PROGRESSO", "TRATAMENTO.*ERROS", "RECUPERACAO DE EMERGENCIA", "SISTEMA DE BACKUP", "ATUALIZACAO DA BARRA", "GERENCIAMENTO DE DIRETORIO DE BACKUP", "VERIFICACAO DE VERSAO E ATUALIZACAO", "SALVAMENTO INICIAL")
-    "ModUtils" = @("FUNCOES AUXILIARES DE LIMPEZA DE TEXTO", "FUNCOES DE CAMINHO", "UTILITARIO", "ACESSO SEGURO", "RETORNA O MINIMO", "CONTA DIGITOS", "NORMALIZA TEXTO PARA COMPARACAO", "CALCULA A DISTANCIA", "GET.*")
-    "ModCore" = @("CACHE", "IDENTIFICACAO DE ELEMENTOS ESTRUTURAIS", "FUNCOES DE VALIDACAO", "IS DOCUMENT HEALTHY", "IS OPERATION TIMEOUT", "VERIFICACAO DE VERSAO DO WORD", "VERIFICA DADOS", "VALIDACAO", "DETECTA", "VERIFICA CONSISTENCIA", "EXTRAI", "OBTEM TEXTO DA", "LOCALIZA O PARAGRAFO", "VERIFICA SE")
-    "ModMedia" = @("IMAGENS", "IMAGEM", "LISTAS", "LIST FORMATS", "INSERCAO DE IMAGEM")
+    "Mod1Infrastructure" = @("CONSTANTES", "VARIAVEIS GLOBAIS", "VARIAVEIS DE IDENTIFICACAO", "Indices dos elementos", "GERENCIAMENTO DE ESTADO", "CONFIGURE DOCUMENT VIEW", "VIEW SETTINGS PROTECTION SYSTEM", "SISTEMA DE LOGS", "BARRA DE PROGRESSO", "TRATAMENTO.*ERROS", "RECUPERACAO DE EMERGENCIA", "SISTEMA DE BACKUP", "ATUALIZACAO DA BARRA", "GERENCIAMENTO DE DIRETORIO DE BACKUP", "VERIFICACAO DE VERSAO E ATUALIZACAO", "SALVAMENTO INICIAL", "FUNCOES AUXILIARES DE LIMPEZA DE TEXTO", "FUNCOES DE CAMINHO", "UTILITARIO", "ACESSO SEGURO", "RETORNA O MINIMO", "CONTA DIGITOS", "NORMALIZA TEXTO PARA COMPARACAO", "CALCULA A DISTANCIA", "GET.*")
+    "Mod4Main" = @("PONTO DE ENTRADA PRINCIPAL", "SUBROTINAS PUBLICAS", "API PUBLICA", "FUNCOES PUBLICAS", "CONCLUIR", "ABRIR REPOSITORIO", "CONFIRMAR DESFAZIMENTO", "DESFAZER COM CONFIRMACAO")
+    "Mod2Engine" = @("CACHE", "IDENTIFICACAO DE ELEMENTOS ESTRUTURAIS", "FUNCOES DE VALIDACAO", "IS DOCUMENT HEALTHY", "IS OPERATION TIMEOUT", "VERIFICACAO DE VERSAO DO WORD", "VERIFICA DADOS", "VALIDACAO", "DETECTA", "VERIFICA CONSISTENCIA", "EXTRAI", "OBTEM TEXTO DA", "LOCALIZA O PARAGRAFO", "VERIFICA SE", "IMAGENS", "IMAGEM", "LISTAS", "LIST FORMATS", "INSERCAO DE IMAGEM")
 }
 
 $lines = Get-Content $inputFile
 
 $outputFiles = @{}
-$currentFile = "ModConfig.bas"
+$currentFile = "Mod1Infrastructure.bas"
 $outputFiles[$currentFile] = New-Object System.Collections.Generic.List[String]
 $outputFiles[$currentFile].Add("Option Explicit`r`n") 
 
@@ -42,7 +39,7 @@ for ($i = 0; $i -lt $lines.Count; $i++) {
                 if ($matched) { break }
             }
             if (-not $matched) {
-                $currentFile = "ModProcess.bas"
+                $currentFile = "Mod3Pipeline.bas"
                 if (-not $outputFiles.ContainsKey($currentFile)) {
                     $outputFiles[$currentFile] = New-Object System.Collections.Generic.List[String]
                     $outputFiles[$currentFile].Add("Option Explicit`r`n")
@@ -61,7 +58,7 @@ for ($i = 0; $i -lt $lines.Count; $i++) {
 }
 
 foreach ($file in $outputFiles.Keys) {
-    if ($file -ne "ModConfig.bas" -and $file -ne "ModMain.bas" -and $file -ne "ModSystem.bas" -and $file -ne "ModUtils.bas" -and $file -ne "ModCore.bas" -and $file -ne "ModMedia.bas" -and $file -ne "ModProcess.bas") {
+    if ($file -ne "Mod1Infrastructure.bas" -and $file -ne "Mod4Main.bas" -and $file -ne "Mod2Engine.bas" -and $file -ne "Mod3Pipeline.bas") {
         continue
     }
     $path = Join-Path $outputDir $file

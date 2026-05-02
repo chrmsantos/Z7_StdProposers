@@ -8,15 +8,12 @@
 **Z7_StdProposers** (Sistema de Padronização de Proposituras Legislativas) is an advanced document-formatting macro built for Microsoft Word. It is designed to automatically detect structural components of Brazilian legislative documents (Proposituras) and apply a highly tailored, fault-tolerant standard layout.
 
 ## 2. Codebase Architecture (VBA)
-Historically a massive ~12,000-line monolithic `Proposers.bas` file, the codebase has been aggressively refactored into **7 logical modules** inside `source/main/` to comply with strict scaling requirements and ease of maintenance:
+Historically a massive ~12,000-line monolithic `Proposers.bas` file, the codebase was initially refactored into 7 modules, and subsequently consolidated into **4 pilares lógicos** inside `source/main/` to balance maintenance and cohesion:
 
-- **`ModConfig.bas`**: Holds all initialization logic, default path declarations, constants (such as system versions and formatting margins), User-Defined Types (UDTs like `paragraphCache` and `ImageInfo`), and UI View setup states.
-- **`ModCore.bas`**: Houses the engine mechanics. Contains heuristic parsers designed to detect the nature of text blocks (`Ementa`, `Plenário`, `Justificativa`, `Assinatura`) and the paragraph caching pipeline.
-- **`ModMain.bas`**: The point of entry. Exposes macros runnable directly by Word (e.g., `PadronizarDocumentoMain`, `concluir`). It acts as the pipeline orchestrator.
-- **`ModProcess.bas`**: The massive core formatting pipeline. Governs text normalization, the double-pass formatting workflow, special clauses (e.g., *Ante o Exposto*), and blank line synchronization.
-- **`ModMedia.bas`**: Responsible for complex layout adjustments associated with bullet lists and images. It features logic that proactively "protects" and restores image placements before and after total document re-formats.
-- **`ModSystem.bas`**: System-level integration layer. Governs telemetry/logging, OS-level progress bar interactions, emergency error recovery mechanisms (safely rolling back Undo groups), and backup executions.
-- **`ModUtils.bas`**: Stateless, generic cross-cutting helpers. Deals with system paths, regex-lite string operations, bounds checking, and Safe Property wrappers (like `SafeGetCharacterCount`).
+- **`Mod1Infrastructure.bas`**: Combina Config, Utils e System. Holds all initialization logic, default path declarations, UDTs, UI View setup states, system-level integrations (telemetry, progress bars, emergency recovery) and generic cross-cutting helpers (Safe Property wrappers).
+- **`Mod2Engine.bas`**: Combina Core e Media. Houses the engine mechanics, heuristic parsers designed to detect text blocks (`Ementa`, `Plenário`, etc), the paragraph caching pipeline, and complex layout adjustments associated with bullet lists and image protections before/after formatting.
+- **`Mod3Pipeline.bas`**: Mantém o antigo Process. The massive core formatting pipeline. Governs text normalization, the double-pass formatting workflow, special clauses, and blank line synchronization.
+- **`Mod4Main.bas`**: Ponto de entrada das macros (ex: `PadronizarDocumentoMain`, `CorrigirGramaticaComGemini`). Liga as funções da Infraestrutura, as análises da Engine e a execução do Pipeline.
 
 ## 3. Structural Conventions and Nuances
 

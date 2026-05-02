@@ -1,6 +1,6 @@
-' Mod5Process.bas
-Option Explicit
+﻿Option Explicit
 
+' Mod3Pipeline.bas
 ' =============================================================================
 ' Z7_STDPROPOSERS - Sistema de Padronizacao de Proposituras Legislativas
 ' =============================================================================
@@ -3863,7 +3863,7 @@ Public Function FormatDocumentTitle(doc As Document) As Boolean
     If UBound(words) >= 0 Then
         firstWord = LCase(Trim(words(0)))
         ' Normaliza acentos para comparacao segura
-        cleanWord = Replace(Replace(Replace(firstWord, "ã", "a"), "ç", "c"), "õ", "o")
+        cleanWord = Replace(Replace(Replace(firstWord, "Ã£", "a"), "Ã§", "c"), "Ãµ", "o")
         If cleanWord = "indicacao" Or cleanWord = "requerimento" Or cleanWord = "mocao" Then
             isProposition = True
         End If
@@ -4352,15 +4352,15 @@ NextVariant:
     ' Funcionalidade 14: Substitui "in loco" (com aspas) por in loco (italico, sem aspas)
     FormatInLocoItalic doc
 
-    ' Funcionalidade 16: "Área Pública" e "Roçagem" sempre em minusculas
+    ' Funcionalidade 16: "Ãrea PÃºblica" e "RoÃ§agem" sempre em minusculas
     Dim areaPublicaCount As Long
     Dim rocagemCount As Long
-    areaPublicaCount = ExecuteFindReplace(doc, "Área Pública", "área pública", False)
-    areaPublicaCount = areaPublicaCount + ExecuteFindReplace(doc, "Area Publica", "área pública", False)
-    rocagemCount = ExecuteFindReplace(doc, "Roçagem", "roçagem", False)
-    rocagemCount = rocagemCount + ExecuteFindReplace(doc, "Rocagem", "roçagem", False)
+    areaPublicaCount = ExecuteFindReplace(doc, "Ãrea PÃºblica", "Ã¡rea pÃºblica", False)
+    areaPublicaCount = areaPublicaCount + ExecuteFindReplace(doc, "Area Publica", "Ã¡rea pÃºblica", False)
+    rocagemCount = ExecuteFindReplace(doc, "RoÃ§agem", "roÃ§agem", False)
+    rocagemCount = rocagemCount + ExecuteFindReplace(doc, "Rocagem", "roÃ§agem", False)
     If areaPublicaCount > 0 Or rocagemCount > 0 Then
-        LogMessage "Substituicao aplicada: 'Área Pública' e 'Roçagem' em minusculas (" & (areaPublicaCount + rocagemCount) & "x)", LOG_LEVEL_INFO
+        LogMessage "Substituicao aplicada: 'Ãrea PÃºblica' e 'RoÃ§agem' em minusculas (" & (areaPublicaCount + rocagemCount) & "x)", LOG_LEVEL_INFO
     End If
 
     ApplyTextReplacements = True
@@ -6281,7 +6281,7 @@ Public Sub RemoverLinhasEmBrancoExtras(doc As Document)
             Dim foundText As String
             foundText = Replace(repRange.text, vbCr, "")
             If InStr(foundText, "financeira e or") > 0 And InStr(foundText, "para atender tal solicita") > 0 Then
-                repRange.text = "Cabe ao Poder Legislativo dispor sobre as matérias de competência do Município, especialmente assuntos de interesse local. Compete-lhe também a função de fiscalização dos atos do Poder Executivo, abrangendo os atos administrativos, de gestão e fiscalização financeira e orçamentária do município." & vbCr & "Desta forma, faço esta indicação para o prefeito determinar ao setor competente realize os atos administrativos para atender tal solicitação." & vbCr
+                repRange.text = "Cabe ao Poder Legislativo dispor sobre as matÃ©rias de competÃªncia do MunicÃ­pio, especialmente assuntos de interesse local. Compete-lhe tambÃ©m a funÃ§Ã£o de fiscalizaÃ§Ã£o dos atos do Poder Executivo, abrangendo os atos administrativos, de gestÃ£o e fiscalizaÃ§Ã£o financeira e orÃ§amentÃ¡ria do municÃ­pio." & vbCr & "Desta forma, faÃ§o esta indicaÃ§Ã£o para o prefeito determinar ao setor competente realize os atos administrativos para atender tal solicitaÃ§Ã£o." & vbCr
                 replacedCount = replacedCount + 1
             End If
             repRange.Collapse wdCollapseEnd
@@ -6312,7 +6312,7 @@ Public Sub RemoverLinhasEmBrancoExtras(doc As Document)
         .Replacement.text = "Indica ao Poder Executivo Municipal que efetue"
         If .Execute(Replace:=2) Then replacedCount = replacedCount + 1
 
-        .text = "Indica ao Poder Executivo Municipal e aos órgãos competentes"
+        .text = "Indica ao Poder Executivo Municipal e aos Ã³rgÃ£os competentes"
         .Replacement.text = "Indica ao Poder Executivo Municipal"
         If .Execute(Replace:=2) Then replacedCount = replacedCount + 1
 
@@ -6399,7 +6399,7 @@ Public Sub RemoverLinhasEmBrancoExtras(doc As Document)
     
     ' CORRECAO CRITICA (Index Staleness):
     ' Como linhas em branco foram deletadas fisicamente, os indices globais (titulo, ementa, justificativa) 
-    ' agora apontam para o limbo (desalinhados). Forçamos a reconstrução do cache antes de prosseguir.
+    ' agora apontam para o limbo (desalinhados). ForÃ§amos a reconstruÃ§Ã£o do cache antes de prosseguir.
     If removedCount > 0 Then
         LogMessage "Reconstruindo cache arquitetural devido as delecoes fisicas...", LOG_LEVEL_INFO
         ClearParagraphCache
@@ -6839,3 +6839,4 @@ Public Sub AddSpecialElementsSpacing(doc As Document)
 ErrorHandler:
     LogMessage "Erro ao adicionar espacamento especial: " & Err.Description, LOG_LEVEL_WARNING
 End Sub
+

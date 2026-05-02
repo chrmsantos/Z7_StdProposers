@@ -1,6 +1,6 @@
-' Mod3Main.bas
 Option Explicit
 
+' Mod4Main.bas
 '================================================================================
 ' PONTO DE ENTRADA PRINCIPAL
 '================================================================================
@@ -766,13 +766,13 @@ Public Sub CorrigirGramaticaComGemini()
     Set objShell = CreateObject("WScript.Shell")
     
     ' Muda o ponteiro do mouse para indicar carregamento
-    Application.Cursor = wdCursorWait
+    System.Cursor = wdCursorWait
     
     ' Executa o comando aguardando a conclusao
     objShell.Run comandoExecucao, 0, True
     
     ' Retorna o ponteiro do mouse ao normal
-    Application.Cursor = wdCursorNormal
+    System.Cursor = wdCursorNormal
     
     ' Opcionalmente exibe na status bar ou no log
     Application.StatusBar = "Revisao Gemini finalizada!"
@@ -781,9 +781,10 @@ Public Sub CorrigirGramaticaComGemini()
     Exit Sub
     
 ErrorHandler:
-    Application.Cursor = wdCursorNormal
+    System.Cursor = wdCursorNormal
     Application.StatusBar = "Erro na revisao Gemini"
     If loggingEnabled Then LogMessage "Erro na revisao Gemini: " & Err.Description, LOG_LEVEL_ERROR
     MsgBox "Erro ao tentar executar a revisao pelo Gemini: " & Err.Description, vbCritical, "Z7_StdProposers"
 End Sub
+
 
