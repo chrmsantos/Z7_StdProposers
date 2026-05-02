@@ -44,6 +44,10 @@ def save_prompt(text_widget, root):
         except Exception as e:
             messagebox.showerror("Erro", f"Erro ao salvar o prompt:\n{e}")
 
+def restore_default(text_widget):
+    text_widget.delete("1.0", tk.END)
+    text_widget.insert(tk.END, DEFAULT_PROMPT)
+
 def main():
     root = tk.Tk()
     root.title("Configurar Prompt do Gemini")
@@ -80,6 +84,9 @@ def main():
     
     cancel_btn = tk.Button(btn_frame, text="Cancelar", width=15, font=("Arial", 10), command=root.destroy)
     cancel_btn.pack(side=tk.RIGHT, padx=5)
+
+    restore_btn = tk.Button(btn_frame, text="Restaurar Padrão", width=18, font=("Arial", 10), command=lambda: restore_default(text_area))
+    restore_btn.pack(side=tk.LEFT, padx=20)
 
     root.mainloop()
 
