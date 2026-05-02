@@ -55,7 +55,7 @@ def main():
     lbl = tk.Label(root, text="Instruções para a Inteligência Artificial:", font=("Arial", 12, "bold"))
     lbl.pack(pady=(15, 5))
     
-    info_lbl = tk.Label(root, text="O texto selecionado no Word será enviado à IA logo após essas instruções.", font=("Arial", 9), fg="#555555")
+    info_lbl = tk.Label(root, text="Personalização das instruções enviadas para a IA.", font=("Arial", 9, "italic"), fg="#555555")
     info_lbl.pack(pady=(0, 10))
 
     frame = tk.Frame(root)
