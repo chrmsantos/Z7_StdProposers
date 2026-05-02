@@ -76,13 +76,15 @@ def main():
     
     # Inicializa o modelo (gemini-1.5-pro e otimo para tarefas complexas de raciocinio, 
     # ou gemini-1.5-flash para respostas mais rapidas)
-    model = genai.GenerativeModel('gemini-3.1-pro')
+    model = genai.GenerativeModel('gemini-1.5-pro')
 
     try:
         # Conecta ao aplicativo Word que já está em execução
         word = win32com.client.Dispatch("Word.Application")
     except Exception as e:
-        print(f"Erro ao conectar ao Word: {e}")
+        root = tk.Tk()
+        root.withdraw()
+        messagebox.showerror("Z7 StdProposers - Erro", f"Erro ao conectar ao Word:\n{e}")
         return
 
     # Pega o texto selecionado pelo usuário
@@ -115,10 +117,14 @@ Texto original:
             # Preserva a formatação substituindo o texto da seleção
             selection.Text = corrected_text
         else:
-            print("A API retornou um texto vazio.")
+            root = tk.Tk()
+            root.withdraw()
+            messagebox.showwarning("Z7 StdProposers - Aviso", "A API do Gemini retornou um texto vazio.")
             
     except Exception as e:
-        print(f"Erro ao chamar a API do Gemini: {e}")
+        root = tk.Tk()
+        root.withdraw()
+        messagebox.showerror("Z7 StdProposers - Erro na API", f"Erro ao chamar a API do Gemini:\n{e}")
 
 if __name__ == "__main__":
     main()
