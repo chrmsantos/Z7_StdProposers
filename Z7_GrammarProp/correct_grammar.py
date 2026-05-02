@@ -95,18 +95,27 @@ def main():
     if not text or len(text) < 2:
         return
 
-    # Prompt focado no contexto jurídico/legislativo
-    prompt = f"""
-Você é um especialista em revisão de textos legislativos no idioma Português do Brasil.
+    # Lê o prompt configurado do arquivo, se existir
+    user_profile = os.environ.get('USERPROFILE')
+    base_prompt = ""
+    if user_profile:
+        prompt_file = Path(user_profile) / 'AppData' / 'Local' / 'Z7' / 'Tmp' / 'StdProposers' / 'gemini_prompt.txt'
+        if prompt_file.exists():
+            try:
+                with open(prompt_file, 'r', encoding='utf-8') as f:
+                    base_prompt = f.read().strip()
+            except Exception:
+                pass
+                
+    if not base_prompt:
+        base_prompt = """Você é um especialista em revisão de textos legislativos no idioma Português do Brasil.
 Abaixo está um trecho de uma propositura legislativa.
 Sua tarefa é corrigir gramaticalmente o texto, realizando O MÍNIMO POSSÍVEL de alterações em relação ao original.
 Mantenha o tom formal, o jargão jurídico/legislativo e a estrutura da frase intactos, corrigindo apenas erros de ortografia, concordância, regência, pontuação ou crase evidentes.
 Não adicione ponto final se o texto original não possuir um.
-Retorne APENAS o texto corrigido, sem adicionar nenhum comentário, explicação, formatação markdown ou aspas extras.
+Retorne APENAS o texto corrigido, sem adicionar nenhum comentário, explicação, formatação markdown ou aspas extras."""
 
-Texto original:
-{text}
-"""
+    prompt = f"{base_prompt}\n\nTexto original:\n{text}\n"
 
     try:
         # Faz a requisição para a API do Gemini

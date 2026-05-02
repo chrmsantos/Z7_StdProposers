@@ -787,4 +787,46 @@ ErrorHandler:
     MsgBox "Erro ao tentar executar a revisao pelo Gemini: " & Err.Description, vbCritical, "Z7_StdProposers"
 End Sub
 
+'================================================================================
+' SUBROTINA PUBLICA: CONFIGURAR PROMPT GEMINI
+'================================================================================
+Public Sub ConfigurarPromptGemini()
+    ' Macro para abrir a interface em Python e editar o prompt da IA
+    Dim objShell As Object
+    Dim comandoExecucao As String
+    Dim caminhoScript As String
+    Dim caminhoPython As String
+    
+    On Error GoTo ErrorHandler
+    
+    ' Obtem o caminho do script usando o caminho relativo configurado em Mod1Infrastructure
+    caminhoScript = Environ("USERPROFILE") & PROMPT_CONFIG_SCRIPT_RELATIVE_PATH
+    
+    ' Comando base. Usamos 'pythonw' para executar sem exibir a janela preta
+    caminhoPython = "pythonw"
+    
+    ' Monta o comando completo com aspas em volta do caminho do script
+    comandoExecucao = caminhoPython & " """ & caminhoScript & """"
+    
+    ' Cria o objeto WScript.Shell
+    Set objShell = CreateObject("WScript.Shell")
+    
+    ' Muda o ponteiro do mouse para indicar carregamento
+    System.Cursor = wdCursorWait
+    
+    ' Executa o comando SEM aguardar a conclusao, pois e uma janela interativa
+    objShell.Run comandoExecucao, 0, False
+    
+    ' Retorna o ponteiro do mouse ao normal
+    System.Cursor = wdCursorNormal
+    
+    Exit Sub
+    
+ErrorHandler:
+    System.Cursor = wdCursorNormal
+    Application.StatusBar = "Erro ao abrir config Gemini"
+    If loggingEnabled Then LogMessage "Erro ao abrir config Gemini: " & Err.Description, LOG_LEVEL_ERROR
+    MsgBox "Erro ao tentar abrir configuracoes do prompt Gemini: " & Err.Description, vbCritical, "Z7_StdProposers"
+End Sub
+
 

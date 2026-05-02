@@ -1,4 +1,4 @@
-﻿Option Explicit
+Option Explicit
 
 ' Mod1Config.bas
 '================================================================================
@@ -57,6 +57,9 @@ Public Const HEADER_IMAGE_HEIGHT_RATIO As Double = 0.19
 
 ' Caminho para o script de correcao gramatical Gemini
 Public Const GRAMMAR_SCRIPT_RELATIVE_PATH As String = "\AppData\Local\Z7\Apps\Z7_StdProposers\Z7_GrammarProp\correct_grammar.py"
+
+' Caminho para o script de configuracao do prompt do Gemini
+Public Const PROMPT_CONFIG_SCRIPT_RELATIVE_PATH As String = "\AppData\Local\Z7\Apps\Z7_StdProposers\Z7_GrammarProp\config_prompt.py"
 
 '================================================================================
 ' CONSTANTES DE SISTEMA
