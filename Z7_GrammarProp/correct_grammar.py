@@ -76,7 +76,7 @@ def main():
     
     # Inicializa o modelo (gemini-1.5-pro e otimo para tarefas complexas de raciocinio, 
     # ou gemini-1.5-flash para respostas mais rapidas)
-    model = genai.GenerativeModel('gemini-1.5-pro')
+    model = genai.GenerativeModel('gemini-3.1-pro-preview')
 
     try:
         # Conecta ao aplicativo Word que já está em execução
