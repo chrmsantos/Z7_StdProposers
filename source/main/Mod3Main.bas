@@ -1,4 +1,4 @@
-﻿' Mod3Main.bas
+' Mod3Main.bas
 Option Explicit
 
 '================================================================================
@@ -737,5 +737,53 @@ Public Sub NotificarDesfazerPadronizacao()
     If loggingEnabled Then
         LogMessage "Notificacao de desfazer exibida para: " & doc.Name, LOG_LEVEL_INFO
     End If
+End Sub
+
+'================================================================================
+' SUBROTINA PUBLICA: CORRIGIR GRAMATICA COM GEMINI
+'================================================================================
+Public Sub CorrigirGramaticaComGemini()
+    ' Macro para enviar o texto selecionado para correcao via script Python
+    ' usando a API do Gemini.
+    
+    Dim objShell As Object
+    Dim comandoExecucao As String
+    Dim caminhoScript As String
+    Dim caminhoPython As String
+    
+    On Error GoTo ErrorHandler
+    
+    ' Obtem o caminho do script usando o caminho relativo configurado em Mod1Config
+    caminhoScript = Environ("USERPROFILE") & GRAMMAR_SCRIPT_RELATIVE_PATH
+    
+    ' Comando base. Usamos 'pythonw' para executar sem exibir a janela preta
+    caminhoPython = "pythonw"
+    
+    ' Monta o comando completo com aspas em volta do caminho do script
+    comandoExecucao = caminhoPython & " """ & caminhoScript & """"
+    
+    ' Cria o objeto WScript.Shell
+    Set objShell = CreateObject("WScript.Shell")
+    
+    ' Muda o ponteiro do mouse para indicar carregamento
+    Application.Cursor = wdCursorWait
+    
+    ' Executa o comando aguardando a conclusao
+    objShell.Run comandoExecucao, 0, True
+    
+    ' Retorna o ponteiro do mouse ao normal
+    Application.Cursor = wdCursorNormal
+    
+    ' Opcionalmente exibe na status bar ou no log
+    Application.StatusBar = "Revisao Gemini finalizada!"
+    If loggingEnabled Then LogMessage "Revisao Gemini executada com sucesso.", LOG_LEVEL_INFO
+    
+    Exit Sub
+    
+ErrorHandler:
+    Application.Cursor = wdCursorNormal
+    Application.StatusBar = "Erro na revisao Gemini"
+    If loggingEnabled Then LogMessage "Erro na revisao Gemini: " & Err.Description, LOG_LEVEL_ERROR
+    MsgBox "Erro ao tentar executar a revisao pelo Gemini: " & Err.Description, vbCritical, "Z7_StdProposers"
 End Sub
 

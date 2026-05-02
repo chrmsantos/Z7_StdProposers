@@ -1,0 +1,285 @@
+﻿================================================================================
+Z7_STDPROPOSERS - LOG DE PROCESSAMENTO DE DOCUMENTO
+================================================================================
+
+[SESSAO]
+  Inicio: 30/04/2026 17:06:21
+  ID: 20260430170621
+
+[AMBIENTE]
+  Usuario: csantos
+  Computador: NOTEPROCLEG01
+  Dominio: CMSBONET
+  SO: Windows Windows_NT
+  Word: 16.0 (Word 2016/2019/2021/365)
+
+[DOCUMENTO]
+  Nome: siscam_indicacao_para_zeladroia_em_toda_extensao_ruas_joao_pereira_com_jornalista_gustavo_ribeiro_escobar2vs3mav4.docx
+  Caminho: C:\Users\csantos\AppData\Local\Temp
+  Tamanho: 2,2 KB
+  Paragrafos: 31
+  Paginas: 2
+  Protecao: Sem protecao
+  Idioma: 1046
+
+[CONFIGURACAO]
+  Debug: Desativado
+  Log: C:\Users\csantos\AppData\Local\Z7\Apps\Z7_StdProposers\source\logs\z7_stdproposers_20260430_170621_siscam_indicacao_para_zeladroia_em_toda_extensao_r.log
+  Backup: C:\Users\csantos\AppData\Local\Temp\.z7_stdproposers\props\backups\
+
+================================================================================
+
+
+
+--------------------------------------------------------------------------------
+SECAO: VERIFICACOES INICIAIS
+--------------------------------------------------------------------------------
+17:06:21.434 [00:00,0] INFO  ? ? Iniciando: Validacao de documento
+17:06:21.434 [00:00,0] INFO  ? Tipo de propositura identificado: INDICAÇÃO
+17:06:21.438 [00:00,0] INFO  ? Verificacao LGPD (estrito): nenhum achado grave
+17:06:21.438 [00:00,0] INFO  ? ? Concluido: Validacao de documento | Todas as verificacoes passaram
+17:06:21.438 [00:00,0] INFO  ? Verificacoes de seguranca concluidas com sucesso
+17:06:21.648 [00:00,0] INFO  ? Backup criado com sucesso: siscam_indicacao_para_zeladroia_em_toda_extensao_ruas_joao_pereira_com_jornalista_gustavo_ribeiro_escobar2vs3mav4_backup_2026-04-30_170621.docx
+17:06:21.711 [00:00,0] INFO  ? Backup das configuracoes de visualizacao concluido
+17:06:21.781 [00:00,0] INFO  ? Backup de propriedades de imagens concluido: 2 imagens catalogadas
+17:06:21.789 [00:00,0] INFO  ? Nenhuma lista encontrada no documento
+17:06:21.789 [00:00,0] INFO  ? UndoRecord iniciado
+17:06:21.789 [00:00,0] INFO  ? === PIPELINE DE FORMATACAO (2 PASSAGENS) ===
+17:06:21.801 [00:00,0] INFO  ? Iniciando construcao do cache de paragrafos...
+17:06:21.812 [00:00,0] INFO  ? Cache construido: 31 paragrafos em 0,01s
+17:06:21.812 [00:00,0] INFO  ? Identificando estrutura do documento...
+17:06:21.824 [00:00,0] INFO  ? Titulo da Justificativa identificado no paragrafo 15
+17:06:21.840 [00:00,0] INFO  ? === ESTRUTURA DO DOCUMENTO IDENTIFICADA ===
+17:06:21.840 [00:00,0] INFO  ? Titulo: paragrafo 0
+17:06:21.840 [00:00,0] INFO  ? Ementa: paragrafo 0
+17:06:21.840 [00:00,0] INFO  ? Proposicao: paragrafos 0 a 0
+17:06:21.840 [00:00,0] INFO  ? Titulo Justificativa: paragrafo 15
+17:06:21.840 [00:00,0] INFO  ? Justificativa: paragrafos 16 a 31
+17:06:21.840 [00:00,0] INFO  ? Data: paragrafo 0
+17:06:21.840 [00:00,0] INFO  ? Assinatura: paragrafos 0 a 0
+17:06:21.840 [00:00,0] INFO  ? Titulo Anexo: paragrafo 0
+17:06:21.840 [00:00,0] INFO  ? Anexo: paragrafos 0 a 0
+17:06:21.840 [00:00,0] INFO  ? ==========================================
+17:06:21.840 [00:00,0] INFO  ? === PASSAGEM 1 DE 2 ===
+
+
+--------------------------------------------------------------------------------
+SECAO: LIMPEZA E FORMATACAO
+--------------------------------------------------------------------------------
+17:06:22.188 [00:01,0] INFO  ? ? Iniciando: Limpeza de formatacao
+17:06:22.742 [00:01,0] INFO  ? Formatacao limpa: 31 paragrafos resetados
+17:06:22.742 [00:01,0] INFO  ? ? Concluido: Limpeza de formatacao
+17:06:22.742 [00:01,0] INFO  ? ? Iniciando: Normalizacao de quebras
+17:06:22.750 [00:01,0] INFO  ? ? Concluido: Normalizacao de quebras
+17:06:22.750 [00:01,0] INFO  ? ? Iniciando: Limpeza estrutural
+17:06:23.781 [00:02,0] INFO  ? ? Concluido: Limpeza estrutural
+17:06:23.781 [00:02,0] INFO  ? ? Iniciando: Limpeza de prefixo da ementa
+17:06:23.781 [00:02,0] INFO  ? ? Concluido: Limpeza de prefixo da ementa
+17:06:23.781 [00:02,0] INFO  ? ? Iniciando: Limpeza de sufixo da ementa
+17:06:23.781 [00:02,0] INFO  ? ? Concluido: Limpeza de sufixo da ementa
+17:06:23.781 [00:02,0] INFO  ? ? Iniciando: Formatacao de titulo
+17:06:23.785 [00:02,0] INFO  ? Titulo de proposicao formatado: INDICAÇÃO Nº $NUMERO$/$ANO$ (centralizado, caixa alta, negrito, sublinhado)
+17:06:23.785 [00:02,0] INFO  ? ? Concluido: Formatacao de titulo
+17:06:23.785 [00:02,0] INFO  ? ? Iniciando: Aplicacao de fonte padrao
+17:06:23.785 [00:02,0] INFO  ? Aplicando fonte padrao (modo otimizado com cache)...
+17:06:23.816 [00:02,0] INFO  ? Fonte padrao aplicada: 13 paragrafos em 0,03s
+17:06:23.816 [00:02,0] INFO  ? ? Concluido: Aplicacao de fonte padrao | 30 paragrafos
+17:06:23.816 [00:02,0] INFO  ? ? Iniciando: Aplicacao de formatacao de paragrafos
+17:06:23.992 [00:02,0] INFO  ? Paragrafos formatados: 30 (incluindo 1 com protecao de imagens)
+17:06:23.992 [00:02,0] INFO  ? ? Concluido: Aplicacao de formatacao de paragrafos
+
+
+--------------------------------------------------------------------------------
+SECAO: FORMATACOES ESPECIFICAS
+--------------------------------------------------------------------------------
+17:06:23.000 [00:02,0] INFO  ? ? Iniciando: Formatacao de paragrafos 1 e 2
+17:06:24.016 [00:03,0] INFO  ? 2 paragrafo formatado com 2 linhas em branco antes e depois (posicao: 5)
+17:06:24.016 [00:03,0] INFO  ? ? Concluido: Formatacao de paragrafos 1 e 2
+17:06:24.016 [00:03,0] INFO  ? ? Iniciando: Formatacao de considerandos
+17:06:24.035 [00:03,0] INFO  ? ? Concluido: Formatacao de considerandos
+17:06:24.035 [00:03,0] INFO  ? ? Iniciando: Aplicacao de substituicoes de texto
+17:06:24.254 [00:03,0] INFO  ? Substituicoes de texto: nenhuma ocorrencia encontrada
+17:06:24.367 [00:03,0] INFO  ? ? Concluido: Aplicacao de substituicoes de texto
+17:06:24.367 [00:03,0] INFO  ? ? Iniciando: Remocao de marca d'agua e insercao de carimbo
+17:06:24.664 [00:03,0] INFO  ? ? Concluido: Remocao de marca d'agua e insercao de carimbo
+
+
+--------------------------------------------------------------------------------
+SECAO: LIMPEZA FINAL
+--------------------------------------------------------------------------------
+17:06:24.672 [00:03,0] INFO  ? ? Iniciando: Limpeza de espacos multiplos
+17:06:24.758 [00:03,0] INFO  ? Limpeza de espacos concluida: 4 correcoes aplicadas (com protecao CONSIDERANDO)
+17:06:24.758 [00:03,0] INFO  ? ? Concluido: Limpeza de espacos multiplos
+17:06:24.758 [00:03,0] INFO  ? ? Iniciando: Controle de linhas em branco
+17:06:24.824 [00:03,0] INFO  ? Controle de linhas vazias concluido em 2 passada(s): 7 linhas excedentes removidas (maximo 1 sequencial)
+17:06:24.824 [00:03,0] INFO  ? ? Concluido: Controle de linhas em branco
+17:06:24.824 [00:03,0] INFO  ? ? Iniciando: Substituicao de datas do plenario
+17:06:24.828 [00:03,0] INFO  ? ? Concluido: Substituicao de datas do plenario
+
+
+--------------------------------------------------------------------------------
+SECAO: FINALIZACAO
+--------------------------------------------------------------------------------
+17:06:24.836 [00:03,0] INFO  ? ? Iniciando: Configuracao de visualizacao
+17:06:24.840 [00:03,0] INFO  ? Visualizacao configurada: zoom definido para 120%, demais configuracoes preservadas
+17:06:24.840 [00:03,0] INFO  ? ? Concluido: Configuracao de visualizacao
+17:06:24.840 [00:03,0] INFO  ? ? Iniciando: Insercao de rodape
+17:06:24.879 [00:03,0] INFO  ? ? Concluido: Insercao de rodape
+17:06:24.879 [00:03,0] INFO  ? ? Iniciando: Ajustes finais de negrito e formatacao
+17:06:24.891 [00:03,0] INFO  ? Negrito e alinhamento aplicados a 2 paragrafos especiais
+17:06:24.914 [00:03,0] INFO  ? Paragrafo 'Vereador' formatado (sem negrito) com linhas adjacentes centralizadas (posicao: 21)
+17:06:24.918 [00:03,0] INFO  ? Formatacao 'Vereador': 1 ocorrencias formatadas
+17:06:24.918 [00:03,0] INFO  ? ? Concluido: Ajustes finais de negrito e formatacao
+17:06:24.918 [00:03,0] INFO  ? ? Iniciando: Formatacoes especiais (diante do exposto, requeiro)
+17:06:24.934 [00:03,0] INFO  ? ? Concluido: Formatacoes especiais (diante do exposto, requeiro)
+17:06:24.934 [00:03,0] INFO  ? ? Iniciando: Remocao de realces e bordas
+17:06:24.941 [00:03,0] INFO  ? Realce removido do documento completo
+17:06:24.973 [00:03,0] INFO  ? Realces e bordas removidos: 1 realces, 24 paragrafos com bordas
+17:06:24.973 [00:03,0] INFO  ? ? Concluido: Remocao de realces e bordas
+17:06:24.973 [00:03,0] INFO  ? ? Iniciando: Remocao de paginas vazias no final
+17:06:24.992 [00:03,0] INFO  ? Nenhuma pagina vazia no final do documento
+17:06:24.992 [00:03,0] INFO  ? ? Concluido: Remocao de paginas vazias no final
+17:06:24.992 [00:03,0] INFO  ? ? Iniciando: Aplicacao de formatacao final universal
+17:06:24.992 [00:03,0] INFO  ? Aplicando formatacao final universal: Arial 12, espacamento 1.0, 1 linha entre paragrafos...
+17:06:25.027 [00:04,0] INFO  ? Formatacao final aplicada: 24 de 24 paragrafos
+17:06:25.027 [00:04,0] INFO  ? ? Concluido: Aplicacao de formatacao final universal
+17:06:25.027 [00:04,0] INFO  ? ? Iniciando: Adicao de espacamento especial (ementa, justificativa, data)
+17:06:25.027 [00:04,0] INFO  ? Adicionando espacamento especial para ementa, justificativa e data...
+17:06:25.031 [00:04,0] INFO  ? Espacamento especial aplicado a 1 elementos
+17:06:25.031 [00:04,0] INFO  ? ? Concluido: Adicao de espacamento especial (ementa, justificativa, data)
+17:06:25.031 [00:04,0] INFO  ? ? Iniciando: Ajuste final de recuos para Vereador (travessoes)
+17:06:25.035 [00:04,0] INFO  ? Recuos ajustados para 1 paragrafo(s) de Vereador/Vereadora
+17:06:25.035 [00:04,0] INFO  ? ? Concluido: Ajuste final de recuos para Vereador (travessoes)
+17:06:25.035 [00:04,0] INFO  ? Formatacao completa aplicada com sucesso
+17:06:25.035 [00:04,0] INFO  ? ?? Total de paragrafos: 24
+17:06:25.051 [00:04,0] INFO  ? Verificacao de imagens concluida: 0 imagens integras
+17:06:25.051 [00:04,0] INFO  ? === PASSAGEM 2 DE 2 ===
+
+
+--------------------------------------------------------------------------------
+SECAO: LIMPEZA E FORMATACAO
+--------------------------------------------------------------------------------
+17:06:25.348 [00:04,0] INFO  ? ? Iniciando: Limpeza de formatacao
+17:06:25.605 [00:04,0] INFO  ? Formatacao limpa: 24 paragrafos resetados
+17:06:25.605 [00:04,0] INFO  ? ? Concluido: Limpeza de formatacao
+17:06:25.605 [00:04,0] INFO  ? ? Iniciando: Normalizacao de quebras
+17:06:25.617 [00:04,0] INFO  ? ? Concluido: Normalizacao de quebras
+17:06:25.617 [00:04,0] INFO  ? ? Iniciando: Limpeza estrutural
+17:06:25.641 [00:04,0] INFO  ? ? Concluido: Limpeza estrutural
+17:06:25.641 [00:04,0] INFO  ? ? Iniciando: Limpeza de prefixo da ementa
+17:06:25.641 [00:04,0] INFO  ? ? Concluido: Limpeza de prefixo da ementa
+17:06:25.641 [00:04,0] INFO  ? ? Iniciando: Limpeza de sufixo da ementa
+17:06:25.641 [00:04,0] INFO  ? ? Concluido: Limpeza de sufixo da ementa
+17:06:25.641 [00:04,0] INFO  ? ? Iniciando: Formatacao de titulo
+17:06:25.641 [00:04,0] INFO  ? Titulo de proposicao formatado: INDICAÇÃO Nº $NUMERO$/$ANO$ (centralizado, caixa alta, negrito, sublinhado)
+17:06:25.641 [00:04,0] INFO  ? ? Concluido: Formatacao de titulo
+17:06:25.641 [00:04,0] INFO  ? ? Iniciando: Aplicacao de fonte padrao
+17:06:25.641 [00:04,0] INFO  ? Aplicando fonte padrao (modo otimizado com cache)...
+17:06:25.668 [00:04,0] WARN  ? Erro: Indice de paragrafo invalido (26)
+17:06:25.668 [00:04,0] WARN  ? Erro: Indice de paragrafo invalido (27)
+17:06:25.668 [00:04,0] WARN  ? Erro: Indice de paragrafo invalido (30)
+17:06:25.668 [00:04,0] INFO  ? Fonte padrao aplicada: 10 paragrafos em 0,03s
+17:06:25.668 [00:04,0] INFO  ? ? Concluido: Aplicacao de fonte padrao | 23 paragrafos
+17:06:25.668 [00:04,0] INFO  ? ? Iniciando: Aplicacao de formatacao de paragrafos
+17:06:25.793 [00:04,0] INFO  ? Paragrafos formatados: 23 (incluindo 1 com protecao de imagens)
+17:06:25.793 [00:04,0] INFO  ? ? Concluido: Aplicacao de formatacao de paragrafos
+
+
+--------------------------------------------------------------------------------
+SECAO: FORMATACOES ESPECIFICAS
+--------------------------------------------------------------------------------
+17:06:25.805 [00:04,0] INFO  ? ? Iniciando: Formatacao de paragrafos 1 e 2
+17:06:25.816 [00:04,0] INFO  ? 2 paragrafo formatado com 2 linhas em branco antes e depois (posicao: 4)
+17:06:25.816 [00:04,0] INFO  ? ? Concluido: Formatacao de paragrafos 1 e 2
+17:06:25.816 [00:04,0] INFO  ? ? Iniciando: Formatacao de considerandos
+17:06:25.828 [00:04,0] INFO  ? ? Concluido: Formatacao de considerandos
+17:06:25.828 [00:04,0] INFO  ? ? Iniciando: Aplicacao de substituicoes de texto
+17:06:26.020 [00:05,0] INFO  ? Substituicoes de texto: nenhuma ocorrencia encontrada
+17:06:26.121 [00:05,0] INFO  ? ? Concluido: Aplicacao de substituicoes de texto
+17:06:26.121 [00:05,0] INFO  ? ? Iniciando: Remocao de marca d'agua e insercao de carimbo
+17:06:26.391 [00:05,0] INFO  ? ? Concluido: Remocao de marca d'agua e insercao de carimbo
+
+
+--------------------------------------------------------------------------------
+SECAO: LIMPEZA FINAL
+--------------------------------------------------------------------------------
+17:06:26.398 [00:05,0] INFO  ? ? Iniciando: Limpeza de espacos multiplos
+17:06:26.438 [00:05,0] INFO  ? Limpeza de espacos concluida: 0 correcoes aplicadas (com protecao CONSIDERANDO)
+17:06:26.438 [00:05,0] INFO  ? ? Concluido: Limpeza de espacos multiplos
+17:06:26.438 [00:05,0] INFO  ? ? Iniciando: Controle de linhas em branco
+17:06:26.488 [00:05,0] INFO  ? Controle de linhas vazias concluido em 2 passada(s): 2 linhas excedentes removidas (maximo 1 sequencial)
+17:06:26.488 [00:05,0] INFO  ? ? Concluido: Controle de linhas em branco
+17:06:26.488 [00:05,0] INFO  ? ? Iniciando: Substituicao de datas do plenario
+17:06:26.492 [00:05,0] INFO  ? ? Concluido: Substituicao de datas do plenario
+
+
+--------------------------------------------------------------------------------
+SECAO: FINALIZACAO
+--------------------------------------------------------------------------------
+17:06:26.504 [00:05,0] INFO  ? ? Iniciando: Configuracao de visualizacao
+17:06:26.508 [00:05,0] INFO  ? Visualizacao configurada: zoom definido para 120%, demais configuracoes preservadas
+17:06:26.508 [00:05,0] INFO  ? ? Concluido: Configuracao de visualizacao
+17:06:26.508 [00:05,0] INFO  ? ? Iniciando: Insercao de rodape
+17:06:26.547 [00:05,0] INFO  ? ? Concluido: Insercao de rodape
+17:06:26.547 [00:05,0] INFO  ? ? Iniciando: Ajustes finais de negrito e formatacao
+17:06:26.559 [00:05,0] INFO  ? Negrito e alinhamento aplicados a 2 paragrafos especiais
+17:06:26.590 [00:05,0] INFO  ? Paragrafo 'Vereador' formatado (sem negrito) com linhas adjacentes centralizadas (posicao: 21)
+17:06:26.590 [00:05,0] INFO  ? Formatacao 'Vereador': 1 ocorrencias formatadas
+17:06:26.590 [00:05,0] INFO  ? ? Concluido: Ajustes finais de negrito e formatacao
+17:06:26.590 [00:05,0] INFO  ? ? Iniciando: Formatacoes especiais (diante do exposto, requeiro)
+17:06:26.617 [00:05,0] INFO  ? ? Concluido: Formatacoes especiais (diante do exposto, requeiro)
+17:06:26.617 [00:05,0] INFO  ? ? Iniciando: Remocao de realces e bordas
+17:06:26.621 [00:05,0] INFO  ? Realce removido do documento completo
+17:06:26.652 [00:05,0] INFO  ? Realces e bordas removidos: 1 realces, 24 paragrafos com bordas
+17:06:26.652 [00:05,0] INFO  ? ? Concluido: Remocao de realces e bordas
+17:06:26.652 [00:05,0] INFO  ? ? Iniciando: Remocao de paginas vazias no final
+17:06:26.676 [00:05,0] INFO  ? Nenhuma pagina vazia no final do documento
+17:06:26.676 [00:05,0] INFO  ? ? Concluido: Remocao de paginas vazias no final
+17:06:26.676 [00:05,0] INFO  ? ? Iniciando: Aplicacao de formatacao final universal
+17:06:26.676 [00:05,0] INFO  ? Aplicando formatacao final universal: Arial 12, espacamento 1.0, 1 linha entre paragrafos...
+17:06:26.738 [00:05,0] INFO  ? Formatacao final aplicada: 24 de 24 paragrafos
+17:06:26.738 [00:05,0] INFO  ? ? Concluido: Aplicacao de formatacao final universal
+17:06:26.738 [00:05,0] INFO  ? ? Iniciando: Adicao de espacamento especial (ementa, justificativa, data)
+17:06:26.738 [00:05,0] INFO  ? Adicionando espacamento especial para ementa, justificativa e data...
+17:06:26.742 [00:05,0] INFO  ? Espacamento especial aplicado a 1 elementos
+17:06:26.742 [00:05,0] INFO  ? ? Concluido: Adicao de espacamento especial (ementa, justificativa, data)
+17:06:26.742 [00:05,0] INFO  ? ? Iniciando: Ajuste final de recuos para Vereador (travessoes)
+17:06:26.750 [00:05,0] INFO  ? Recuos ajustados para 1 paragrafo(s) de Vereador/Vereadora
+17:06:26.750 [00:05,0] INFO  ? ? Concluido: Ajuste final de recuos para Vereador (travessoes)
+17:06:26.750 [00:05,0] INFO  ? Formatacao completa aplicada com sucesso
+17:06:26.754 [00:05,0] INFO  ? ?? Total de paragrafos: 24
+17:06:26.766 [00:05,0] INFO  ? Verificacao de imagens concluida: 0 imagens integras
+17:06:26.844 [00:05,0] INFO  ? Removendo linhas em branco extras e aplicando ajustes...
+17:06:27.027 [00:06,0] INFO  ? Linhas em branco removidas: 0, substituicoes: 0
+17:06:27.098 [00:06,0] INFO  ? Recuos de paragrafos com imagens formatados: 1 paragrafos
+17:06:27.113 [00:06,0] INFO  ? Paragrafo do Plenario nao encontrado para centralizar imagem
+17:06:27.125 [00:06,0] INFO  ? Fonte final garantida: Arial 12pt em todo o documento
+17:06:27.500 [00:06,0] INFO  ? Configuracoes de visualizacao originais restauradas (zoom mantido em 120%)
+17:06:27.512 [00:06,0] INFO  ? Documento padronizado com sucesso
+17:06:27.520 [00:06,0] INFO  ? UndoRecord finalizado com sucesso
+17:06:27.531 [00:06,0] INFO  ? Variaveis de protecao de imagens limpas
+17:06:27.531 [00:06,0] INFO  ? Variaveis de configuracoes de visualizacao limpas
+
+
+================================================================================
+RESUMO DA SESSAO
+================================================================================
+
+[STATUS]
+  Final: CONCLUIDO COM AVISOS ?
+  Termino: 30/04/2026 17:06:27
+  Duracao: 6,0s
+
+[ESTATISTICAS]
+  Total de eventos: 185
+  Informacoes: 182 (98,4%)
+  Avisos: 3 (1,6%)
+  Erros: 0 (0,0%)
+
+[PERFORMANCE]
+  Eventos/segundo: 30,8
+  Tempo medio/evento: 32,4ms
+
+================================================================================
+FIM DO LOG
+================================================================================
