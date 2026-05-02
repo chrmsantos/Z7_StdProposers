@@ -753,14 +753,11 @@ Public Sub CorrigirGramaticaComGemini()
     
     On Error GoTo ErrorHandler
     
-    ' Obtem o caminho do script usando o caminho relativo configurado em Mod1Config
+    ' Obtem o caminho do executável usando o caminho relativo configurado em Mod1Config
     caminhoScript = Environ("USERPROFILE") & GRAMMAR_SCRIPT_RELATIVE_PATH
     
-    ' Comando base. Usamos 'pythonw' para executar sem exibir a janela preta
-    caminhoPython = "pythonw"
-    
-    ' Monta o comando completo com aspas em volta do caminho do script
-    comandoExecucao = caminhoPython & " """ & caminhoScript & """"
+    ' Monta o comando completo com aspas em volta do caminho do executável
+    comandoExecucao = """" & caminhoScript & """"
     
     ' Cria o objeto WScript.Shell
     Set objShell = CreateObject("WScript.Shell")
@@ -799,14 +796,11 @@ Public Sub ConfigurarPromptGemini()
     
     On Error GoTo ErrorHandler
     
-    ' Obtem o caminho do script usando o caminho relativo configurado em Mod1Infrastructure
+    ' Obtem o caminho do executável usando o caminho relativo configurado em Mod1Infrastructure
     caminhoScript = Environ("USERPROFILE") & PROMPT_CONFIG_SCRIPT_RELATIVE_PATH
     
-    ' Comando base. Usamos 'pythonw' para executar sem exibir a janela preta
-    caminhoPython = "pythonw"
-    
-    ' Monta o comando completo com aspas em volta do caminho do script
-    comandoExecucao = caminhoPython & " """ & caminhoScript & """"
+    ' Monta o comando completo com aspas em volta do caminho do executável
+    comandoExecucao = """" & caminhoScript & """"
     
     ' Cria o objeto WScript.Shell
     Set objShell = CreateObject("WScript.Shell")
