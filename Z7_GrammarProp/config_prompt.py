@@ -51,22 +51,24 @@ def restore_default(text_widget):
 def main():
     root = tk.Tk()
     root.title("Configurar Prompt do Gemini")
-    root.geometry("600x450")
+    root.geometry("700x600")
+    root.minsize(600, 500)
+    root.configure(bg="#f3f4f6")
     
     # Faz a janela aparecer na frente
     root.attributes('-topmost', True)
     
-    lbl = tk.Label(root, text="Instruções para a Inteligência Artificial:", font=("Arial", 12, "bold"))
-    lbl.pack(pady=(15, 5))
+    lbl = tk.Label(root, text="Instruções para a Inteligência Artificial", font=("Segoe UI", 16, "bold"), bg="#f3f4f6", fg="#111827")
+    lbl.pack(pady=(25, 5))
     
-    info_lbl = tk.Label(root, text="Personalização das instruções enviadas para a IA.", font=("Arial", 9, "italic"), fg="#555555")
-    info_lbl.pack(pady=(0, 10))
+    info_lbl = tk.Label(root, text="Personalize o comportamento do modelo ajustando o prompt abaixo.", font=("Segoe UI", 10), bg="#f3f4f6", fg="#4b5563")
+    info_lbl.pack(pady=(0, 20))
 
-    frame = tk.Frame(root)
-    frame.pack(expand=True, fill=tk.BOTH, padx=20)
+    btn_frame = tk.Frame(root, bg="#f3f4f6")
 
-    text_area = tk.Text(frame, wrap=tk.WORD, font=("Consolas", 10), relief=tk.GROOVE, borderwidth=2)
-    text_area.pack(side=tk.LEFT, expand=True, fill=tk.BOTH)
+    frame = tk.Frame(root, bg="#d1d5db") # Borda sutil usando cor de fundo do frame
+    text_area = tk.Text(frame, wrap=tk.WORD, font=("Consolas", 11), bg="#ffffff", fg="#1f2937", relief=tk.FLAT, padx=12, pady=12, insertbackground="#1f2937")
+    text_area.pack(side=tk.LEFT, expand=True, fill=tk.BOTH, padx=1, pady=1)
 
     scrollbar = tk.Scrollbar(frame, command=text_area.yview)
     scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
@@ -76,17 +78,21 @@ def main():
     current_prompt = load_prompt()
     text_area.insert(tk.END, current_prompt)
 
-    btn_frame = tk.Frame(root)
-    btn_frame.pack(fill=tk.X, pady=15)
-
-    save_btn = tk.Button(btn_frame, text="Salvar Configuração", width=20, bg="#4CAF50", fg="white", font=("Arial", 10, "bold"), command=lambda: save_prompt(text_area, root))
-    save_btn.pack(side=tk.RIGHT, padx=20)
+    # Estilos de botão
+    btn_font = ("Segoe UI", 10, "bold")
     
-    cancel_btn = tk.Button(btn_frame, text="Cancelar", width=15, font=("Arial", 10), command=root.destroy)
+    save_btn = tk.Button(btn_frame, text="Salvar Configuração", width=20, bg="#2563eb", fg="white", font=btn_font, relief=tk.FLAT, activebackground="#1d4ed8", activeforeground="white", cursor="hand2", command=lambda: save_prompt(text_area, root))
+    save_btn.pack(side=tk.RIGHT, padx=25)
+    
+    cancel_btn = tk.Button(btn_frame, text="Cancelar", width=15, bg="#e5e7eb", fg="#374151", font=btn_font, relief=tk.FLAT, activebackground="#d1d5db", activeforeground="#111827", cursor="hand2", command=root.destroy)
     cancel_btn.pack(side=tk.RIGHT, padx=5)
 
-    restore_btn = tk.Button(btn_frame, text="Restaurar Padrão", width=18, font=("Arial", 10), command=lambda: restore_default(text_area))
-    restore_btn.pack(side=tk.LEFT, padx=20)
+    restore_btn = tk.Button(btn_frame, text="Restaurar Padrão", width=18, bg="#e5e7eb", fg="#374151", font=btn_font, relief=tk.FLAT, activebackground="#d1d5db", activeforeground="#111827", cursor="hand2", command=lambda: restore_default(text_area))
+    restore_btn.pack(side=tk.LEFT, padx=25)
+
+    # Pack in order so btn_frame is fixed at the bottom
+    btn_frame.pack(side=tk.BOTTOM, fill=tk.X, pady=25)
+    frame.pack(side=tk.TOP, expand=True, fill=tk.BOTH, padx=25, pady=(0, 10))
 
     root.mainloop()
 
