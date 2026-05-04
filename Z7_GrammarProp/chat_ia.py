@@ -6,7 +6,8 @@ from tkinter import simpledialog, messagebox, scrolledtext
 from pathlib import Path
 import win32com.client
 import win32crypt
-import google.generativeai as genai
+import google.genai as genai
+from google.genai import types
 from z7_logging import configure_component_logger, log_exception
 
 LOGGER = configure_component_logger("chat_ia")
@@ -99,6 +100,7 @@ class ChatApp:
         self.root.attributes('-topmost', True)
         
         self.mode = load_theme()
+        self.client = None
         self.chat_session = None
         self.is_generating = False
         
@@ -209,7 +211,7 @@ class ChatApp:
                 self.root.after(0, lambda: self.status_lbl.config(text="Erro: Chave API ausente."))
                 return
                 
-            genai.configure(api_key=api_key)
+            self.client = genai.Client(api_key=api_key)
             
             try:
                 word = win32com.client.Dispatch("Word.Application")
@@ -223,8 +225,11 @@ class ChatApp:
                 
             system_instruction = f"Você é um assistente especialista em legislação prestativo e polido. Use o seguinte texto do documento ativo no Word como contexto principal para responder às dúvidas do usuário:\n\n{doc_text}"
             
-            model = genai.GenerativeModel('gemini-3.1-pro-preview', system_instruction=system_instruction)
-            self.chat_session = model.start_chat(history=[])
+            model = 'gemini-2.0-flash'
+            self.chat_session = self.client.chats.create(
+                model=model,
+                config=types.GenerateContentConfig(system_instruction=system_instruction)
+            )
             LOGGER.info("Chat session started")
             
             self.root.after(0, self._on_ai_ready)

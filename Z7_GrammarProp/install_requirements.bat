@@ -13,7 +13,7 @@ echo Usando interpretador: %PY_CMD%
 %PY_CMD% -m pip install --upgrade pip
 if errorlevel 1 goto :error
 
-%PY_CMD% -m pip install --upgrade google-generativeai pywin32 python-dotenv
+%PY_CMD% -m pip install --upgrade google-genai pywin32 python-dotenv
 if errorlevel 1 goto :error
 
 %PY_CMD% -c "import win32com.client, win32crypt; print('pywin32 OK')"

@@ -25,7 +25,7 @@ except ModuleNotFoundError as e:
     root.destroy()
     sys.exit(1)
 
-import google.generativeai as genai
+import google.genai as genai
 
 def get_api_key():
     LOGGER.info("Loading Gemini API key")
@@ -101,13 +101,9 @@ def main():
         LOGGER.warning("Aborting grammar flow because API key is unavailable")
         return
 
-    # Configura a API do Gemini
-    genai.configure(api_key=api_key)
-    
-    # Inicializa o modelo (gemini-1.5-pro e otimo para tarefas complexas de raciocinio, 
-    # ou gemini-1.5-flash para respostas mais rapidas)
-    model = genai.GenerativeModel('gemini-3.1-pro-preview')
-    LOGGER.info("Gemini model configured")
+    # Cria o cliente da API do Gemini
+    client = genai.Client(api_key=api_key)
+    LOGGER.info("Gemini client configured")
 
     try:
         # Conecta ao aplicativo Word que já está em execução
@@ -155,7 +151,7 @@ Retorne APENAS o texto corrigido, sem adicionar nenhum comentário, explicação
 
     try:
         # Faz a requisição para a API do Gemini
-        response = model.generate_content(prompt)
+        response = client.models.generate_content(model='gemini-2.0-flash', contents=prompt)
         corrected_text = response.text.strip()
         LOGGER.info("Gemini response received")
         
