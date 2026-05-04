@@ -1,5 +1,27 @@
 # Release Notes
 
+## v5.0.3-beta1 — 2026-05-04 — COM Invocation Hotfix
+
+### Resumo
+
+Esta versão contém uma correção crítica no script de importação `import_vba.ps1` relacionada a problemas com o StrictMode interagindo com objetos COM do Word no PowerShell 5.1.
+
+---
+
+### Correções
+
+| Componente | Problema | Solução |
+| --- | --- | --- |
+| `import_vba.ps1` | `O termo 'Import' não é reconhecido / DISP_E_UNKNOWNNAME` e falhas de propriedades em objetos COM quando invocados nativamente no `Set-StrictMode -Version Latest`. | Remoção do `Set-StrictMode` a favor do `Set-StrictMode -Off` durante a injeção do COM. Foram restauradas as funções nativas de `VBProject` e `VBComponents.Import` permitindo a fluidez da importação. |
+
+---
+
+### Executáveis Recompilados
+
+Foram recompilados os executáveis na pasta `Z7_GrammarProp` (`correct_grammar.exe`, `config_prompt.exe`, `chat_ia.exe`).
+
+---
+
 ## v5.0.1-beta — 2026-05-04 — Observability & Testing Sprint
 
 ### Resumo

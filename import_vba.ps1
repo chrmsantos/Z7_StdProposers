@@ -20,7 +20,7 @@ param(
     [string]$TargetDocument = "Normal"
 )
 
-Set-StrictMode -Version Latest
+Set-StrictMode -Off
 $ErrorActionPreference = "Stop"
 
 $BasDir = Join-Path $PSScriptRoot "source\main"

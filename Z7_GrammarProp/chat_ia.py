@@ -225,7 +225,7 @@ class ChatApp:
                 
             system_instruction = f"Você é um assistente especialista em legislação prestativo e polido. Use o seguinte texto do documento ativo no Word como contexto principal para responder às dúvidas do usuário:\n\n{doc_text}"
             
-            model = 'gemini-2.0-flash'
+            model = 'gemini-3.1-pro-preview'
             self.chat_session = self.client.chats.create(
                 model=model,
                 config=types.GenerateContentConfig(system_instruction=system_instruction)
