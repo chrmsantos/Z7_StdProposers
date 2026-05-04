@@ -1,4 +1,4 @@
-﻿Option Explicit
+Option Explicit
 
 ' Mod2Core.bas
 '================================================================================
@@ -2995,7 +2995,172 @@ Public Sub CleanupImageProtection()
     imageCount = 0
     ReDim savedImages(0)
 
+
     LogMessage "Variaveis de protecao de imagens limpas"
 End Sub
 
+'================================================================================
+' BACKUP DE PARAGRAFOS CENTRALIZADOS
+' Salva os indices dos paragrafos que estao centralizados antes do processamento
+'================================================================================
+Public Function BackupCenteredParagraphs(doc As Document) As Boolean
+    On Error GoTo ErrorHandler
+
+    centeredParaCount = 0
+    ReDim savedCenteredParas(0)
+
+    Dim para As Paragraph
+    Dim i As Long
+    Dim totalCentered As Long
+    Dim tempInfo As CenteredParaInfo
+
+    ' Primeira passagem: conta quantos paragrafos sao centralizados
+    totalCentered = 0
+    i = 0
+    For Each para In doc.Paragraphs
+        i = i + 1
+        If i Mod 50 = 0 Then DoEvents
+        If para.Format.alignment = wdAlignParagraphCenter Then
+            totalCentered = totalCentered + 1
+        End If
+    Next para
+
+    If totalCentered = 0 Then
+        LogMessage "Nenhum paragrafo centralizado encontrado para backup", LOG_LEVEL_INFO
+        BackupCenteredParagraphs = True
+        Exit Function
+    End If
+
+    ReDim savedCenteredParas(totalCentered - 1)
+
+    ' Segunda passagem: salva indices e chave de texto
+    i = 0
+    Dim saveIdx As Long
+    saveIdx = 0
+    For Each para In doc.Paragraphs
+        i = i + 1
+        If i Mod 50 = 0 Then DoEvents
+        If para.Format.alignment = wdAlignParagraphCenter Then
+            Dim rawText As String
+            rawText = para.Range.text
+            rawText = Replace(Replace(rawText, vbCr, ""), vbLf, "")
+            If Len(rawText) > 50 Then rawText = Left(rawText, 50)
+            tempInfo.paraIndex = i
+            tempInfo.originalText = rawText
+            savedCenteredParas(saveIdx) = tempInfo
+            saveIdx = saveIdx + 1
+            centeredParaCount = saveIdx
+            If saveIdx >= UBound(savedCenteredParas) + 1 Then Exit For
+        End If
+    Next para
+
+    LogMessage "Backup de paragrafos centralizados: " & centeredParaCount & " paragrafos", LOG_LEVEL_INFO
+    BackupCenteredParagraphs = True
+    Exit Function
+
+ErrorHandler:
+    LogMessage "Erro ao fazer backup de paragrafos centralizados: " & Err.Description, LOG_LEVEL_WARNING
+    BackupCenteredParagraphs = False
+End Function
+
+'================================================================================
+' RESTAURACAO DE PARAGRAFOS CENTRALIZADOS
+' Re-centraliza e zera recuo a esquerda dos paragrafos que estavam centralizados
+'================================================================================
+Public Function RestoreCenteredParagraphs(doc As Document) As Boolean
+    On Error GoTo ErrorHandler
+
+    If centeredParaCount = 0 Then
+        RestoreCenteredParagraphs = True
+        Exit Function
+    End If
+
+    Dim i As Long
+    Dim restoredCount As Long
+    Dim para As Paragraph
+    Dim paraTotal As Long
+    paraTotal = doc.Paragraphs.count
+    restoredCount = 0
+
+    For i = 0 To centeredParaCount - 1
+        On Error Resume Next
+
+        Dim targetIdx As Long
+        targetIdx = savedCenteredParas(i).paraIndex
+
+        Dim matched As Boolean
+        matched = False
+
+        ' Tentativa 1: indice original + verificacao por chave de texto
+        If targetIdx >= 1 And targetIdx <= paraTotal Then
+            Set para = doc.Paragraphs(targetIdx)
+            Dim curText As String
+            curText = para.Range.text
+            curText = Replace(Replace(curText, vbCr, ""), vbLf, "")
+            If Len(curText) > 50 Then curText = Left(curText, 50)
+            If curText = savedCenteredParas(i).originalText Then
+                matched = True
+            End If
+        End If
+
+        ' Tentativa 2: busca por chave de texto em janela de +-5 paragrafos
+        If Not matched And savedCenteredParas(i).originalText <> "" Then
+            Dim searchStart As Long
+            Dim searchEnd As Long
+            searchStart = targetIdx - 5
+            If searchStart < 1 Then searchStart = 1
+            searchEnd = targetIdx + 5
+            If searchEnd > paraTotal Then searchEnd = paraTotal
+
+            Dim j As Long
+            For j = searchStart To searchEnd
+                If j >= 1 And j <= paraTotal Then
+                    Set para = doc.Paragraphs(j)
+                    Dim searchText As String
+                    searchText = para.Range.text
+                    searchText = Replace(Replace(searchText, vbCr, ""), vbLf, "")
+                    If Len(searchText) > 50 Then searchText = Left(searchText, 50)
+                    If searchText = savedCenteredParas(i).originalText Then
+                        matched = True
+                        Exit For
+                    End If
+                End If
+            Next j
+        End If
+
+        ' Aplica centralizacao e zeragem de recuo
+        If matched Then
+            With para.Format
+                .alignment = wdAlignParagraphCenter
+                .leftIndent = 0
+                .firstLineIndent = 0
+            End With
+            restoredCount = restoredCount + 1
+        End If
+
+        If Err.Number <> 0 Then Err.Clear
+        On Error GoTo ErrorHandler
+    Next i
+
+    If restoredCount > 0 Then
+        LogMessage "Paragrafos centralizados restaurados: " & restoredCount & " de " & centeredParaCount, LOG_LEVEL_INFO
+    End If
+
+    RestoreCenteredParagraphs = True
+    Exit Function
+
+ErrorHandler:
+    LogMessage "Erro ao restaurar paragrafos centralizados: " & Err.Description, LOG_LEVEL_WARNING
+    RestoreCenteredParagraphs = False
+End Function
+
+'================================================================================
+' LIMPEZA DO BACKUP DE PARAGRAFOS CENTRALIZADOS
+'================================================================================
+Public Sub CleanupCenteredParaBackup()
+    On Error Resume Next
+    centeredParaCount = 0
+    ReDim savedCenteredParas(0)
+    LogMessage "Variaveis de backup de paragrafos centralizados limpas"
+End Sub
 

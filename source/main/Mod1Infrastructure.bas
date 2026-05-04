@@ -199,6 +199,15 @@ End Type
 Public savedListFormats() As ListFormatInfo
 Public listFormatCount As Long
 
+' Backup de paragrafos centralizados antes do processamento
+Public Type CenteredParaInfo
+    paraIndex As Long
+    originalText As String  ' Usado como chave de identificacao (primeiros 50 chars)
+End Type
+
+Public savedCenteredParas() As CenteredParaInfo
+Public centeredParaCount As Long
+
 '================================================================================
 ' VARIAVEIS DE IDENTIFICACAO DE ELEMENTOS ESTRUTURAIS
 '================================================================================

@@ -83,6 +83,12 @@ Public Sub PadronizarDocumentoMain()
         LogMessage "Aviso: Falha no backup de listas - formatacoes de lista podem ser perdidas", LOG_LEVEL_WARNING
     End If
 
+    ' Backup de paragrafos centralizados antes das formatacoes
+    IncrementProgress "Protegendo paragrafos centralizados"
+    If Not BackupCenteredParagraphs(doc) Then
+        LogMessage "Aviso: Falha no backup de paragrafos centralizados", LOG_LEVEL_WARNING
+    End If
+
     ' ---------------------------------------------------------------------------
     ' INICIO DO GRUPO DE DESFAZER (UndoRecord) - melhor esforco
     ' ---------------------------------------------------------------------------
@@ -170,6 +176,12 @@ Public Sub PadronizarDocumentoMain()
         LogMessage "Aviso: Falha ao centralizar imagem apos Plenario", LOG_LEVEL_WARNING
     End If
 
+    ' Restaura centralizacao dos paragrafos que estavam centralizados antes do processamento
+    IncrementProgress "Restaurando paragrafos centralizados"
+    If Not RestoreCenteredParagraphs(doc) Then
+        LogMessage "Aviso: Falha ao restaurar paragrafos centralizados", LOG_LEVEL_WARNING
+    End If
+
     ' Garantia final de fonte: reaplica Arial 12 em todo o documento apos todos os
     ' ajustes pos-pipeline (substituicoes de texto, listas, imagens), pois operacoes
     ' como Find/Replace com Replacement.ClearFormatting podem deixar trechos com
@@ -219,8 +231,9 @@ CleanUp:
 
     ClearParagraphCache ' Limpa cache de paragrafos
     SafeCleanup
-    CleanupImageProtection ' Nova funcao para limpar variaveis de protecao de imagens
-    CleanupViewSettings    ' Nova funcao para limpar variaveis de configuracoes de visualizacao
+    CleanupImageProtection       ' Limpa variaveis de protecao de imagens
+    CleanupViewSettings          ' Limpa variaveis de configuracoes de visualizacao
+    CleanupCenteredParaBackup    ' Limpa variaveis de backup de paragrafos centralizados
 
     ' Restaura estado da aplicacao preservando a StatusBar (mantem mensagem final)
     If Not SetAppState(True, "", True) Then
