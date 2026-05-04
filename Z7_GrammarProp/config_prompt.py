@@ -165,7 +165,7 @@ class AppTheme:
         if 'model_lbl' in self.widgets:
             self.widgets['model_lbl'].configure(bg=bg, fg=fg)
         if 'model_dropdown' in self.widgets:
-            self.widgets['model_dropdown'].configure(bg=text_bg, fg=fg)
+            self.widgets['model_dropdown'].configure(bg=text_bg, fg=fg, insertbackground=fg)
             
         for btn in self.widgets.get('sec_btns', []):
             btn.configure(bg=btn_sec_bg, fg=btn_sec_fg, activebackground=btn_sec_hover, activeforeground=fg)
@@ -213,25 +213,11 @@ def main():
 
     model_var = tk.StringVar(root)
     current_model = load_ai_model()
-    
-    MODELS = [
-        "gemini-2.5-flash",
-        "gemini-2.5-pro",
-        "gemini-2.0-flash",
-        "gemini-2.0-pro-exp",
-        "gemini-1.5-flash",
-        "gemini-1.5-pro",
-    ]
-    
-    if current_model not in MODELS:
-        MODELS.append(current_model)
-        
     model_var.set(current_model)
 
-    model_dropdown = tk.OptionMenu(model_frame, model_var, *MODELS)
-    model_dropdown.config(font=("Segoe UI", 10), relief=tk.FLAT, bd=1, highlightthickness=1)
-    model_dropdown.pack(side=tk.LEFT, padx=10)
-    theme.widgets['model_dropdown'] = model_dropdown
+    model_entry = tk.Entry(model_frame, textvariable=model_var, font=("Segoe UI", 10), relief=tk.FLAT, bd=2)
+    model_entry.pack(side=tk.LEFT, padx=10, fill=tk.X, expand=True)
+    theme.widgets['model_dropdown'] = model_entry
     
     frame = tk.Frame(root) # Borda sutil
     theme.widgets['border_frame'] = frame
