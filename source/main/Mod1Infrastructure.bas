@@ -61,6 +61,9 @@ Public Const GRAMMAR_SCRIPT_RELATIVE_PATH As String = "\AppData\Local\Z7\Apps\Z7
 ' Caminho para o executável de configuracao do prompt do Gemini
 Public Const PROMPT_CONFIG_SCRIPT_RELATIVE_PATH As String = "\AppData\Local\Z7\Apps\Z7_StdProposers\Z7_GrammarProp\config_prompt.exe"
 
+' Caminho para o executável de chat em tempo real com a IA
+Public Const CHAT_IA_SCRIPT_RELATIVE_PATH As String = "\AppData\Local\Z7\Apps\Z7_StdProposers\Z7_GrammarProp\chat_ia.exe"
+
 '================================================================================
 ' CONSTANTES DE SISTEMA
 '================================================================================

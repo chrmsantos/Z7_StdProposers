@@ -8,9 +8,13 @@ Write-Host "Compilando correct_grammar.py..."
 Write-Host "Compilando config_prompt.py..."
 & $pyinstallerPath --onefile --noconsole config_prompt.py
 
+Write-Host "Compilando chat_ia.py..."
+& $pyinstallerPath --onefile --noconsole chat_ia.py
+
 Write-Host "Movendo os executáveis para a raiz de Z7_GrammarProp..."
 Move-Item -Path "dist\correct_grammar.exe" -Destination ".\correct_grammar.exe" -Force
 Move-Item -Path "dist\config_prompt.exe" -Destination ".\config_prompt.exe" -Force
+Move-Item -Path "dist\chat_ia.exe" -Destination ".\chat_ia.exe" -Force
 
 Write-Host "Limpando arquivos temporários..."
 Remove-Item -Path "build" -Recurse -Force

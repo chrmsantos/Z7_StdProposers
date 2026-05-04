@@ -823,4 +823,42 @@ ErrorHandler:
     MsgBox "Erro ao tentar abrir configuracoes do prompt Gemini: " & Err.Description, vbCritical, "Z7_StdProposers"
 End Sub
 
+'================================================================================
+' SUBROTINA PUBLICA: CHAT COM GEMINI
+'================================================================================
+Public Sub ChatComGemini()
+    ' Macro para abrir a interface em Python do Chat Interativo com a IA
+    Dim objShell As Object
+    Dim comandoExecucao As String
+    Dim caminhoScript As String
+    
+    On Error GoTo ErrorHandler
+    
+    ' Obtem o caminho do executável usando o caminho relativo configurado em Mod1Infrastructure
+    caminhoScript = Environ("USERPROFILE") & CHAT_IA_SCRIPT_RELATIVE_PATH
+    
+    ' Monta o comando completo com aspas em volta do caminho do executável
+    comandoExecucao = """" & caminhoScript & """"
+    
+    ' Cria o objeto WScript.Shell
+    Set objShell = CreateObject("WScript.Shell")
+    
+    ' Muda o ponteiro do mouse para indicar carregamento
+    System.Cursor = wdCursorWait
+    
+    ' Executa o comando SEM aguardar a conclusao, pois e uma janela interativa
+    objShell.Run comandoExecucao, 0, False
+    
+    ' Retorna o ponteiro do mouse ao normal
+    System.Cursor = wdCursorNormal
+    
+    Exit Sub
+    
+ErrorHandler:
+    System.Cursor = wdCursorNormal
+    Application.StatusBar = "Erro ao abrir Chat Gemini"
+    If loggingEnabled Then LogMessage "Erro ao abrir Chat Gemini: " & Err.Description, LOG_LEVEL_ERROR
+    MsgBox "Erro ao tentar abrir o Chat da IA Gemini: " & Err.Description, vbCritical, "Z7_StdProposers"
+End Sub
+
 
