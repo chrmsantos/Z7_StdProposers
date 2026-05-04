@@ -37,6 +37,8 @@ Public Sub PadronizarDocumentoMain()
     ' Inicializa sistema de logging ANTES de qualquer LogMessage
     If Not InitializeLogging(doc) Then
         Application.StatusBar = "Aviso: Log desabilitado"
+    Else
+        LogContextSnapshot doc, "INICIO"
     End If
 
     ' Inicializa sistema de progresso (18 etapas do pipeline - 2 passagens)
@@ -207,6 +209,7 @@ Public Sub PadronizarDocumentoMain()
 
     IncrementProgress "Finalizando"
     LogMessage "Documento padronizado com sucesso", LOG_LEVEL_INFO
+    LogContextSnapshot doc, "FIM"
 
     ' Calcula tempo de execucao em segundos
     Dim execSeconds As Long
@@ -287,6 +290,9 @@ CriticalErrorHandler:
               " em " & Err.Source & " (Linha: " & Erl & ")"
 
     LogMessage errDesc, LOG_LEVEL_ERROR
+    If Not doc Is Nothing Then
+        LogContextSnapshot doc, "ERRO_CRITICO"
+    End If
     Application.StatusBar = "Erro - verificar logs"
 
     ShowUserFriendlyError Err.Number, Err.Description

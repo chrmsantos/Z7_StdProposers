@@ -1,82 +1,149 @@
 # Z7_STDPROPOSERS - AI Assistant Developer Context
 
-> **Note to AI Agents**: Read this document before attempting to modify or refactor the Z7_StdProposers VBA codebase. This documentation will save you from re-analyzing the structural paradigms and pipeline mechanics of the project.
+> Note to AI Agents: read this document before modifying the VBA pipeline or Python integration.
 >
-> **Last updated**: 2026-04-20 — Applied three architectural fixes (stale index pointers, UndoRecord audit, COM overhead). See Section 5.
+> Last updated: 2026-05-04 (docs synchronized with modular VBA architecture, Python logging layer, and modernized test suites).
 
 ## 1. Project Overview
-**Z7_StdProposers** (Sistema de Padronização de Proposituras Legislativas) is an advanced document-formatting macro built for Microsoft Word. It is designed to automatically detect structural components of Brazilian legislative documents (Proposituras) and apply a highly tailored, fault-tolerant standard layout.
+Z7_StdProposers is a Microsoft Word automation project for Brazilian legislative document standardization.
 
-## 2. Codebase Architecture (VBA)
-Historically a massive ~12,000-line monolithic `Proposers.bas` file, the codebase was initially refactored into 7 modules, and subsequently consolidated into **4 pilares lógicos** inside `source/main/` to balance maintenance and cohesion:
+The solution has two coordinated parts:
 
-- **`Mod1Infrastructure.bas`**: Combina Config, Utils e System. Holds all initialization logic, default path declarations, UDTs, UI View setup states, system-level integrations (telemetry, progress bars, emergency recovery) and generic cross-cutting helpers (Safe Property wrappers).
-- **`Mod2Engine.bas`**: Combina Core e Media. Houses the engine mechanics, heuristic parsers designed to detect text blocks (`Ementa`, `Plenário`, etc), the paragraph caching pipeline, and complex layout adjustments associated with bullet lists and image protections before/after formatting.
-- **`Mod3Pipeline.bas`**: Mantém o antigo Process. The massive core formatting pipeline. Governs text normalization, the double-pass formatting workflow, special clauses, and blank line synchronization.
-- **`Mod4Main.bas`**: Ponto de entrada das macros (ex: `PadronizarDocumentoMain`, `CorrigirGramaticaComGemini`). Liga as funções da Infraestrutura, as análises da Engine e a execução do Pipeline.
+- VBA formatting engine in `source/main/`.
+- Python Gemini integration in `Z7_GrammarProp/`.
 
-## 3. Structural Conventions and Nuances
+## 2. Current Codebase Architecture
 
-### A. The Double-Pass Pipeline Concept
-Z7_StdProposers formats documents using an optimized two-pass approach to ensure layout stability:
-1. **Pass 1**: Normalizes characters and removes raw text debris. It establishes the baseline flow. If Pass 1 successfully flags `documentDirty = True`, it will trigger Pass 2.
-2. **Pass 2**: Injects complex alignments (like the Ementa indents or Header images).
+### 2.1 VBA (4 modules)
+The active VBA architecture is consolidated into four modules:
 
-### B. Element Recognition (Heuristics)
-Because legislative documents are rarely well-formed natively, the system parses strings looking for signatures:
-- **Ementa**: Sits usually after the Title and ends right before the main proposition. Sometimes requires indent measurements (`Ementa_Min_Left_Indent`) to be identified robustly.
-- **Plenario**: Detected by searching for `"plenario"`. Used as an anchor to align Data and Assinaturas that follow.
-- **Justificativa**: Detected by the header `"justificativa"`. Requires aggressive insertion/synchronization of blank lines.
+- `Mod1Infrastructure.bas`: constants, global state, paths, safe wrappers, backup/system helpers.
+- `Mod2Engine.bas`: structure detection heuristics, cache system, image/list handling and restoration helpers.
+- `Mod3Pipeline.bas`: core formatting pipeline (double-pass), normalization/cleanup routines, logging primitives.
+- `Mod4Main.bas`: macro entrypoints (`PadronizarDocumentoMain`, public API helpers, Gemini integration bridge).
 
-### C. Resource Protection & Safe Handlers
-Never trust Microsoft Word's COM architecture to execute cleanly under pressure.
-- **Image Protection System**: Found in `ModMedia`. Due to formatting resets blowing out images, images are essentially copied/cached and re-injected post-format.
-- **UndoGroups (CustomRecord)**: Z7_StdProposers wraps executions in `Application.UndoRecord.StartCustomRecord`. All exit paths — including `CriticalErrorHandler → EmergencyRecovery → GoTo CleanUp` and every explicit `GoTo CleanUp` — converge at the single `CleanUp:` label in `ModProcess.bas`, which calls `EndCustomRecord` guarded by `On Error Resume Next`. This guarantees the native Undo stack is never permanently broken even during fatal crashes.
-- **Error Recovery (`EmergencyRecovery`)**: If an unhandled exception surfaces, this subroutine triggers a safe shutdown (reverting View states, enabling screen updating, dropping COM objects) to ensure MS Word doesn't freeze or lock up.
+### 2.2 Python (Gemini integration)
+Main files in `Z7_GrammarProp/`:
 
-### D. Scoping Strategy
-Variables, Constants, Types, Subs, and Functions across the 7 modules use `Public` scope to interact with one another. If creating local memory for a temporary macro, strictly define variables with `Dim` locally inside the function.
+- `correct_grammar.py`: corrects selected text in Word.
+- `config_prompt.py`: UI for prompt editing.
+- `chat_ia.py`: chat UI with Word document context.
+- `z7_logging.py`: shared structured logger for Python components.
+- `build_exe.ps1`: PyInstaller build workflow for `.exe` artifacts.
 
-### E. Structural Index Invalidation Rule
-> **Critical pattern to preserve.** Any subroutine that **physically deletes paragraphs** from the document must call `IdentifyDocumentStructure doc` *after* the deletion loop and *before* any subsequent logic that reads global index variables (`tituloParaIndex`, `ementaParaIndex`, `tituloJustificativaIndex`, `dataParaIndex`, etc.).
->
-> Background: global index variables store the ordinal position (1-based `Long`) of structural elements. Deleting a paragraph above any of these anchors silently shifts all indices below the deletion point, causing formatters to target wrong paragraphs (stale pointer / off-by-N bug).
->
-> The established pattern (as implemented in `RemoverLinhasEmBrancoExtras`):
-> ```vba
-> If removedCount > 0 Then IdentifyDocumentStructure doc
-> ```
-> Do **not** remove or hoist this call above the deletion loop.
+## 3. Operational Conventions
 
-### F. COM Interface Discipline
-Avoid interacting with individual characters via the `Characters` collection inside hot loops. Creating per-character COM proxy objects (`Range.Characters(n)`) is expensive and degrades stability under long documents. Instead:
-- To delete a single trailing character from a `Range`, shrink the range with `pRange.MoveEnd wdCharacter, -1` then call `pRange.Delete`.
-- For bulk font changes that must skip inline images, use `Range.Font` on the whole range with `On Error Resume Next` rather than iterating character by character. Reserve `FormatCharacterByCharacter` (in `ModProcess.bas`) only for paragraphs that are explicitly confirmed to contain inline images.
+### A. Double-pass formatting pipeline
+The document formatter uses a two-pass strategy:
 
-## 4. Immediate Development Guidelines
-When updating this codebase:
-1. Do not merge functional logic back into one monolithic script. Keep logic contained to its respective `Mod[Type].bas` file.
-2. **Always include `Option Explicit`** at the top of any new `.bas` file.
-3. If adjusting styles or font margins, strictly go to `ModConfig.bas` and `ModProcess.bas`.
-4. Run thorough checks via `Debug -> Compile` mapped inside Word when adjusting cross-module parameters to avoid scope disconnection crashes.
-5. After any operation that deletes paragraphs, re-run `IdentifyDocumentStructure doc` before using any global index variable (see §3.E).
+1. Pass 1 normalizes and clears structural debris.
+2. Pass 2 applies alignment-sensitive formatting.
 
-## 5. Architectural Fixes Applied (2026-04-20)
+Pass 2 must run only when Pass 1 changed content (`documentDirty = True`).
 
-Three bugs identified in `analise_projeto_vba.md` were corrected in `ModProcess.bas`:
+### B. Structural heuristics
+Key anchors are inferred from text/format signatures:
 
-### Fix 1 — Stale Index Pointers (`RemoverLinhasEmBrancoExtras`)
-`RemoverLinhasEmBrancoExtras` deleted blank paragraphs in a reverse loop but then used `tituloJustificativaIndex` in the subsequent `For Each para` loop without refreshing the indices. This caused the Vereador/cargo centering logic to fire on wrong paragraphs.
+- Titulo and Ementa.
+- Justificativa header/body.
+- Plenario/Data anchors.
+- Assinatura block.
+- Anexo header/body.
 
-**Resolution**: Added `If removedCount > 0 Then IdentifyDocumentStructure doc` immediately after the deletion loop and the text-replacement block, and immediately before the `adjustCounter` loop. The `IdentifyDocumentStructure` call re-scans the document and rewrites all global index variables to their correct post-deletion positions.
+### C. Index invalidation rule (critical)
+Any routine that deletes paragraphs must refresh structure indices before consuming global index pointers.
 
-### Fix 2 — UndoRecord Leak Audit
-The `analise_projeto_vba.md` diagnosed a potential `EndCustomRecord` leak when a fatal error bypassed the `CleanUp:` label. Audit confirmed all exit paths — including `CriticalErrorHandler` inside `PadronizarDocumentoMain` — unconditionally route through `GoTo CleanUp`, where `EndCustomRecord` is called under `On Error Resume Next`. No code change was required; the fix was already in place.
+Required pattern:
 
-### Fix 3 — COM Overhead in Space-Deletion Loop
-The line `pRange.Characters(1).Delete` allocated a COM proxy object on every loop iteration to delete a single space character. Replaced with:
+```vba
+If removedCount > 0 Then IdentifyDocumentStructure doc
+```
+
+Do not move this call above the deletion loop.
+
+### D. UndoRecord safety rule
+Main flow must keep `StartCustomRecord` and `EndCustomRecord` paired across all exit paths.
+
+Current design in `Mod4Main.bas` routes failures through `CriticalErrorHandler -> GoTo CleanUp`, and `CleanUp` closes UndoRecord under guarded error handling.
+
+### E. COM discipline rule
+Avoid per-character COM object churn (`Range.Characters(n)`) in hot loops. Prefer operating directly on `Range`.
+
+Example:
+
 ```vba
 pRange.MoveEnd wdCharacter, -1
 pRange.Delete
 ```
-This operates directly on the `Range` object already in scope, eliminating the intermediate `Characters` collection proxy and reducing COM round-trips.
+
+## 4. Logging and Observability
+
+### 4.1 VBA logging
+VBA logging core is in `Mod3Pipeline.bas` (`InitializeLogging`, `LogMessage`, `SafeFinalizeLogging`).
+
+Current behavior includes:
+
+- Session/operation metadata (`currentLogSessionId`, `currentOperationId`).
+- Structured elapsed-time line format with operation marker (`[op=...]`).
+- Buffered flushing controlled by `LOG_BUFFER_FLUSH_SECONDS`.
+- Context snapshots via `LogContextSnapshot doc, "..."`.
+
+Current snapshots are executed in `Mod4Main.bas` at:
+
+- Pipeline start (`INICIO`).
+- Successful completion (`FIM`).
+- Critical error path (`ERRO_CRITICO`).
+
+### 4.2 Python logging
+Python scripts share `z7_logging.py` and write UTF-8 logs to:
+
+- `%LOCALAPPDATA%\Z7\Tmp\StdProposers\logs`
+
+Log coverage includes:
+
+- Startup and initialization milestones.
+- Word integration attempts.
+- Gemini request lifecycle.
+- Exception stack traces.
+
+## 5. Testing Model
+
+### 5.1 Test runner
+`tests/Run-Tests.ps1` supports:
+
+- `All`
+- `VBA`
+- `Encoding`
+- `Python`
+- `VBA-Logging`
+
+### 5.2 Current test suite layout
+
+- `tests/All.Tests.ps1`: integrity checks aligned to current modular architecture.
+- `tests/VBA.Tests.ps1`: VBA architecture and API contracts for Mod1..Mod4.
+- `tests/VBA-IdentifierFunctions.Tests.ps1`: identifier-range safety and declarations in `Mod4Main.bas`.
+- `tests/VBA-Logging.Tests.ps1`: observability assertions (session/op IDs, snapshots, logging primitives).
+- `tests/Python.Tests.ps1`: Python integration checks and unittest invocation.
+- `tests/python/test_z7_logging.py`: unit tests for `z7_logging.py`.
+- `tests/Encoding.Tests.ps1`: encoding/line-ending policy checks (UTF-8 safe, CRLF warnings, no UTF-16).
+
+### 5.3 Current baseline
+As of this update, `Run-Tests.ps1 -TestSuite All -NoProgress` passes.
+
+## 6. Immediate Development Guidelines
+
+1. Keep logic in the current 4-module VBA topology; do not reintroduce monoliths.
+2. Preserve `Option Explicit` in every VBA module.
+3. For formatting core changes, focus `Mod2Engine.bas`, `Mod3Pipeline.bas`, and `Mod4Main.bas` according to responsibility boundaries.
+4. After any paragraph-deletion change, enforce a structure refresh before index usage (Section 3.C).
+5. Preserve UndoRecord closure invariants (Section 3.D).
+6. If editing Python integrations, keep logging instrumentation through `z7_logging.py`.
+7. Validate with test suites before finalizing changes.
+
+## 7. Build and Runtime Notes (Python)
+
+- Dependency install: `install_requirements.bat`.
+- Build executables: `Z7_GrammarProp/build_exe.ps1`.
+- Word macro launcher (`WordMacro.bas`) uses `pyw -3` and path fallback logic for script location.
+
+When changing runtime paths, update both VBA constants/macros and relevant docs together.

@@ -67,7 +67,7 @@ Public Const CHAT_IA_SCRIPT_RELATIVE_PATH As String = "\AppData\Local\Z7\Apps\Z7
 '================================================================================
 ' CONSTANTES DE SISTEMA
 '================================================================================
-Public Const Z7_STDPROPOSERS_VERSION As String = "4.0.0-beta"
+Public Const Z7_STDPROPOSERS_VERSION As String = "5.0.1-beta"
 Public Const MIN_SUPPORTED_VERSION As Long = 14
 Public Const REQUIRED_STRING As String = "$NUMERO$/$ANO$"
 Public Const MAX_BACKUP_FILES As Long = 10
@@ -76,6 +76,7 @@ Public Const DEBUG_MODE As Boolean = False
 Public Const LOG_LEVEL_INFO As Long = 1
 Public Const LOG_LEVEL_WARNING As Long = 2
 Public Const LOG_LEVEL_ERROR As Long = 3
+Public Const LOG_BUFFER_FLUSH_SECONDS As Long = 5
 
 Public Const MAX_RETRY_ATTEMPTS As Long = 3
 Public Const RETRY_DELAY_MS As Long = 1000
@@ -108,6 +109,8 @@ Public logFileHandle As Integer
 Public logBufferEnabled As Boolean
 Public logBuffer As String
 Public lastFlushTime As Date
+Public currentLogSessionId As String
+Public currentOperationId As String
 
 ' Cache de verificacao de atualizacao (evita chamadas repetidas e travamentos)
 Public lastUpdateCheckAttempt As Date

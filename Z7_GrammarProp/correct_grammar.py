@@ -1,16 +1,39 @@
 import os
-import win32com.client
-import google.generativeai as genai
-import win32crypt
+import sys
 import tkinter as tk
-from tkinter import simpledialog
+from tkinter import messagebox, simpledialog
 from pathlib import Path
+from z7_logging import configure_component_logger, log_exception
+
+LOGGER = configure_component_logger("correct_grammar")
+
+try:
+    import win32com.client
+    import win32crypt
+except ModuleNotFoundError as e:
+    LOGGER.error("Missing Python dependency: %s", e.name)
+    root = tk.Tk()
+    root.withdraw()
+    root.attributes('-topmost', True)
+    messagebox.showerror(
+        "Z7 StdProposers - Dependencia ausente",
+        "Nao foi possivel iniciar o corretor porque falta a dependencia Python: "
+        f"{e.name}.\n\n"
+        "Execute o arquivo install_requirements.bat da pasta Z7_GrammarProp "
+        "e tente novamente."
+    )
+    root.destroy()
+    sys.exit(1)
+
+import google.generativeai as genai
 
 def get_api_key():
+    LOGGER.info("Loading Gemini API key")
     # Define o caminho do arquivo de chave
     user_profile = os.environ.get('USERPROFILE')
     if not user_profile:
         print("Erro: Variavel USERPROFILE nao encontrada.")
+        LOGGER.error("USERPROFILE env var not found")
         return None
         
     key_dir = Path(user_profile) / 'AppData' / 'Local' / 'Z7' / 'Tmp' / 'StdProposers'
@@ -23,9 +46,11 @@ def get_api_key():
                 encrypted_key = f.read()
             # CryptUnprotectData retorna uma tupla (descricao, dados_descriptografados)
             _, decrypted_key = win32crypt.CryptUnprotectData(encrypted_key, None, None, None, 0)
+            LOGGER.info("API key loaded from encrypted key file")
             return decrypted_key.decode('utf-8')
         except Exception as e:
             print(f"Erro ao descriptografar a chave: {e}")
+            log_exception(LOGGER, "Failed to decrypt API key", e)
             # Se falhar, vamos pedir novamente
             pass
             
@@ -46,6 +71,7 @@ def get_api_key():
     
     if not api_key or not api_key.strip():
         print("Chave nao fornecida pelo usuario.")
+        LOGGER.warning("User did not provide API key")
         return None
         
     api_key = api_key.strip()
@@ -60,15 +86,19 @@ def get_api_key():
         # Salva o arquivo
         with open(key_file, 'wb') as f:
             f.write(encrypted_key)
+        LOGGER.info("API key encrypted and persisted")
     except Exception as e:
         print(f"Erro ao criptografar ou salvar a chave: {e}")
+        log_exception(LOGGER, "Failed to save encrypted API key", e)
         # Mesmo se falhar ao salvar, podemos retornar a chave em memoria para uso atual
         
     return api_key
 
 def main():
+    LOGGER.info("Starting grammar correction flow")
     api_key = get_api_key()
     if not api_key:
+        LOGGER.warning("Aborting grammar flow because API key is unavailable")
         return
 
     # Configura a API do Gemini
@@ -77,11 +107,14 @@ def main():
     # Inicializa o modelo (gemini-1.5-pro e otimo para tarefas complexas de raciocinio, 
     # ou gemini-1.5-flash para respostas mais rapidas)
     model = genai.GenerativeModel('gemini-3.1-pro-preview')
+    LOGGER.info("Gemini model configured")
 
     try:
         # Conecta ao aplicativo Word que já está em execução
         word = win32com.client.Dispatch("Word.Application")
+        LOGGER.info("Connected to running Word instance")
     except Exception as e:
+        log_exception(LOGGER, "Failed to connect to Word", e)
         root = tk.Tk()
         root.withdraw()
         messagebox.showerror("Z7 StdProposers - Erro", f"Erro ao conectar ao Word:\n{e}")
@@ -93,6 +126,7 @@ def main():
 
     # Se nada estiver selecionado ou houver apenas espaços em branco, encerra
     if not text or len(text) < 2:
+        LOGGER.info("Selection too short; nothing to process")
         return
 
     # Lê o prompt configurado do arquivo, se existir
@@ -104,7 +138,9 @@ def main():
             try:
                 with open(prompt_file, 'r', encoding='utf-8') as f:
                     base_prompt = f.read().strip()
+                LOGGER.info("Custom prompt loaded from file")
             except Exception:
+                LOGGER.warning("Unable to read custom prompt; falling back to default")
                 pass
                 
     if not base_prompt:
@@ -121,16 +157,20 @@ Retorne APENAS o texto corrigido, sem adicionar nenhum comentário, explicação
         # Faz a requisição para a API do Gemini
         response = model.generate_content(prompt)
         corrected_text = response.text.strip()
+        LOGGER.info("Gemini response received")
         
         if corrected_text:
             # Preserva a formatação substituindo o texto da seleção
             selection.Text = corrected_text
+            LOGGER.info("Selection updated with corrected content")
         else:
+            LOGGER.warning("Gemini returned empty response")
             root = tk.Tk()
             root.withdraw()
             messagebox.showwarning("Z7 StdProposers - Aviso", "A API do Gemini retornou um texto vazio.")
             
     except Exception as e:
+        log_exception(LOGGER, "Gemini API request failed", e)
         root = tk.Tk()
         root.withdraw()
         messagebox.showerror("Z7 StdProposers - Erro na API", f"Erro ao chamar a API do Gemini:\n{e}")

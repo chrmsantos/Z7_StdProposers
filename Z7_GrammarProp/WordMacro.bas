@@ -7,14 +7,25 @@ Sub CorrigirGramaticaComGemini()
     Dim comandoExecucao As String
     Dim caminhoScript As String
     Dim caminhoPython As String
+    Dim baseLocalAppData As String
     
-    ' DEFINE O CAMINHO DO SCRIPT PYTHON AQUI:
-    ' Se a pasta for diferente, atualize o caminho abaixo.
-    caminhoScript = "C:\Users\csantos\AppData\Local\Z7\Apps\Z7_GrammarProp\correct_grammar.py"
+    baseLocalAppData = Environ$("LOCALAPPDATA")
+
+    ' Primeiro tenta a estrutura atual do repositorio.
+    caminhoScript = baseLocalAppData & "\Z7\Apps\Z7_StdProposers\Z7_GrammarProp\correct_grammar.py"
+
+    ' Fallback para instalacoes antigas.
+    If Dir(caminhoScript) = "" Then
+        caminhoScript = baseLocalAppData & "\Z7\Apps\Z7_GrammarProp\correct_grammar.py"
+    End If
+
+    If Dir(caminhoScript) = "" Then
+        MsgBox "Arquivo do script nao encontrado: " & caminhoScript, vbExclamation, "Z7 StdProposers"
+        Exit Sub
+    End If
     
-    ' Comando base. Usamos 'pythonw' para executar sem exibir a janela preta do console (prompt de comando).
-    ' Se quiser ver o console para buscar erros, troque "pythonw" por "python".
-    caminhoPython = "pythonw"
+    ' Usa pyw -3 para garantir consistencia com o Python 3 padrao do sistema.
+    caminhoPython = "pyw -3"
     
     ' Monta o comando completo com aspas em volta do caminho do script para evitar problemas com espaços
     comandoExecucao = caminhoPython & " """ & caminhoScript & """"

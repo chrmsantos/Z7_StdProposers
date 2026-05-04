@@ -16,24 +16,35 @@ Z7_StdProposers is an advanced, robust VBA macro project designed exclusively fo
 
 ## 🏗️ Architecture
 
-The project has been scaled into 7 robust, interoperable VBA modules located inside the `source/main/` directory:
+The VBA codebase is currently consolidated into 4 main modules in `source/main/`:
 
-- `ModConfig.bas`: Central system configs, user-defined state structures (`UDTs`), and UI view states.
-- `ModCore.bas`: Cache pipelines, structural heuristics, and validation checks.
-- `ModMain.bas`: Macro entry points (`PadronizarDocumentoMain`, `concluir`) exposed to the Word Ribbon/UI.
-- `ModProcess.bas`: The main engine applying text formats, title alignments, space normalizations, and explicit character formats.
-- `ModMedia.bas`: Image tracking, indentation overrides for bulleted lists, and media caching mechanisms.
-- `ModSystem.bas`: Telemetry mapping, OS-level progress bars, fast backups, and unhandled-exception recovery logic.
-- `ModUtils.bas`: Stateless path logic, general IO, and strictly safe COM object wrappers.
+- `Mod1Infrastructure.bas`: Constants, global state, cross-cutting helpers, paths, backup/system integrations.
+- `Mod2Engine.bas`: Structural detection heuristics, paragraph cache, image/list preservation routines.
+- `Mod3Pipeline.bas`: Core formatting pipeline (double-pass), normalization, cleanup, and logging primitives.
+- `Mod4Main.bas`: Public entrypoints/macros, orchestration, integration with engine/pipeline and Gemini helpers.
+
+The repository also contains a Python integration package in `Z7_GrammarProp/` for Gemini-based grammar correction and chat utilities.
 
 ## 🚀 Installation & Usage
 
 1. Open Microsoft Word.
 2. Launch the **Visual Basic for Applications (VBA) Editor** (`ALT` + `F11`).
-3. Import the 7 `.bas` files found in the `source/main/` folder into your `Normal.dotm` or dedicated Document Template.
+3. Import the `.bas` files found in the `source/main/` folder into your `Normal.dotm` or dedicated Document Template.
 4. Go to `Debug -> Compile Project` to ensure your Word environment resolves the inter-module Public references.
 5. Create a Ribbon Button or Quick Access Toolbar shortcut pointing to the `PadronizarDocumentoMain` macro.
 6. Click the macro while editing a document to execute the Z7_StdProposers standardized pipeline!
+
+## ✅ Automated Tests
+
+Test suites are under `tests/` and can be executed via:
+
+- `tests\Run-Tests.ps1 -TestSuite All -NoProgress`
+- `tests\Run-Tests.ps1 -TestSuite VBA -NoProgress`
+- `tests\Run-Tests.ps1 -TestSuite Encoding -NoProgress`
+- `tests\Run-Tests.ps1 -TestSuite Python -NoProgress`
+- `tests\Run-Tests.ps1 -TestSuite VBA-Logging -NoProgress`
+
+`tests\run-tests.cmd` is available as a convenience wrapper for Windows environments.
 
 ## 📜 License
 

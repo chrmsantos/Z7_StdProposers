@@ -3,5 +3,10 @@ build/
 dist/
 *.spec
 
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+
 # Logs de execucao
 source/logs/

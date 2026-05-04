@@ -4,7 +4,7 @@ Option Explicit
 ' =============================================================================
 ' Z7_STDPROPOSERS - Sistema de Padronizacao de Proposituras Legislativas
 ' =============================================================================
-' Versao: 3.0.0
+' Versao: 5.0.1-beta
 ' Data: 2026-01-12
 ' Licenca: GNU GPLv3 (https://www.gnu.org/licenses/gpl-3.0.html)
 ' Compatibilidade: Microsoft Word 2010+
@@ -634,6 +634,8 @@ Public Function InitializeLogging(doc As Document) As Boolean
     logBuffer = ""
     lastFlushTime = Now
     logFileHandle = 0
+    currentLogSessionId = Format(Now, "yyyymmddHHmmss")
+    currentOperationId = currentLogSessionId
 
     ' Cria arquivo de log com informacoes de contexto usando UTF-8
     Dim headerText As String
@@ -642,7 +644,8 @@ Public Function InitializeLogging(doc As Document) As Boolean
     headerText = headerText & String(80, "=") & vbCrLf & vbCrLf
     headerText = headerText & "[SESSAO]" & vbCrLf
     headerText = headerText & "  Inicio: " & Format(Now, "dd/mm/yyyy HH:mm:ss") & vbCrLf
-    headerText = headerText & "  ID: " & Format(Now, "yyyymmddHHmmss") & vbCrLf & vbCrLf
+    headerText = headerText & "  ID: " & currentLogSessionId & vbCrLf
+    headerText = headerText & "  Operacao: " & currentOperationId & vbCrLf & vbCrLf
     headerText = headerText & "[AMBIENTE]" & vbCrLf
     headerText = headerText & "  Usuario: " & Environ("USERNAME") & vbCrLf
     headerText = headerText & "  Computador: " & Environ("COMPUTERNAME") & vbCrLf
@@ -672,6 +675,8 @@ Public Function InitializeLogging(doc As Document) As Boolean
     loggingEnabled = True
     InitializeLogging = True
 
+    LogMessage "Logging inicializado com sucesso", LOG_LEVEL_INFO
+
     Exit Function
 
 ErrorHandler:
@@ -693,6 +698,7 @@ Public Sub LogMessage(message As String, Optional level As Long = LOG_LEVEL_INFO
     Dim formattedMessage As String
     Dim timeStamp As String
     Dim elapsedTime As String
+    Dim operationId As String
 
     ' Calcula tempo decorrido desde inicio
     If executionStartTime > 0 Then
@@ -724,7 +730,9 @@ Public Sub LogMessage(message As String, Optional level As Long = LOG_LEVEL_INFO
 
     ' Formata mensagem com timestamp, tempo decorrido e nivel
     timeStamp = Format(Now, "HH:mm:ss.") & Format((Timer * 1000) Mod 1000, "000")
-    formattedMessage = timeStamp & " [" & elapsedTime & "] " & levelText & " " & levelPrefix & " " & message
+    operationId = currentOperationId
+    If Len(operationId) = 0 Then operationId = "N/A"
+    formattedMessage = timeStamp & " [" & elapsedTime & "] [op=" & operationId & "] " & levelText & " " & levelPrefix & " " & message
 
     ' Debug mode output para console VBA
     If DEBUG_MODE Then
@@ -732,7 +740,7 @@ Public Sub LogMessage(message As String, Optional level As Long = LOG_LEVEL_INFO
     End If
 
     ' Buffer para reduzir I/O quando nao for erro critico
-    If level = LOG_LEVEL_ERROR Or Len(logBuffer) > 4096 Or (Now - lastFlushTime) > (5 / 86400) Then
+    If level = LOG_LEVEL_ERROR Or Len(logBuffer) > 4096 Or (Now - lastFlushTime) > (LOG_BUFFER_FLUSH_SECONDS / 86400) Then
         ' Escreve imediatamente: erros, buffer cheio (>4KB), ou 5+ segundos desde ultimo flush
         FlushLogBuffer
 
@@ -811,6 +819,25 @@ Public Sub LogMetric(metricName As String, value As Variant, Optional unit As St
     msg = "?? " & metricName & ": " & CStr(value)
     If Len(unit) > 0 Then msg = msg & " " & unit
     LogMessage msg, LOG_LEVEL_INFO
+End Sub
+
+Public Sub LogContextSnapshot(doc As Document, contextName As String)
+    On Error GoTo ErrorHandler
+
+    If Not loggingEnabled Then Exit Sub
+    If doc Is Nothing Then Exit Sub
+
+    LogSection "SNAPSHOT - " & contextName
+    LogMetric "Paragrafos", doc.Paragraphs.count
+    LogMetric "Paginas", doc.ComputeStatistics(wdStatisticPages)
+    LogMetric "Caracteres", SafeGetCharacterCount(doc.Range)
+    LogMetric "Protecao", GetProtectionType(doc)
+    LogMetric "SomenteLeitura", IIf(doc.ReadOnly, "SIM", "NAO")
+    LogMetric "DocumentoSalvo", IIf(doc.Saved, "SIM", "NAO")
+    Exit Sub
+
+ErrorHandler:
+    LogMessage "Falha ao coletar snapshot de contexto: " & Err.Description, LOG_LEVEL_WARNING
 End Sub
 
 Public Sub SafeFinalizeLogging()

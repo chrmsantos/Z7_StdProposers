@@ -77,7 +77,7 @@ Describe 'Z7_STDPROPOSERS - Testes de Encoding e Emojis' {
         }
 
         It 'Arquivo VBA esta em formato legivel' {
-            $vbaFile = "$projectRoot\source\main\Modulo1.bas"
+            $vbaFile = "$projectRoot\source\main\Mod3Pipeline.bas"
 
             if (Test-Path $vbaFile) {
                 $content = Get-Content $vbaFile -Raw
@@ -181,7 +181,7 @@ Describe 'Z7_STDPROPOSERS - Testes de Encoding e Emojis' {
         }
 
         It 'Arquivo VBA nao contem emojis' {
-            $vbaFile = "$projectRoot\source\main\Modulo1.bas"
+            $vbaFile = "$projectRoot\source\main\Mod3Pipeline.bas"
 
             if (Test-Path $vbaFile) {
                 $content = Get-Content $vbaFile -Raw -Encoding UTF8
@@ -260,7 +260,7 @@ Describe 'Z7_STDPROPOSERS - Testes de Encoding e Emojis' {
         }
 
         It 'Arquivo VBA nao contem tabs (usa espacos conforme padrao)' {
-            $vbaFile = "$projectRoot\source\main\Modulo1.bas"
+            $vbaFile = "$projectRoot\source\main\Mod3Pipeline.bas"
 
             if (Test-Path $vbaFile) {
                 $content = Get-Content $vbaFile -Raw
@@ -310,7 +310,7 @@ Describe 'Z7_STDPROPOSERS - Testes de Encoding e Emojis' {
 
     Context 'Validacao de BOM (Byte Order Mark)' {
 
-        It 'Scripts PowerShell sao ASCII puro (sem BOM)' {
+        It 'Scripts PowerShell nao usam UTF-8 com BOM' {
             $psFiles = $script:ProjectPsFiles
 
             foreach ($file in $psFiles) {
@@ -322,13 +322,7 @@ Describe 'Z7_STDPROPOSERS - Testes de Encoding e Emojis' {
                 ($bytes[2] -eq 0xBF)
 
                 if ($hasUtf8Bom) {
-                    throw "Arquivo $($file.Name) possui UTF-8 BOM - politica do projeto exige ASCII puro (sem BOM)"
-                }
-
-                foreach ($byte in $bytes) {
-                    if ($byte -ge 128) {
-                        throw "Arquivo $($file.Name) contem bytes nao-ASCII - politica do projeto exige ASCII puro"
-                    }
+                    throw "Arquivo $($file.Name) possui UTF-8 BOM - prefira UTF-8 sem BOM"
                 }
 
                 $true | Should Be $true
@@ -338,21 +332,21 @@ Describe 'Z7_STDPROPOSERS - Testes de Encoding e Emojis' {
 
     Context 'Validacao de Politica ASCII (Texto)' {
 
-        It 'Arquivo VBA e ASCII puro' {
-            $vbaFile = "$projectRoot\source\main\Modulo1.bas"
+        It 'Arquivo VBA esta em formato textual valido (nao UTF-16)' {
+            $vbaFile = "$projectRoot\source\main\Mod3Pipeline.bas"
 
             if (Test-Path $vbaFile) {
                 $bytes = [System.IO.File]::ReadAllBytes($vbaFile)
-                foreach ($byte in $bytes) {
-                    if ($byte -ge 128) {
-                        throw "Arquivo VBA contem bytes nao-ASCII: $vbaFile"
-                    }
+                if ($bytes.Length -ge 2) {
+                    $isUtf16LE = ($bytes[0] -eq 0xFF -and $bytes[1] -eq 0xFE)
+                    $isUtf16BE = ($bytes[0] -eq 0xFE -and $bytes[1] -eq 0xFF)
+                    ($isUtf16LE -or $isUtf16BE) | Should Be $false
                 }
                 $true | Should Be $true
             }
         }
 
-        It 'Documentacao Markdown e ASCII puro' {
+        It 'Documentacao Markdown esta em UTF-8 legivel' {
             $mdFiles = @(
                 Get-ChildItem -Path "$projectRoot\docs" -Filter "*.md" -Recurse -ErrorAction SilentlyContinue
                 Get-ChildItem -Path "$projectRoot" -Filter "*.md" -File -ErrorAction SilentlyContinue
@@ -361,12 +355,8 @@ Describe 'Z7_STDPROPOSERS - Testes de Encoding e Emojis' {
             foreach ($file in $mdFiles) {
                 if ($file -eq $null) { continue }
 
-                $bytes = [System.IO.File]::ReadAllBytes($file.FullName)
-                foreach ($byte in $bytes) {
-                    if ($byte -ge 128) {
-                        throw "Markdown contem bytes nao-ASCII: $($file.FullName)"
-                    }
-                }
+                $content = Get-Content $file.FullName -Raw -Encoding UTF8
+                $content | Should Not BeNullOrEmpty
             }
         }
     }

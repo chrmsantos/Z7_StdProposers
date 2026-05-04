@@ -1,15 +1,27 @@
 $ErrorActionPreference = "Stop"
-$pythonPath = "C:\Users\csantos\AppData\Local\Programs\Python\Python314\python.exe"
+$PSNativeCommandUseErrorActionPreference = $false
 $pyinstallerPath = "C:\Users\csantos\AppData\Local\Programs\Python\Python314\Scripts\pyinstaller.exe"
 
+function Invoke-PyInstaller {
+	param(
+		[Parameter(Mandatory = $true)]
+		[string]$ScriptName
+	)
+
+	$process = Start-Process -FilePath $pyinstallerPath -ArgumentList @("--onefile", "--noconsole", $ScriptName) -NoNewWindow -Wait -PassThru
+	if ($process.ExitCode -ne 0) {
+		throw "Falha ao compilar $ScriptName (exit code: $($process.ExitCode))."
+	}
+}
+
 Write-Host "Compilando correct_grammar.py..."
-& $pyinstallerPath --onefile --noconsole correct_grammar.py
+Invoke-PyInstaller -ScriptName "correct_grammar.py"
 
 Write-Host "Compilando config_prompt.py..."
-& $pyinstallerPath --onefile --noconsole config_prompt.py
+Invoke-PyInstaller -ScriptName "config_prompt.py"
 
 Write-Host "Compilando chat_ia.py..."
-& $pyinstallerPath --onefile --noconsole chat_ia.py
+Invoke-PyInstaller -ScriptName "chat_ia.py"
 
 Write-Host "Movendo os executáveis para a raiz de Z7_GrammarProp..."
 Move-Item -Path "dist\correct_grammar.exe" -Destination ".\correct_grammar.exe" -Force

@@ -7,13 +7,18 @@ from pathlib import Path
 import win32com.client
 import win32crypt
 import google.generativeai as genai
+from z7_logging import configure_component_logger, log_exception
+
+LOGGER = configure_component_logger("chat_ia")
 
 # ==========================================
 # Funções de Configuração e Chave
 # ==========================================
 def get_api_key(root_for_dialog=None):
+    LOGGER.info("Loading API key for chat session")
     user_profile = os.environ.get('USERPROFILE')
     if not user_profile:
+        LOGGER.error("USERPROFILE env var not found")
         return None
         
     key_dir = Path(user_profile) / 'AppData' / 'Local' / 'Z7' / 'Tmp' / 'StdProposers'
@@ -24,9 +29,10 @@ def get_api_key(root_for_dialog=None):
             with open(key_file, 'rb') as f:
                 encrypted_key = f.read()
             _, decrypted_key = win32crypt.CryptUnprotectData(encrypted_key, None, None, None, 0)
+            LOGGER.info("API key loaded from encrypted file")
             return decrypted_key.decode('utf-8')
-        except Exception:
-            pass
+        except Exception as e:
+            log_exception(LOGGER, "Failed to decrypt API key", e)
             
     api_key = simpledialog.askstring(
         "Z7 StdProposers", 
@@ -35,6 +41,7 @@ def get_api_key(root_for_dialog=None):
     )
     
     if not api_key or not api_key.strip():
+        LOGGER.warning("User did not provide API key")
         return None
         
     api_key = api_key.strip()
@@ -44,8 +51,9 @@ def get_api_key(root_for_dialog=None):
         key_dir.mkdir(parents=True, exist_ok=True)
         with open(key_file, 'wb') as f:
             f.write(encrypted_key)
-    except Exception:
-        pass
+        LOGGER.info("API key encrypted and persisted")
+    except Exception as e:
+        log_exception(LOGGER, "Failed to persist API key", e)
         
     return api_key
 
@@ -64,8 +72,8 @@ def load_theme():
             with open(theme_file, 'r', encoding='utf-8') as f:
                 config = json.load(f)
                 return config.get('theme', 'light')
-        except Exception:
-            pass
+        except Exception as e:
+            log_exception(LOGGER, "Failed to load theme config", e)
     return 'light'
 
 def save_theme(theme_mode):
@@ -74,14 +82,16 @@ def save_theme(theme_mode):
         try:
             with open(theme_file, 'w', encoding='utf-8') as f:
                 json.dump({'theme': theme_mode}, f)
-        except Exception:
-            pass
+            LOGGER.info("Theme saved: %s", theme_mode)
+        except Exception as e:
+            log_exception(LOGGER, "Failed to save theme config", e)
 
 # ==========================================
 # Classe Principal do Chat
 # ==========================================
 class ChatApp:
     def __init__(self, root):
+        LOGGER.info("Initializing ChatApp UI")
         self.root = root
         self.root.title("Chat com a IA - Z7 StdProposers")
         self.root.geometry("800x700")
@@ -195,6 +205,7 @@ class ChatApp:
         try:
             api_key = get_api_key(self.root)
             if not api_key:
+                LOGGER.error("Chat initialization aborted: missing API key")
                 self.root.after(0, lambda: self.status_lbl.config(text="Erro: Chave API ausente."))
                 return
                 
@@ -205,17 +216,21 @@ class ChatApp:
                 doc_text = word.ActiveDocument.Content.Text
                 if len(doc_text) > 150000:
                     doc_text = doc_text[:150000] # Limita tamanho pra segurança
+                LOGGER.info("Loaded Word active document context for chat")
             except Exception as e:
+                log_exception(LOGGER, "Failed to load Word document context", e)
                 doc_text = "Nenhum documento ativo ou erro ao obter texto do Word."
                 
             system_instruction = f"Você é um assistente especialista em legislação prestativo e polido. Use o seguinte texto do documento ativo no Word como contexto principal para responder às dúvidas do usuário:\n\n{doc_text}"
             
             model = genai.GenerativeModel('gemini-3.1-pro-preview', system_instruction=system_instruction)
             self.chat_session = model.start_chat(history=[])
+            LOGGER.info("Chat session started")
             
             self.root.after(0, self._on_ai_ready)
             
         except Exception as e:
+            log_exception(LOGGER, "Failed to initialize chat AI", e)
             self.root.after(0, lambda: self.status_lbl.config(text="Erro na inicialização."))
             self.root.after(0, lambda: self.append_message("AI", f"Erro crítico: {str(e)}"))
 
@@ -225,10 +240,12 @@ class ChatApp:
 
     def send_message(self):
         if self.is_generating or not self.chat_session:
+            LOGGER.info("Send skipped: generating=%s session_ready=%s", self.is_generating, self.chat_session is not None)
             return
             
         user_msg = self.input_text.get("1.0", tk.END).strip()
         if not user_msg:
+            LOGGER.info("Send skipped: empty message")
             return
             
         self.input_text.delete("1.0", tk.END)
@@ -242,9 +259,11 @@ class ChatApp:
 
     def _send_message_thread(self, user_msg):
         try:
+            LOGGER.info("Sending message to Gemini chat")
             response = self.chat_session.send_message(user_msg)
             reply = response.text
         except Exception as e:
+            log_exception(LOGGER, "Chat message request failed", e)
             reply = f"Erro de comunicação: {str(e)}"
             
         self.root.after(0, self._on_message_received, reply)

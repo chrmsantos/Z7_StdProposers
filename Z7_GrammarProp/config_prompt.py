@@ -3,6 +3,9 @@ import json
 import tkinter as tk
 from tkinter import messagebox
 from pathlib import Path
+from z7_logging import configure_component_logger, log_exception
+
+LOGGER = configure_component_logger("config_prompt")
 
 DEFAULT_PROMPT = """Você é um especialista em revisão de textos legislativos no idioma Português do Brasil.
 Abaixo está um trecho de uma propositura legislativa.
@@ -32,14 +35,16 @@ def load_prompt():
     if prompt_file and prompt_file.exists():
         try:
             with open(prompt_file, 'r', encoding='utf-8') as f:
+                LOGGER.info("Loaded custom prompt file")
                 return f.read()
-        except Exception:
-            pass
+        except Exception as e:
+            log_exception(LOGGER, "Failed to load custom prompt", e)
     return DEFAULT_PROMPT
 
 def save_prompt(text_widget, root):
     new_prompt = text_widget.get("1.0", tk.END).strip()
     if not new_prompt:
+        LOGGER.warning("Prompt save blocked because text is empty")
         messagebox.showwarning("Aviso", "O prompt não pode estar vazio.")
         return
 
@@ -48,9 +53,11 @@ def save_prompt(text_widget, root):
         try:
             with open(prompt_file, 'w', encoding='utf-8') as f:
                 f.write(new_prompt)
+            LOGGER.info("Prompt saved successfully")
             messagebox.showinfo("Sucesso", "Prompt configurado com sucesso!")
             root.destroy()
         except Exception as e:
+            log_exception(LOGGER, "Failed to save prompt", e)
             messagebox.showerror("Erro", f"Erro ao salvar o prompt:\n{e}")
 
 def restore_default(text_widget):
@@ -64,8 +71,8 @@ def load_theme():
             with open(theme_file, 'r', encoding='utf-8') as f:
                 config = json.load(f)
                 return config.get('theme', 'light')
-        except Exception:
-            pass
+        except Exception as e:
+            log_exception(LOGGER, "Failed to load theme config", e)
     return 'light'
 
 def save_theme(theme_mode):
@@ -74,8 +81,9 @@ def save_theme(theme_mode):
         try:
             with open(theme_file, 'w', encoding='utf-8') as f:
                 json.dump({'theme': theme_mode}, f)
-        except Exception:
-            pass
+            LOGGER.info("Theme saved: %s", theme_mode)
+        except Exception as e:
+            log_exception(LOGGER, "Failed to save theme config", e)
 
 class AppTheme:
     def __init__(self, root):
@@ -129,6 +137,7 @@ class AppTheme:
             self.widgets['toggle_btn'].configure(text=icon, bg=bg, fg=fg, activebackground=bg, activeforeground=fg)
 
 def main():
+    LOGGER.info("Starting prompt configuration UI")
     root = tk.Tk()
     root.title("Configurar Prompt do Gemini")
     root.geometry("700x600")

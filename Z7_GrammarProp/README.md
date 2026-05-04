@@ -4,10 +4,13 @@ Este projeto integra a API do Google Gemini ao Microsoft Word, permitindo a corr
 
 ## Arquivos do Projeto
 
-- `correct_grammar.py`: Script Python responsável por conectar-se ao Word aberto, ler o texto selecionado, enviar para a API do Gemini e substituir a seleção pela resposta corrigida.
-- `WordMacro.bas`: Módulo VBA contendo a macro que deverá ser importada no seu Microsoft Word.
-- `.env.example`: Modelo do arquivo que armazenará a sua chave da API de forma segura.
-- `install_requirements.bat`: Arquivo executável para instalar as dependências do Python com apenas um duplo-clique.
+- `correct_grammar.py`: fluxo principal de correção gramatical para seleção ativa no Word.
+- `config_prompt.py`: interface para editar o prompt-base salvo localmente.
+- `chat_ia.py`: interface de chat com contexto do documento ativo no Word.
+- `z7_logging.py`: logger compartilhado entre os scripts Python.
+- `WordMacro.bas`: macro VBA para disparar a correção via Python (`pyw -3`).
+- `install_requirements.bat`: instalador de dependências com validação de `pywin32`.
+- `build_exe.ps1`: build dos executáveis com PyInstaller.
 
 ## Passos para Instalação
 
@@ -17,14 +20,17 @@ Este projeto integra a API do Google Gemini ao Microsoft Word, permitindo a corr
 
 ### 2. Configurando a Chave da API (Gemini)
 1. Acesse o [Google AI Studio](https://aistudio.google.com/app/apikey) e crie/obtenha uma Chave de API (API Key).
-2. Na pasta do projeto (`c:\Users\csantos\AppData\Local\Z7\Apps\Z7_GrammarProp`), renomeie o arquivo `.env.example` para `.env` (remova o `.example`).
-3. Abra o arquivo `.env` (pode ser com o Bloco de Notas) e substitua `sua_chave_api_aqui` pela chave que você copiou do site do Google. Salve o arquivo.
+2. Execute a macro de correção pela primeira vez: o sistema solicitará a chave via interface gráfica.
+3. A chave é criptografada com DPAPI do Windows e armazenada em:
+	- `%LOCALAPPDATA%\Z7\Tmp\StdProposers\gemini.key`
+
+Nenhum `.env` é necessário no fluxo atual.
 
 ### 3. Configurando a Macro no Microsoft Word
 1. Abra o Microsoft Word e crie ou abra um documento qualquer.
 2. Pressione as teclas `ALT + F11` para abrir o Editor do Visual Basic (VBA).
 3. No menu superior, vá em **Arquivo > Importar Arquivo...** (ou *File > Import File...*).
-4. Navegue até a pasta do projeto (`c:\Users\csantos\AppData\Local\Z7\Apps\Z7_GrammarProp`) e selecione o arquivo `WordMacro.bas`. 
+4. Navegue até a pasta do projeto (`c:\Users\csantos\AppData\Local\Z7\Apps\Z7_StdProposers\Z7_GrammarProp`) e selecione o arquivo `WordMacro.bas`.
 5. Feche o Editor do Visual Basic (pode fechar no X vermelho).
 
 ### 4. Adicionando um Botão à Interface (Faixa de Opções) do Word
@@ -43,3 +49,19 @@ Este projeto integra a API do Google Gemini ao Microsoft Word, permitindo a corr
 3. O ponteiro do mouse virará um ícone de carregamento e, instantes depois, o texto que você selecionou será substituído pela versão gramaticalmente corrigida pelo Gemini!
 
 > **Observação técnica:** A macro executa o Python em segundo plano usando `pythonw`. Portanto, não aparecerá nenhuma tela preta (console) enquanto a requisição estiver sendo feita.
+
+## Logs e Diagnóstico
+
+Os scripts Python escrevem logs estruturados (UTF-8) em:
+
+- `%LOCALAPPDATA%\Z7\Tmp\StdProposers\logs`
+
+Os logs incluem eventos de inicialização, integração com Word, chamadas ao Gemini e stack trace em caso de falha.
+
+## Build dos Executáveis
+
+Para recompilar os executáveis (`correct_grammar.exe`, `config_prompt.exe`, `chat_ia.exe`):
+
+1. Abra PowerShell na pasta `Z7_GrammarProp`.
+2. Execute: `./build_exe.ps1`
+3. O script compila com PyInstaller, move os `.exe` para a raiz da pasta e limpa artefatos temporários (`build`, `dist`, `*.spec`).

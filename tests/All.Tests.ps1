@@ -30,8 +30,11 @@ Describe 'Z7_STDPROPOSERS - Testes de Integridade' {
 
     Context 'VBA / BAS files' {
         $basFiles = Get-VbaFiles
-        It 'Existe ao menos um modulo monolitico' {
-            $basFiles | Where-Object Name -Match 'Modulo1\.bas' | Should Not BeNullOrEmpty
+        It 'Existe o conjunto de modulos principais' {
+            ($basFiles.Name -contains 'Mod1Infrastructure.bas') | Should Be $true
+            ($basFiles.Name -contains 'Mod2Engine.bas') | Should Be $true
+            ($basFiles.Name -contains 'Mod3Pipeline.bas') | Should Be $true
+            ($basFiles.Name -contains 'Mod4Main.bas') | Should Be $true
         }
 
         It 'Nao existam backups duplicados com mesmo tamanho' {
@@ -42,7 +45,7 @@ Describe 'Z7_STDPROPOSERS - Testes de Integridade' {
 
     Context 'Documentacao' {
         It 'Existem docs essenciais minimos' {
-            $expected = @('README.md','PRIVACY_POLICY.md','SECURITY.md','LGPD_ATESTADO.md','LICENSE','VERSION')
+            $expected = @('README.md','AI_CONTEXT.md','LICENSE','VERSION')
             foreach ($e in $expected) {
                 (Test-Path (Join-Path (Get-RepoRoot) $e)) | Should Be $true
             }
