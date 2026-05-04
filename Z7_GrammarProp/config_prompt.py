@@ -3,6 +3,7 @@ import json
 import tkinter as tk
 from tkinter import messagebox
 from pathlib import Path
+import win32crypt
 from z7_logging import configure_component_logger, log_exception
 
 LOGGER = configure_component_logger("config_prompt")
@@ -29,6 +30,39 @@ def get_theme_file_path():
     key_dir = Path(user_profile) / 'AppData' / 'Local' / 'Z7' / 'Tmp' / 'StdProposers'
     key_dir.mkdir(parents=True, exist_ok=True)
     return key_dir / 'theme_config.json'
+
+def load_api_key():
+    user_profile = os.environ.get('USERPROFILE')
+    if not user_profile:
+        return ""
+    key_file = Path(user_profile) / 'AppData' / 'Local' / 'Z7' / 'Tmp' / 'StdProposers' / 'gemini.key'
+    if key_file.exists():
+        try:
+            with open(key_file, 'rb') as f:
+                encrypted_key = f.read()
+            _, decrypted_key = win32crypt.CryptUnprotectData(encrypted_key, None, None, None, 0)
+            return decrypted_key.decode('utf-8')
+        except Exception as e:
+            log_exception(LOGGER, "Failed to decrypt API key", e)
+    return ""
+
+def save_api_key(api_key):
+    api_key = api_key.strip()
+    if not api_key:
+        return
+    user_profile = os.environ.get('USERPROFILE')
+    if not user_profile:
+        return
+    key_dir = Path(user_profile) / 'AppData' / 'Local' / 'Z7' / 'Tmp' / 'StdProposers'
+    key_file = key_dir / 'gemini.key'
+    try:
+        encrypted_key = win32crypt.CryptProtectData(api_key.encode('utf-8'), 'Z7_Gemini_Key', None, None, None, 0)
+        key_dir.mkdir(parents=True, exist_ok=True)
+        with open(key_file, 'wb') as f:
+            f.write(encrypted_key)
+        LOGGER.info("API key encrypted and persisted")
+    except Exception as e:
+        log_exception(LOGGER, "Failed to persist API key", e)
 
 def load_prompt():
     prompt_file = get_prompt_file_path()
@@ -69,7 +103,7 @@ def save_ai_model(model_name):
         except Exception as e:
             log_exception(LOGGER, "Failed to save model", e)
 
-def save_prompt(text_widget, root, model_var):
+def save_prompt(text_widget, root, model_var, api_var):
     new_prompt = text_widget.get("1.0", tk.END).strip()
     if not new_prompt:
         LOGGER.warning("Prompt save blocked because text is empty")
@@ -85,6 +119,9 @@ def save_prompt(text_widget, root, model_var):
             
             # Save the model
             save_ai_model(model_var.get())
+            
+            # Save the API key
+            save_api_key(api_var.get())
             
             messagebox.showinfo("Sucesso", "Configurações salvas com sucesso!")
             root.destroy()
@@ -166,6 +203,13 @@ class AppTheme:
             self.widgets['model_lbl'].configure(bg=bg, fg=fg)
         if 'model_dropdown' in self.widgets:
             self.widgets['model_dropdown'].configure(bg=text_bg, fg=fg, insertbackground=fg)
+
+        if 'api_frame' in self.widgets:
+            self.widgets['api_frame'].configure(bg=bg)
+        if 'api_lbl' in self.widgets:
+            self.widgets['api_lbl'].configure(bg=bg, fg=fg)
+        if 'api_entry' in self.widgets:
+            self.widgets['api_entry'].configure(bg=text_bg, fg=fg, insertbackground=fg)
             
         for btn in self.widgets.get('sec_btns', []):
             btn.configure(bg=btn_sec_bg, fg=btn_sec_fg, activebackground=btn_sec_hover, activeforeground=fg)
@@ -218,6 +262,23 @@ def main():
     model_entry = tk.Entry(model_frame, textvariable=model_var, font=("Segoe UI", 10), relief=tk.FLAT, bd=2)
     model_entry.pack(side=tk.LEFT, padx=10, fill=tk.X, expand=True)
     theme.widgets['model_dropdown'] = model_entry
+
+    # Chave de API
+    api_frame = tk.Frame(root)
+    api_frame.pack(fill=tk.X, padx=25, pady=(0, 10))
+    theme.widgets['api_frame'] = api_frame
+
+    api_lbl = tk.Label(api_frame, text="Chave de API:", font=("Segoe UI", 10, "bold"))
+    api_lbl.pack(side=tk.LEFT)
+    theme.widgets['api_lbl'] = api_lbl
+
+    api_var = tk.StringVar(root)
+    current_key = load_api_key()
+    api_var.set(current_key)
+
+    api_entry = tk.Entry(api_frame, textvariable=api_var, font=("Segoe UI", 10), relief=tk.FLAT, bd=2, show="*")
+    api_entry.pack(side=tk.LEFT, padx=10, fill=tk.X, expand=True)
+    theme.widgets['api_entry'] = api_entry
     
     frame = tk.Frame(root) # Borda sutil
     theme.widgets['border_frame'] = frame
@@ -237,7 +298,7 @@ def main():
     # Estilos de botão
     btn_font = ("Segoe UI", 10, "bold")
     
-    save_btn = tk.Button(btn_frame, text="Salvar Configuração", width=20, bg="#2563eb", fg="white", font=btn_font, relief=tk.FLAT, activebackground="#1d4ed8", activeforeground="white", cursor="hand2", command=lambda: save_prompt(text_area, root, model_var))
+    save_btn = tk.Button(btn_frame, text="Salvar Configuração", width=20, bg="#2563eb", fg="white", font=btn_font, relief=tk.FLAT, activebackground="#1d4ed8", activeforeground="white", cursor="hand2", command=lambda: save_prompt(text_area, root, model_var, api_var))
     save_btn.pack(side=tk.RIGHT, padx=25)
     
     cancel_btn = tk.Button(btn_frame, text="Cancelar", width=15, font=btn_font, relief=tk.FLAT, cursor="hand2", command=root.destroy)
