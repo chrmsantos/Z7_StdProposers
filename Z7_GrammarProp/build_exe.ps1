@@ -8,7 +8,7 @@ function Invoke-PyInstaller {
 		[string]$ScriptName
 	)
 
-	$process = Start-Process -FilePath $pyinstallerPath -ArgumentList @("--onefile", "--noconsole", $ScriptName) -NoNewWindow -Wait -PassThru
+	$process = Start-Process -FilePath $pyinstallerPath -ArgumentList @("--onefile", "--noconsole", "--clean", $ScriptName) -NoNewWindow -Wait -PassThru
 	if ($process.ExitCode -ne 0) {
 		throw "Falha ao compilar $ScriptName (exit code: $($process.ExitCode))."
 	}
