@@ -1,4 +1,6 @@
 #requires -Version 5.1
+[System.Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseDeclaredVarsMoreThanAssignments', '', Justification = 'script: scope variables are used in Pester It blocks')]
+param()
 Import-Module Pester -ErrorAction Stop
 . $PSScriptRoot\Helpers.ps1
 
@@ -9,14 +11,12 @@ Describe 'Z7_STDPROPOSERS - VBA Modular Architecture' {
         $script:modules = Get-ChildItem -Path $mainPath -Filter '*.bas' -File -ErrorAction Stop | Sort-Object Name
 
         $script:moduleNames = $script:modules | Select-Object -ExpandProperty Name
-        $null = $script:moduleNames  # referenced in It blocks
         $script:moduleContent = @{}
         foreach ($m in $script:modules) {
             $script:moduleContent[$m.Name] = Get-Content $m.FullName -Raw -Encoding UTF8
         }
 
         $script:allContent = ($script:moduleContent.Values) -join "`n"
-        $null = $script:allContent  # referenced in It blocks
     }
 
     Context 'Estrutura de modulos' {

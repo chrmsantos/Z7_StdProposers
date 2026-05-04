@@ -57,7 +57,6 @@ if ($TargetDocument -eq "Normal") {
         exit 1
     }
 } elseif ($TargetDocument -ne "") {
-} elseif ($TargetDocument -ne "") {
     try {
         $doc = $word.Documents.Item($TargetDocument)
     } catch {
@@ -91,21 +90,24 @@ Para habilitar:
 
 $components = $vbp.VBComponents
 
-# Remove modulos existentes e reimporta
+# Passagem 1: remove todos os modulos pre-existentes
+Write-Host "Removendo modulos pre-existentes..." -ForegroundColor Cyan
 foreach ($file in $Modules) {
     $moduleName = [System.IO.Path]::GetFileNameWithoutExtension($file)
-    $fullPath   = Join-Path $BasDir $file
-
-    # Remove se ja existir
     try {
         $existing = $components.Item($moduleName)
         $components.Remove($existing)
         Write-Host "  Removido: $moduleName" -ForegroundColor Yellow
     } catch {
-        # Nao existia, tudo bem
+        # Modulo nao existia, nada a remover
     }
+}
 
-    # Importa
+# Passagem 2: importa todos os modulos
+Write-Host "Importando modulos..." -ForegroundColor Cyan
+foreach ($file in $Modules) {
+    $moduleName = [System.IO.Path]::GetFileNameWithoutExtension($file)
+    $fullPath   = Join-Path $BasDir $file
     $components.Import($fullPath) | Out-Null
     Write-Host "  Importado: $moduleName  <-  $fullPath" -ForegroundColor Green
 }
