@@ -15,18 +15,21 @@ Este projeto integra a API do Google Gemini ao Microsoft Word, permitindo a corr
 ## Passos para Instalação
 
 ### 1. Preparando o Ambiente Python
+
 1. Certifique-se de ter o [Python](https://www.python.org/downloads/) instalado no seu computador e adicionado ao "PATH" do Windows.
 2. Dê um duplo-clique no arquivo `install_requirements.bat` e aguarde a finalização para que ele instale as bibliotecas (`google-generativeai`, `pywin32` e `python-dotenv`).
 
 ### 2. Configurando a Chave da API (Gemini)
+
 1. Acesse o [Google AI Studio](https://aistudio.google.com/app/apikey) e crie/obtenha uma Chave de API (API Key).
 2. Execute a macro de correção pela primeira vez: o sistema solicitará a chave via interface gráfica.
 3. A chave é criptografada com DPAPI do Windows e armazenada em:
-	- `%LOCALAPPDATA%\Z7\Tmp\StdProposers\gemini.key`
+    - `%LOCALAPPDATA%\Z7\Tmp\StdProposers\gemini.key`
 
 Nenhum `.env` é necessário no fluxo atual.
 
 ### 3. Configurando a Macro no Microsoft Word
+
 1. Abra o Microsoft Word e crie ou abra um documento qualquer.
 2. Pressione as teclas `ALT + F11` para abrir o Editor do Visual Basic (VBA).
 3. No menu superior, vá em **Arquivo > Importar Arquivo...** (ou *File > Import File...*).
@@ -34,6 +37,7 @@ Nenhum `.env` é necessário no fluxo atual.
 5. Feche o Editor do Visual Basic (pode fechar no X vermelho).
 
 ### 4. Adicionando um Botão à Interface (Faixa de Opções) do Word
+
 1. No Word, clique na guia **Arquivo** (File) e depois em **Opções** (Options) lá embaixo.
 2. Na janela que abrir, vá em **Personalizar Faixa de Opções** (Customize Ribbon).
 3. Do lado direito, encontre a guia onde quer que o botão apareça (por exemplo, na guia *Revisão* ou na *Página Inicial*) e clique em **Novo Grupo** (New Group). Você pode renomear esse grupo para algo como "IA".
@@ -44,6 +48,7 @@ Nenhum `.env` é necessário no fluxo atual.
 8. Clique em **OK**.
 
 ## Como Usar
+
 1. Selecione um trecho de texto no seu documento do Word que deseja revisar.
 2. Clique no botão "Corrigir com Gemini" que você acabou de adicionar na Faixa de Opções (ou rode a macro diretamente em *Exibir > Macros*).
 3. O ponteiro do mouse virará um ícone de carregamento e, instantes depois, o texto que você selecionou será substituído pela versão gramaticalmente corrigida pelo Gemini!

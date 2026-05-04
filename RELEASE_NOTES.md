@@ -40,7 +40,7 @@ novos conjuntos de testes automatizados e a correção de defeitos encontrados d
 ### Correções
 
 | Componente | Problema | Solução |
-|---|---|---|
+| --- | --- | --- |
 | `correct_grammar.py` | `ModuleNotFoundError: No module named 'win32com'` na inicialização | Try/except com diálogo GUI e fallback gracioso |
 | `build_exe.ps1` | Falhas falsas por saída em stderr do PyInstaller | Migrado para `Start-Process ... -Wait -PassThru` com verificação de exit code |
 | `tests/VBA.Tests.ps1` | Referências a `Modulo1.bas` (arquivo deletado) | Reescrito para arquitetura modular (Mod1–Mod4) |
@@ -62,7 +62,7 @@ novos conjuntos de testes automatizados e a correção de defeitos encontrados d
 ### Executáveis Recompilados
 
 | Arquivo | Tamanho |
-|---|---|
+| --- | --- |
 | `Z7_GrammarProp/correct_grammar.exe` | ~11.5 MB |
 | `Z7_GrammarProp/config_prompt.exe` | ~11.5 MB |
 | `Z7_GrammarProp/chat_ia.exe` | ~11.5 MB |

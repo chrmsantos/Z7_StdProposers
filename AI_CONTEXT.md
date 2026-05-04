@@ -5,6 +5,7 @@
 > Last updated: 2026-05-04 (docs synchronized with modular VBA architecture, Python logging layer, and modernized test suites).
 
 ## 1. Project Overview
+
 Z7_StdProposers is a Microsoft Word automation project for Brazilian legislative document standardization.
 
 The solution has two coordinated parts:
@@ -15,6 +16,7 @@ The solution has two coordinated parts:
 ## 2. Current Codebase Architecture
 
 ### 2.1 VBA (4 modules)
+
 The active VBA architecture is consolidated into four modules:
 
 - `Mod1Infrastructure.bas`: constants, global state, paths, safe wrappers, backup/system helpers.
@@ -23,6 +25,7 @@ The active VBA architecture is consolidated into four modules:
 - `Mod4Main.bas`: macro entrypoints (`PadronizarDocumentoMain`, public API helpers, Gemini integration bridge).
 
 ### 2.2 Python (Gemini integration)
+
 Main files in `Z7_GrammarProp/`:
 
 - `correct_grammar.py`: corrects selected text in Word.
@@ -34,6 +37,7 @@ Main files in `Z7_GrammarProp/`:
 ## 3. Operational Conventions
 
 ### A. Double-pass formatting pipeline
+
 The document formatter uses a two-pass strategy:
 
 1. Pass 1 normalizes and clears structural debris.
@@ -42,6 +46,7 @@ The document formatter uses a two-pass strategy:
 Pass 2 must run only when Pass 1 changed content (`documentDirty = True`).
 
 ### B. Structural heuristics
+
 Key anchors are inferred from text/format signatures:
 
 - Titulo and Ementa.
@@ -51,6 +56,7 @@ Key anchors are inferred from text/format signatures:
 - Anexo header/body.
 
 ### C. Index invalidation rule (critical)
+
 Any routine that deletes paragraphs must refresh structure indices before consuming global index pointers.
 
 Required pattern:
@@ -62,11 +68,13 @@ If removedCount > 0 Then IdentifyDocumentStructure doc
 Do not move this call above the deletion loop.
 
 ### D. UndoRecord safety rule
+
 Main flow must keep `StartCustomRecord` and `EndCustomRecord` paired across all exit paths.
 
 Current design in `Mod4Main.bas` routes failures through `CriticalErrorHandler -> GoTo CleanUp`, and `CleanUp` closes UndoRecord under guarded error handling.
 
 ### E. COM discipline rule
+
 Avoid per-character COM object churn (`Range.Characters(n)`) in hot loops. Prefer operating directly on `Range`.
 
 Example:
@@ -79,6 +87,7 @@ pRange.Delete
 ## 4. Logging and Observability
 
 ### 4.1 VBA logging
+
 VBA logging core is in `Mod3Pipeline.bas` (`InitializeLogging`, `LogMessage`, `SafeFinalizeLogging`).
 
 Current behavior includes:
@@ -95,6 +104,7 @@ Current snapshots are executed in `Mod4Main.bas` at:
 - Critical error path (`ERRO_CRITICO`).
 
 ### 4.2 Python logging
+
 Python scripts share `z7_logging.py` and write UTF-8 logs to:
 
 - `%LOCALAPPDATA%\Z7\Tmp\StdProposers\logs`
@@ -109,6 +119,7 @@ Log coverage includes:
 ## 5. Testing Model
 
 ### 5.1 Test runner
+
 `tests/Run-Tests.ps1` supports:
 
 - `All`
@@ -128,6 +139,7 @@ Log coverage includes:
 - `tests/Encoding.Tests.ps1`: encoding/line-ending policy checks (UTF-8 safe, CRLF warnings, no UTF-16).
 
 ### 5.3 Current baseline
+
 As of this update, `Run-Tests.ps1 -TestSuite All -NoProgress` passes.
 
 ## 6. Immediate Development Guidelines

@@ -48,7 +48,6 @@ Describe 'Z7_STDPROPOSERS - Testes de Encoding e Emojis' {
 
                 # Verifica UTF-8 sem BOM (compativel com UTF-8)
                 $content = Get-Content $file.FullName -Raw
-                $utf8Bytes = [System.Text.Encoding]::UTF8.GetBytes($content)
                 $isValidUtf8 = $true
 
                 ($isUtf8WithBom -or $isAscii -or $isValidUtf8) | Should Be $true
@@ -278,15 +277,6 @@ Describe 'Z7_STDPROPOSERS - Testes de Encoding e Emojis' {
 
             foreach ($file in $psFiles) {
                 $bytes = [System.IO.File]::ReadAllBytes($file.FullName)
-
-                # Verifica se tem pelo menos um CRLF
-                $hasCrlf = $false
-                for ($i = 0; $i -lt ($bytes.Length - 1); $i++) {
-                    if (($bytes[$i] -eq 0x0D) -and ($bytes[$i + 1] -eq 0x0A)) {
-                        $hasCrlf = $true
-                        break
-                    }
-                }
 
                 # Verifica se nao tem LF sozinho (Unix style)
                 $hasLfOnly = $false
