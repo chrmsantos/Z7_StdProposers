@@ -225,7 +225,20 @@ class ChatApp:
                 
             system_instruction = f"Você é um assistente especialista em legislação prestativo e polido. Use o seguinte texto do documento ativo no Word como contexto principal para responder às dúvidas do usuário:\n\n{doc_text}"
             
-            model = 'gemini-3.1-pro-preview'
+            # Check for custom model selection
+            model = 'gemini-3.1-pro-preview' # Default
+            try:
+                user_profile = os.environ.get('USERPROFILE')
+                if user_profile:
+                    model_file = Path(user_profile) / 'AppData' / 'Local' / 'Z7' / 'Tmp' / 'StdProposers' / 'selected_model.txt'
+                    if model_file.exists():
+                        with open(model_file, 'r', encoding='utf-8') as f:
+                            saved_model = f.read().strip()
+                            if saved_model:
+                                model = saved_model
+            except Exception as e:
+                log_exception(LOGGER, "Failed to load selected model for chat_ia", e)
+                
             self.chat_session = self.client.chats.create(
                 model=model,
                 config=types.GenerateContentConfig(system_instruction=system_instruction)

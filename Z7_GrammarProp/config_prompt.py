@@ -41,7 +41,35 @@ def load_prompt():
             log_exception(LOGGER, "Failed to load custom prompt", e)
     return DEFAULT_PROMPT
 
-def save_prompt(text_widget, root):
+def get_model_file_path():
+    user_profile = os.environ.get('USERPROFILE')
+    if not user_profile:
+        return None
+    key_dir = Path(user_profile) / 'AppData' / 'Local' / 'Z7' / 'Tmp' / 'StdProposers'
+    key_dir.mkdir(parents=True, exist_ok=True)
+    return key_dir / 'selected_model.txt'
+
+def load_ai_model():
+    model_file = get_model_file_path()
+    if model_file and model_file.exists():
+        try:
+            with open(model_file, 'r', encoding='utf-8') as f:
+                return f.read().strip()
+        except Exception as e:
+            log_exception(LOGGER, "Failed to load custom model", e)
+    return "gemini-2.5-flash"
+
+def save_ai_model(model_name):
+    model_file = get_model_file_path()
+    if model_file:
+        try:
+            with open(model_file, 'w', encoding='utf-8') as f:
+                f.write(model_name)
+            LOGGER.info(f"Model saved successfully: {model_name}")
+        except Exception as e:
+            log_exception(LOGGER, "Failed to save model", e)
+
+def save_prompt(text_widget, root, model_var):
     new_prompt = text_widget.get("1.0", tk.END).strip()
     if not new_prompt:
         LOGGER.warning("Prompt save blocked because text is empty")
@@ -54,11 +82,15 @@ def save_prompt(text_widget, root):
             with open(prompt_file, 'w', encoding='utf-8') as f:
                 f.write(new_prompt)
             LOGGER.info("Prompt saved successfully")
-            messagebox.showinfo("Sucesso", "Prompt configurado com sucesso!")
+            
+            # Save the model
+            save_ai_model(model_var.get())
+            
+            messagebox.showinfo("Sucesso", "Configurações salvas com sucesso!")
             root.destroy()
         except Exception as e:
-            log_exception(LOGGER, "Failed to save prompt", e)
-            messagebox.showerror("Erro", f"Erro ao salvar o prompt:\n{e}")
+            log_exception(LOGGER, "Failed to save config", e)
+            messagebox.showerror("Erro", f"Erro ao salvar:\n{e}")
 
 def restore_default(text_widget):
     text_widget.delete("1.0", tk.END)
@@ -128,6 +160,12 @@ class AppTheme:
             self.widgets['border_frame'].configure(bg=border)
         if 'text_area' in self.widgets:
             self.widgets['text_area'].configure(bg=text_bg, fg=fg, insertbackground=fg)
+        if 'model_frame' in self.widgets:
+            self.widgets['model_frame'].configure(bg=bg)
+        if 'model_lbl' in self.widgets:
+            self.widgets['model_lbl'].configure(bg=bg, fg=fg)
+        if 'model_dropdown' in self.widgets:
+            self.widgets['model_dropdown'].configure(bg=text_bg, fg=fg)
             
         for btn in self.widgets.get('sec_btns', []):
             btn.configure(bg=btn_sec_bg, fg=btn_sec_fg, activebackground=btn_sec_hover, activeforeground=fg)
@@ -164,6 +202,37 @@ def main():
     btn_frame = tk.Frame(root)
     theme.widgets['btn_frame'] = btn_frame
 
+    # Seleção de Modelo
+    model_frame = tk.Frame(root)
+    model_frame.pack(fill=tk.X, padx=25, pady=(0, 10))
+    theme.widgets['model_frame'] = model_frame
+
+    model_lbl = tk.Label(model_frame, text="Modelo de IA:", font=("Segoe UI", 10, "bold"))
+    model_lbl.pack(side=tk.LEFT)
+    theme.widgets['model_lbl'] = model_lbl
+
+    model_var = tk.StringVar(root)
+    current_model = load_ai_model()
+    
+    MODELS = [
+        "gemini-2.5-flash",
+        "gemini-2.5-pro",
+        "gemini-2.0-flash",
+        "gemini-2.0-pro-exp",
+        "gemini-1.5-flash",
+        "gemini-1.5-pro",
+    ]
+    
+    if current_model not in MODELS:
+        MODELS.append(current_model)
+        
+    model_var.set(current_model)
+
+    model_dropdown = tk.OptionMenu(model_frame, model_var, *MODELS)
+    model_dropdown.config(font=("Segoe UI", 10), relief=tk.FLAT, bd=1, highlightthickness=1)
+    model_dropdown.pack(side=tk.LEFT, padx=10)
+    theme.widgets['model_dropdown'] = model_dropdown
+    
     frame = tk.Frame(root) # Borda sutil
     theme.widgets['border_frame'] = frame
     
@@ -182,7 +251,7 @@ def main():
     # Estilos de botão
     btn_font = ("Segoe UI", 10, "bold")
     
-    save_btn = tk.Button(btn_frame, text="Salvar Configuração", width=20, bg="#2563eb", fg="white", font=btn_font, relief=tk.FLAT, activebackground="#1d4ed8", activeforeground="white", cursor="hand2", command=lambda: save_prompt(text_area, root))
+    save_btn = tk.Button(btn_frame, text="Salvar Configuração", width=20, bg="#2563eb", fg="white", font=btn_font, relief=tk.FLAT, activebackground="#1d4ed8", activeforeground="white", cursor="hand2", command=lambda: save_prompt(text_area, root, model_var))
     save_btn.pack(side=tk.RIGHT, padx=25)
     
     cancel_btn = tk.Button(btn_frame, text="Cancelar", width=15, font=btn_font, relief=tk.FLAT, cursor="hand2", command=root.destroy)

@@ -149,11 +149,24 @@ Retorne APENAS o texto corrigido, sem adicionar nenhum comentário, explicação
 
     prompt = f"{base_prompt}\n\nTexto original:\n{text}\n"
 
+    # Check for custom model selection
+    model_name = 'gemini-2.0-flash' # Default
+    if user_profile:
+        try:
+            model_file = Path(user_profile) / 'AppData' / 'Local' / 'Z7' / 'Tmp' / 'StdProposers' / 'selected_model.txt'
+            if model_file.exists():
+                with open(model_file, 'r', encoding='utf-8') as f:
+                    saved_model = f.read().strip()
+                    if saved_model:
+                        model_name = saved_model
+        except Exception as e:
+            log_exception(LOGGER, "Failed to load selected model for correct_grammar", e)
+
     try:
-        # Faz a requisição para a API do Gemini
-        response = client.models.generate_content(model='gemini-2.0-flash', contents=prompt)
+        # Faz a requisiÃ§Ã£o para a API do Gemini
+        response = client.models.generate_content(model=model_name, contents=prompt)
         corrected_text = response.text.strip()
-        LOGGER.info("Gemini response received")
+        LOGGER.info("Gemini response received with model: %s", model_name)
         
         if corrected_text:
             # Preserva a formatação substituindo o texto da seleção
