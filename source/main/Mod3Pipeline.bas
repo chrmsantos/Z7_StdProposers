@@ -1,4 +1,4 @@
-﻿Option Explicit
+Option Explicit
 
 ' Mod3Pipeline.bas
 ' =============================================================================
@@ -3857,14 +3857,16 @@ Public Function FormatDocumentTitle(doc As Document) As Boolean
     ' Verifica se e uma proposicao (para aplicar substituicao $NUMERO$/$ANO$)
     Dim isProposition As Boolean
     Dim firstWord As String
-    Dim cleanWord As String
 
     words = Split(paraText, " ")
     If UBound(words) >= 0 Then
         firstWord = LCase(Trim(words(0)))
-        ' Normaliza acentos para comparacao segura
-        cleanWord = Replace(Replace(Replace(firstWord, "Ã£", "a"), "Ã§", "c"), "Ãµ", "o")
-        If cleanWord = "indicacao" Or cleanWord = "requerimento" Or cleanWord = "mocao" Then
+        ' Compara diretamente com as formas acentuadas e nao-acentuadas
+        If firstWord = "indica" & Chr(231) & Chr(227) & "o" _
+        Or firstWord = "indicacao" _
+        Or firstWord = "requerimento" _
+        Or firstWord = "mo" & Chr(231) & Chr(227) & "o" _
+        Or firstWord = "mocao" Then
             isProposition = True
         End If
     End If
