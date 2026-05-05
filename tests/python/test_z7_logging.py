@@ -1,4 +1,4 @@
-﻿import logging
+import logging
 import os
 import tempfile
 import unittest
@@ -18,7 +18,7 @@ class TestZ7Logging(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             with mock.patch("z7_logging.get_logs_dir", return_value=Path(tmp)):
                 path = build_log_path("component.test")
-                self.assertTrue(path.name.startswith("component_test_"))
+                self.assertEqual(path.name, "component_test.log")
                 self.assertTrue(path.suffix == ".log")
 
     def test_configure_component_logger_creates_log_file(self):
@@ -33,7 +33,7 @@ class TestZ7Logging(unittest.TestCase):
                 for handler in logger.handlers:
                     handler.flush()
 
-                files = list(Path(tmp).glob("test_logger_*.log"))
+                files = list(Path(tmp).glob("test_logger*.log"))
                 self.assertEqual(len(files), 1)
                 content = files[0].read_text(encoding="utf-8")
                 self.assertIn("log-entry", content)

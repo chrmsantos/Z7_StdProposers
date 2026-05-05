@@ -1,5 +1,8 @@
-﻿Attribute VB_Name = "MacroGeminiGrammar"
+Attribute VB_Name = "MacroGeminiGrammar"
+Option Explicit
+
 Sub CorrigirGramaticaComGemini()
+    On Error GoTo ErrorHandler
     ' Macro para enviar o texto selecionado para correção via script Python
     ' usando a API do Gemini.
     
@@ -49,5 +52,10 @@ Sub CorrigirGramaticaComGemini()
     ' (Opcional: remova o comentário da linha abaixo para ter um popup de aviso).
     ' MsgBox "Correção finalizada!", vbInformation, "Revisor Gemini"
 
+    Exit Sub
+
+ErrorHandler:
+    Application.Cursor = wdCursorNormal
+    MsgBox "Ocorreu um erro ao executar a macro: " & Err.Description, vbCritical, "Erro de Execução"
 End Sub
 

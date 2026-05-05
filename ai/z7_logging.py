@@ -1,4 +1,5 @@
 import logging
+from logging.handlers import RotatingFileHandler
 import os
 from datetime import datetime
 from pathlib import Path
@@ -22,8 +23,7 @@ def get_logs_dir() -> Path:
 
 def build_log_path(component: str) -> Path:
     safe_component = "".join(ch if ch.isalnum() or ch in ("-", "_") else "_" for ch in component)
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    return get_logs_dir() / f"{safe_component}_{timestamp}.log"
+    return get_logs_dir() / f"{safe_component}.log"
 
 
 def configure_component_logger(component: str, level: int = logging.INFO) -> logging.Logger:
@@ -39,7 +39,8 @@ def configure_component_logger(component: str, level: int = logging.INFO) -> log
         datefmt="%Y-%m-%d %H:%M:%S",
     )
 
-    file_handler = logging.FileHandler(build_log_path(component), encoding="utf-8")
+    log_path = build_log_path(component)
+    file_handler = RotatingFileHandler(log_path, maxBytes=2 * 1024 * 1024, backupCount=3, encoding="utf-8")
     file_handler.setFormatter(formatter)
     logger.addHandler(file_handler)
 

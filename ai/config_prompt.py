@@ -15,7 +15,7 @@ Mantenha o tom formal, o jargão jurídico/legislativo e a estrutura da frase in
 Não adicione ponto final se o texto original não possuir um.
 Retorne APENAS o texto corrigido, sem adicionar nenhum comentário, explicação, formatação markdown ou aspas extras."""
 
-def get_prompt_file_path():
+def get_prompt_file_path() -> Path | None:
     user_profile = os.environ.get('USERPROFILE')
     if not user_profile:
         return None
@@ -23,7 +23,7 @@ def get_prompt_file_path():
     key_dir.mkdir(parents=True, exist_ok=True)
     return key_dir / 'gemini_prompt.txt'
 
-def get_theme_file_path():
+def get_theme_file_path() -> Path | None:
     user_profile = os.environ.get('USERPROFILE')
     if not user_profile:
         return None
@@ -31,7 +31,7 @@ def get_theme_file_path():
     key_dir.mkdir(parents=True, exist_ok=True)
     return key_dir / 'theme_config.json'
 
-def load_api_key():
+def load_api_key() -> str:
     user_profile = os.environ.get('USERPROFILE')
     if not user_profile:
         return ""
@@ -46,7 +46,7 @@ def load_api_key():
             log_exception(LOGGER, "Failed to decrypt API key", e)
     return ""
 
-def save_api_key(api_key):
+def save_api_key(api_key: str) -> None:
     api_key = api_key.strip()
     if not api_key:
         return
@@ -64,7 +64,7 @@ def save_api_key(api_key):
     except Exception as e:
         log_exception(LOGGER, "Failed to persist API key", e)
 
-def load_prompt():
+def load_prompt() -> str:
     prompt_file = get_prompt_file_path()
     if prompt_file and prompt_file.exists():
         try:
@@ -75,7 +75,7 @@ def load_prompt():
             log_exception(LOGGER, "Failed to load custom prompt", e)
     return DEFAULT_PROMPT
 
-def get_model_file_path():
+def get_model_file_path() -> Path | None:
     user_profile = os.environ.get('USERPROFILE')
     if not user_profile:
         return None
@@ -83,7 +83,7 @@ def get_model_file_path():
     key_dir.mkdir(parents=True, exist_ok=True)
     return key_dir / 'selected_model.txt'
 
-def load_ai_model():
+def load_ai_model() -> str:
     model_file = get_model_file_path()
     if model_file and model_file.exists():
         try:
@@ -93,7 +93,7 @@ def load_ai_model():
             log_exception(LOGGER, "Failed to load custom model", e)
     return "gemini-2.5-flash"
 
-def save_ai_model(model_name):
+def save_ai_model(model_name: str) -> None:
     model_file = get_model_file_path()
     if model_file:
         try:
@@ -103,7 +103,7 @@ def save_ai_model(model_name):
         except Exception as e:
             log_exception(LOGGER, "Failed to save model", e)
 
-def save_prompt(text_widget, root, model_var, api_var):
+def save_prompt(text_widget: tk.Text, root: tk.Tk, model_var: tk.StringVar, api_var: tk.StringVar) -> None:
     new_prompt = text_widget.get("1.0", tk.END).strip()
     if not new_prompt:
         LOGGER.warning("Prompt save blocked because text is empty")
@@ -129,11 +129,11 @@ def save_prompt(text_widget, root, model_var, api_var):
             log_exception(LOGGER, "Failed to save config", e)
             messagebox.showerror("Erro", f"Erro ao salvar:\n{e}")
 
-def restore_default(text_widget):
+def restore_default(text_widget: tk.Text) -> None:
     text_widget.delete("1.0", tk.END)
     text_widget.insert(tk.END, DEFAULT_PROMPT)
 
-def load_theme():
+def load_theme() -> str:
     theme_file = get_theme_file_path()
     if theme_file and theme_file.exists():
         try:
@@ -144,7 +144,7 @@ def load_theme():
             log_exception(LOGGER, "Failed to load theme config", e)
     return 'light'
 
-def save_theme(theme_mode):
+def save_theme(theme_mode: str) -> None:
     theme_file = get_theme_file_path()
     if theme_file:
         try:
@@ -155,17 +155,17 @@ def save_theme(theme_mode):
             log_exception(LOGGER, "Failed to save theme config", e)
 
 class AppTheme:
-    def __init__(self, root):
+    def __init__(self, root: tk.Tk) -> None:
         self.root = root
         self.mode = load_theme()
         self.widgets = {}
 
-    def toggle(self):
+    def toggle(self) -> None:
         self.mode = 'dark' if self.mode == 'light' else 'light'
         save_theme(self.mode)
         self.apply()
 
-    def apply(self):
+    def apply(self) -> None:
         if self.mode == 'dark':
             bg = "#1e1e1e"
             fg = "#e4e4e4"
@@ -218,7 +218,7 @@ class AppTheme:
             icon = "🌙 Modo Escuro" if self.mode == 'light' else "☀️ Modo Claro"
             self.widgets['toggle_btn'].configure(text=icon, bg=bg, fg=fg, activebackground=bg, activeforeground=fg)
 
-def main():
+def main() -> None:
     LOGGER.info("Starting prompt configuration UI")
     root = tk.Tk()
     root.title("Configurar Prompt do Gemini")

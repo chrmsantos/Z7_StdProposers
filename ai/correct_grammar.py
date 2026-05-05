@@ -27,7 +27,7 @@ except ModuleNotFoundError as e:
 
 import google.genai as genai
 
-def get_api_key():
+def get_api_key() -> str | None:
     LOGGER.info("Loading Gemini API key")
     # Define o caminho do arquivo de chave
     user_profile = os.environ.get('USERPROFILE')
@@ -94,7 +94,7 @@ def get_api_key():
         
     return api_key
 
-def main():
+def main() -> None:
     LOGGER.info("Starting grammar correction flow")
     
     try:

@@ -1,18 +1,18 @@
-﻿#requires -Version 5.1
+#requires -Version 5.1
 Import-Module Pester -ErrorAction Stop
 . $PSScriptRoot\Helpers.ps1
 
 Describe 'Z7_STDPROPOSERS - Python Logging and Test Harness' {
     It 'Tem modulo de logging compartilhado no Python' {
         $repoRoot = Get-RepoRoot
-        Test-Path (Join-Path $repoRoot 'ai' 'z7_logging.py') | Should Be $true
+        Test-Path "$repoRoot\ai\z7_logging.py" | Should Be $true
     }
 
     It 'Scripts Python principais usam o logger compartilhado' {
         $repoRoot = Get-RepoRoot
 
         foreach ($script in @('correct_grammar.py', 'config_prompt.py', 'chat_ia.py')) {
-            $content = Get-Content (Join-Path $repoRoot 'ai' $script) -Raw -Encoding UTF8
+            $content = Get-Content "$repoRoot\ai\$script" -Raw -Encoding UTF8
             $content | Should Match 'from z7_logging import configure_component_logger'
             $content | Should Match 'LOGGER = configure_component_logger'
         }
@@ -20,7 +20,7 @@ Describe 'Z7_STDPROPOSERS - Python Logging and Test Harness' {
 
     It 'Suite de testes unitarios Python de logging existe' {
         $repoRoot = Get-RepoRoot
-        Test-Path (Join-Path $repoRoot 'tests\python\test_z7_logging.py') | Should Be $true
+        Test-Path "$repoRoot\tests\python\test_z7_logging.py" | Should Be $true
     }
 
     It 'Teste unitario Python do logger executa com sucesso' {

@@ -4,10 +4,7 @@ import threading
 import tkinter as tk
 from tkinter import simpledialog, messagebox, scrolledtext
 from pathlib import Path
-import win32com.client
-import win32crypt
-import google.genai as genai
-from google.genai import types
+
 from z7_logging import configure_component_logger, log_exception
 
 LOGGER = configure_component_logger("chat_ia")
@@ -15,7 +12,7 @@ LOGGER = configure_component_logger("chat_ia")
 # ==========================================
 # Funções de Configuração e Chave
 # ==========================================
-def get_api_key(root_for_dialog=None):
+def get_api_key(root_for_dialog: tk.Tk | None = None) -> str | None:
     LOGGER.info("Loading API key for chat session")
     user_profile = os.environ.get('USERPROFILE')
     if not user_profile:
@@ -27,6 +24,7 @@ def get_api_key(root_for_dialog=None):
     
     if key_file.exists():
         try:
+            import win32crypt
             with open(key_file, 'rb') as f:
                 encrypted_key = f.read()
             _, decrypted_key = win32crypt.CryptUnprotectData(encrypted_key, None, None, None, 0)
@@ -58,7 +56,7 @@ def get_api_key(root_for_dialog=None):
         
     return api_key
 
-def get_theme_file_path():
+def get_theme_file_path() -> Path | None:
     user_profile = os.environ.get('USERPROFILE')
     if not user_profile:
         return None
@@ -66,7 +64,7 @@ def get_theme_file_path():
     key_dir.mkdir(parents=True, exist_ok=True)
     return key_dir / 'theme_config.json'
 
-def load_theme():
+def load_theme() -> str:
     theme_file = get_theme_file_path()
     if theme_file and theme_file.exists():
         try:
@@ -77,7 +75,7 @@ def load_theme():
             log_exception(LOGGER, "Failed to load theme config", e)
     return 'light'
 
-def save_theme(theme_mode):
+def save_theme(theme_mode: str) -> None:
     theme_file = get_theme_file_path()
     if theme_file:
         try:
@@ -91,7 +89,7 @@ def save_theme(theme_mode):
 # Classe Principal do Chat
 # ==========================================
 class ChatApp:
-    def __init__(self, root):
+    def __init__(self, root: tk.Tk) -> None:
         LOGGER.info("Initializing ChatApp UI")
         self.root = root
         self.root.title("Chat com a IA - Z7 StdProposers")
@@ -132,8 +130,9 @@ class ChatApp:
             
         self.init_ai()
 
-    def resize_word_window(self, screen_width, screen_height):
+    def resize_word_window(self, screen_width: int, screen_height: int) -> None:
         try:
+            import win32com.client
             try:
                 word = win32com.client.GetObject(Class="Word.Application")
             except Exception:
@@ -161,12 +160,12 @@ class ChatApp:
         except Exception as e:
             log_exception(LOGGER, "Failed to resize Word window", e)
         
-    def toggle_theme(self):
+    def toggle_theme(self) -> None:
         self.mode = 'dark' if self.mode == 'light' else 'light'
         save_theme(self.mode)
         self.apply_theme()
 
-    def apply_theme(self):
+    def apply_theme(self) -> None:
         if self.mode == 'dark':
             bg = "#1e1e1e"
             fg = "#e4e4e4"
@@ -202,7 +201,7 @@ class ChatApp:
         self.chat_area.tag_config("user_tag", font=("Segoe UI", 11, "bold"), foreground=user_tag_color)
         self.chat_area.tag_config("ai_tag", font=("Segoe UI", 11, "bold"), foreground=ai_tag_color)
 
-    def build_ui(self):
+    def build_ui(self) -> None:
         # Top Frame
         self.top_frame = tk.Frame(self.root)
         self.top_frame.pack(side=tk.TOP, fill=tk.X, pady=(15, 10), padx=20)
@@ -232,7 +231,7 @@ class ChatApp:
         self.send_btn = tk.Button(self.input_frame, text="Enviar", width=12, font=("Segoe UI", 11, "bold"), relief=tk.FLAT, cursor="hand2", command=self.send_message)
         self.send_btn.pack(side=tk.RIGHT, fill=tk.Y, padx=(15, 0))
 
-    def append_message(self, role, message):
+    def append_message(self, role: str, message: str) -> None:
         self.chat_area.config(state=tk.NORMAL)
         if role == "User":
             self.chat_area.insert(tk.END, "Você:\n", "user_tag")
@@ -244,20 +243,24 @@ class ChatApp:
         self.chat_area.see(tk.END)
         self.chat_area.config(state=tk.DISABLED)
 
-    def on_enter(self, event):
+    def on_enter(self, event: tk.Event) -> str:
         self.send_message()
         return "break"
         
-    def on_shift_enter(self, event):
+    def on_shift_enter(self, event: tk.Event) -> str:
         self.input_text.insert(tk.INSERT, "\n")
         return "break"
 
-    def init_ai(self):
+    def init_ai(self) -> None:
         # Inicialização em background para não travar a UI
         threading.Thread(target=self._init_ai_thread, daemon=True).start()
         
-    def _init_ai_thread(self):
+    def _init_ai_thread(self) -> None:
         try:
+            import win32com.client
+            import google.genai as genai
+            from google.genai import types
+            
             api_key = get_api_key(self.root)
             if not api_key:
                 LOGGER.error("Chat initialization aborted: missing API key")
@@ -323,11 +326,11 @@ class ChatApp:
                 self.root.after(0, lambda: self.status_lbl.config(text="Erro na inicialização."))
                 self.root.after(0, lambda: self.append_message("Sistema", f"Erro crítico: {str(e)}"))
 
-    def _on_ai_ready(self):
+    def _on_ai_ready(self) -> None:
         self.status_lbl.config(text="Pronto para conversar")
         self.append_message("AI", "Olá! Li o seu documento atual. Como posso ajudar?")
 
-    def send_message(self):
+    def send_message(self) -> None:
         if self.is_generating or not self.chat_session:
             LOGGER.info("Send skipped: generating=%s session_ready=%s", self.is_generating, self.chat_session is not None)
             return
@@ -346,7 +349,7 @@ class ChatApp:
         
         threading.Thread(target=self._send_message_thread, args=(user_msg,), daemon=True).start()
 
-    def _send_message_thread(self, user_msg):
+    def _send_message_thread(self, user_msg: str) -> None:
         try:
             LOGGER.info("Sending message to Gemini chat")
             response = self.chat_session.send_message(user_msg)
@@ -357,17 +360,12 @@ class ChatApp:
             
         self.root.after(0, self._on_message_received, reply)
 
-    def _on_message_received(self, reply):
+    def _on_message_received(self, reply: str) -> None:
         self.append_message("AI", reply)
         self.is_generating = False
         self.status_lbl.config(text="Pronto para conversar")
         self.send_btn.config(state=tk.NORMAL)
         self.input_text.focus_set()
 
-def main():
-    root = tk.Tk()
-    app = ChatApp(root)
-    root.mainloop()
-
-if __name__ == "__main__":
-    main()
+def main() -> None:
+    r
