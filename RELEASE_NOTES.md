@@ -1,4 +1,4 @@
-# Release Notes
+﻿# Release Notes
 
 ## v5.0.3-beta1 — 2026-05-04 — COM Invocation Hotfix
 
@@ -18,7 +18,7 @@ Esta versão contém uma correção crítica no script de importação `import_v
 
 ### Executáveis Recompilados
 
-Foram recompilados os executáveis na pasta `Z7_GrammarProp` (`correct_grammar.exe`, `config_prompt.exe`, `chat_ia.exe`).
+Foram recompilados os executáveis na pasta `ai` (`correct_grammar.exe`, `config_prompt.exe`, `chat_ia.exe`).
 
 ---
 
@@ -35,7 +35,7 @@ novos conjuntos de testes automatizados e a correção de defeitos encontrados d
 
 #### Python — Logging Estruturado (`z7_logging.py`)
 
-- Novo módulo compartilhado `Z7_GrammarProp/z7_logging.py` com:
+- Novo módulo compartilhado `ai/z7_logging.py` com:
   - `configure_component_logger(component, level)` — cria um logger com arquivo timestamped em `%USERPROFILE%\AppData\Local\Z7\Tmp\StdProposers\logs\`
   - `log_exception(logger, context, exc)` — registra exceções com traceback completo
   - Formato de linha: `YYYY-MM-DD HH:MM:SS.mmm | LEVEL | component | mensagem`
@@ -76,7 +76,7 @@ novos conjuntos de testes automatizados e a correção de defeitos encontrados d
 ### Documentação Atualizada
 
 - **`README.md`** — arquitetura de 4 módulos, comandos de teste por suite
-- **`Z7_GrammarProp/README.md`** — fluxo DPAPI (sem `.env`), invocação `pyw -3`, `z7_logging.py`, instruções de build
+- **`ai/README.md`** — fluxo DPAPI (sem `.env`), invocação `pyw -3`, `z7_logging.py`, instruções de build
 - **`AI_CONTEXT.md`** — reescrito com topologia de módulos atual, arquitetura de logging/testes, regras de manutenção
 
 ---
@@ -85,9 +85,9 @@ novos conjuntos de testes automatizados e a correção de defeitos encontrados d
 
 | Arquivo | Tamanho |
 | --- | --- |
-| `Z7_GrammarProp/correct_grammar.exe` | ~11.5 MB |
-| `Z7_GrammarProp/config_prompt.exe` | ~11.5 MB |
-| `Z7_GrammarProp/chat_ia.exe` | ~11.5 MB |
+| `ai/correct_grammar.exe` | ~11.5 MB |
+| `ai/config_prompt.exe` | ~11.5 MB |
+| `ai/chat_ia.exe` | ~11.5 MB |
 
 Compilados com PyInstaller 6.20.0 / Python 3.14.4.
 
@@ -95,7 +95,7 @@ Compilados com PyInstaller 6.20.0 / Python 3.14.4.
 
 ### Como Atualizar
 
-1. Substitua os arquivos `.exe` em `Z7_GrammarProp/`
+1. Substitua os arquivos `.exe` em `ai/`
 2. O VBA detecta a nova versão automaticamente via `GetLocalVersion()` e exibe aviso de atualização disponível
 
 ---
@@ -103,3 +103,4 @@ Compilados com PyInstaller 6.20.0 / Python 3.14.4.
 ### Versão Anterior
 
 `v5.0.0` — release estável anterior
+

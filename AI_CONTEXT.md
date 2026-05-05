@@ -1,4 +1,4 @@
-# Z7_STDPROPOSERS - AI Assistant Developer Context
+﻿# Z7_STDPROPOSERS - AI Assistant Developer Context
 
 > Note to AI Agents: read this document before modifying the VBA pipeline or Python integration.
 >
@@ -11,7 +11,7 @@ Z7_StdProposers is a Microsoft Word automation project for Brazilian legislative
 The solution has two coordinated parts:
 
 - VBA formatting engine in `source/main/`.
-- Python Gemini integration in `Z7_GrammarProp/`.
+- Python Gemini integration in `ai/`.
 
 ## 2. Current Codebase Architecture
 
@@ -26,7 +26,7 @@ The active VBA architecture is consolidated into four modules:
 
 ### 2.2 Python (Gemini integration)
 
-Main files in `Z7_GrammarProp/`:
+Main files in `ai/`:
 
 - `correct_grammar.py`: corrects selected text in Word.
 - `config_prompt.py`: UI for prompt editing.
@@ -155,7 +155,8 @@ As of this update, `Run-Tests.ps1 -TestSuite All -NoProgress` passes.
 ## 7. Build and Runtime Notes (Python)
 
 - Dependency install: `install_requirements.bat`.
-- Build executables: `Z7_GrammarProp/build_exe.ps1`.
+- Build executables: `ai/build_exe.ps1`.
 - Word macro launcher (`WordMacro.bas`) uses `pyw -3` and path fallback logic for script location.
 
 When changing runtime paths, update both VBA constants/macros and relevant docs together.
+

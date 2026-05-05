@@ -1,4 +1,4 @@
-# Z7_StdProposers
+﻿# Z7_StdProposers
 
 ## Sistema de Padronização de Proposituras Legislativas
 
@@ -23,7 +23,7 @@ The VBA codebase is currently consolidated into 4 main modules in `source/main/`
 - `Mod3Pipeline.bas`: Core formatting pipeline (double-pass), normalization, cleanup, and logging primitives.
 - `Mod4Main.bas`: Public entrypoints/macros, orchestration, integration with engine/pipeline and Gemini helpers.
 
-The repository also contains a Python integration package in `Z7_GrammarProp/` for Gemini-based grammar correction and chat utilities.
+The repository also contains a Python integration package in `ai/` for Gemini-based grammar correction and chat utilities.
 
 ## 🚀 Installation & Usage
 
@@ -49,3 +49,4 @@ Test suites are under `tests/` and can be executed via:
 ## 📜 License
 
 This project is licensed under the **GNU GPLv3** License. See the `LICENSE` file for more details.
+

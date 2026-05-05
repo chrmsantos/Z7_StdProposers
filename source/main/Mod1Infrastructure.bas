@@ -1,4 +1,4 @@
-Option Explicit
+﻿Option Explicit
 
 ' Mod1Config.bas
 '================================================================================
@@ -56,13 +56,13 @@ Public Const HEADER_IMAGE_TOP_MARGIN_CM As Double = 0.7
 Public Const HEADER_IMAGE_HEIGHT_RATIO As Double = 0.19
 
 ' Caminho para o executável de correcao gramatical Gemini
-Public Const GRAMMAR_SCRIPT_RELATIVE_PATH As String = "\AppData\Local\Z7\Apps\Z7_StdProposers\Z7_GrammarProp\correct_grammar.exe"
+Public Const GRAMMAR_SCRIPT_RELATIVE_PATH As String = "\AppData\Local\Z7\Apps\Z7_StdProposers\ai\correct_grammar.exe"
 
 ' Caminho para o executável de configuracao do prompt do Gemini
-Public Const PROMPT_CONFIG_SCRIPT_RELATIVE_PATH As String = "\AppData\Local\Z7\Apps\Z7_StdProposers\Z7_GrammarProp\config_prompt.exe"
+Public Const PROMPT_CONFIG_SCRIPT_RELATIVE_PATH As String = "\AppData\Local\Z7\Apps\Z7_StdProposers\ai\config_prompt.exe"
 
 ' Caminho para o executável de chat em tempo real com a IA
-Public Const CHAT_IA_SCRIPT_RELATIVE_PATH As String = "\AppData\Local\Z7\Apps\Z7_StdProposers\Z7_GrammarProp\chat_ia.exe"
+Public Const CHAT_IA_SCRIPT_RELATIVE_PATH As String = "\AppData\Local\Z7\Apps\Z7_StdProposers\ai\chat_ia.exe"
 
 '================================================================================
 ' CONSTANTES DE SISTEMA
@@ -1319,5 +1319,6 @@ Public Function GetClipboardData() As Variant
 ErrorHandler:
     GetClipboardData = Empty
 End Function
+
 
 

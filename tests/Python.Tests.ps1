@@ -5,14 +5,14 @@ Import-Module Pester -ErrorAction Stop
 Describe 'Z7_STDPROPOSERS - Python Logging and Test Harness' {
     It 'Tem modulo de logging compartilhado no Python' {
         $repoRoot = Get-RepoRoot
-        Test-Path (Join-Path $repoRoot 'Z7_GrammarProp' 'z7_logging.py') | Should Be $true
+        Test-Path (Join-Path $repoRoot 'ai' 'z7_logging.py') | Should Be $true
     }
 
     It 'Scripts Python principais usam o logger compartilhado' {
         $repoRoot = Get-RepoRoot
 
         foreach ($script in @('correct_grammar.py', 'config_prompt.py', 'chat_ia.py')) {
-            $content = Get-Content (Join-Path $repoRoot 'Z7_GrammarProp' $script) -Raw -Encoding UTF8
+            $content = Get-Content (Join-Path $repoRoot 'ai' $script) -Raw -Encoding UTF8
             $content | Should Match 'from z7_logging import configure_component_logger'
             $content | Should Match 'LOGGER = configure_component_logger'
         }
@@ -31,3 +31,4 @@ Describe 'Z7_STDPROPOSERS - Python Logging and Test Harness' {
         $output | Should Match 'OK'
     }
 }
+

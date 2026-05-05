@@ -1,4 +1,4 @@
-import logging
+﻿import logging
 import os
 import tempfile
 import unittest
@@ -6,7 +6,7 @@ from pathlib import Path
 from unittest import mock
 
 ROOT = Path(__file__).resolve().parents[2]
-PY_ROOT = ROOT / "Z7_GrammarProp"
+PY_ROOT = ROOT / "ai"
 if str(PY_ROOT) not in os.sys.path:
     os.sys.path.insert(0, str(PY_ROOT))
 
@@ -54,3 +54,4 @@ class TestZ7Logging(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+

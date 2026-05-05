@@ -786,6 +786,9 @@ Public Sub CorrigirGramaticaComGemini()
     ' Cria o objeto WScript.Shell
     Set objShell = CreateObject("WScript.Shell")
     
+    Application.StatusBar = "Carregando o assistente de IA... Isso pode levar alguns segundos."
+    DoEvents
+    
     ' Executa o comando de forma ASSÍNCRONA para não travar o Word
     objShell.Run comandoExecucao, 0, False
     
@@ -868,6 +871,9 @@ Public Sub ChatComGemini()
     
     ' Muda o ponteiro do mouse para indicar carregamento
     System.Cursor = wdCursorWait
+    
+    Application.StatusBar = "Carregando o chat interativo da IA... Isso pode levar alguns segundos."
+    DoEvents
     
     ' Executa o comando SEM aguardar a conclusao, pois e uma janela interativa
     objShell.Run comandoExecucao, 0, False
