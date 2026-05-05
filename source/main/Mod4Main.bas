@@ -775,24 +775,23 @@ Public Sub CorrigirGramaticaComGemini()
     ' Obtem o caminho do executável usando o caminho relativo configurado em Mod1Config
     caminhoScript = Environ("USERPROFILE") & GRAMMAR_SCRIPT_RELATIVE_PATH
     
+    If Dir(caminhoScript) = "" Then
+        MsgBox "Executável do Corretor Gramatical não encontrado em:" & vbCrLf & caminhoScript & vbCrLf & vbCrLf & "Por favor, recompile o projeto ou verifique a instalação.", vbCritical, "Erro de Arquivo"
+        Exit Sub
+    End If
+    
     ' Monta o comando completo com aspas em volta do caminho do executável
     comandoExecucao = """" & caminhoScript & """"
     
     ' Cria o objeto WScript.Shell
     Set objShell = CreateObject("WScript.Shell")
     
-    ' Muda o ponteiro do mouse para indicar carregamento
-    System.Cursor = wdCursorWait
-    
-    ' Executa o comando aguardando a conclusao
-    objShell.Run comandoExecucao, 0, True
-    
-    ' Retorna o ponteiro do mouse ao normal
-    System.Cursor = wdCursorNormal
+    ' Executa o comando de forma ASSÍNCRONA para não travar o Word
+    objShell.Run comandoExecucao, 0, False
     
     ' Opcionalmente exibe na status bar ou no log
-    Application.StatusBar = "Revisao Gemini finalizada!"
-    If loggingEnabled Then LogMessage "Revisao Gemini executada com sucesso.", LOG_LEVEL_INFO
+    Application.StatusBar = "Revisao Gemini iniciada em segundo plano..."
+    If loggingEnabled Then LogMessage "Revisao Gemini iniciada de forma assincrona.", LOG_LEVEL_INFO
     
     Exit Sub
     
@@ -855,6 +854,11 @@ Public Sub ChatComGemini()
     
     ' Obtem o caminho do executável usando o caminho relativo configurado em Mod1Infrastructure
     caminhoScript = Environ("USERPROFILE") & CHAT_IA_SCRIPT_RELATIVE_PATH
+    
+    If Dir(caminhoScript) = "" Then
+        MsgBox "Executável do Chat IA não encontrado em:" & vbCrLf & caminhoScript & vbCrLf & vbCrLf & "Por favor, recompile o projeto ou verifique a instalação.", vbCritical, "Erro de Arquivo"
+        Exit Sub
+    End If
     
     ' Monta o comando completo com aspas em volta do caminho do executável
     comandoExecucao = """" & caminhoScript & """"

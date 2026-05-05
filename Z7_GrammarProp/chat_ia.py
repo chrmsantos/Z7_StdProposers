@@ -95,9 +95,20 @@ class ChatApp:
         LOGGER.info("Initializing ChatApp UI")
         self.root = root
         self.root.title("Chat com a IA - Z7 StdProposers")
-        self.root.geometry("800x700")
-        self.root.minsize(600, 500)
+        
+        screen_width = self.root.winfo_screenwidth()
+        screen_height = self.root.winfo_screenheight()
+        
+        chat_width = screen_width // 4
+        chat_height = screen_height
+        chat_left = screen_width - chat_width
+        chat_top = 0
+        
+        self.root.geometry(f"{chat_width}x{chat_height}+{chat_left}+{chat_top}")
+        self.root.minsize(300, 500)
         self.root.attributes('-topmost', True)
+        
+        self.resize_word_window(screen_width, screen_height)
         
         self.mode = load_theme()
         self.client = None
@@ -107,6 +118,18 @@ class ChatApp:
         self.build_ui()
         self.apply_theme()
         self.init_ai()
+
+    def resize_word_window(self, screen_width, screen_height):
+        try:
+            word = win32com.client.Dispatch("Word.Application")
+            word.WindowState = 1  # wdWindowStateNormal
+            word.Left = 0
+            word.Top = 0
+            word.Width = screen_width * 3 // 4
+            word.Height = screen_height
+            LOGGER.info("Word window resized to 3/4 of screen")
+        except Exception as e:
+            log_exception(LOGGER, "Failed to resize Word window", e)
         
     def toggle_theme(self):
         self.mode = 'dark' if self.mode == 'light' else 'light'
@@ -214,7 +237,10 @@ class ChatApp:
             self.client = genai.Client(api_key=api_key)
             
             try:
-                word = win32com.client.Dispatch("Word.Application")
+                try:
+                    word = win32com.client.GetObject(Class="Word.Application")
+                except Exception:
+                    word = win32com.client.Dispatch("Word.Application")
                 doc_text = word.ActiveDocument.Content.Text
                 if len(doc_text) > 150000:
                     doc_text = doc_text[:150000] # Limita tamanho pra segurança
@@ -249,11 +275,27 @@ class ChatApp:
             
         except Exception as e:
             log_exception(LOGGER, "Failed to initialize chat AI", e)
-            self.root.after(0, lambda: self.status_lbl.config(text="Erro na inicialização."))
-            self.root.after(0, lambda: self.append_message("AI", f"Erro crítico: {str(e)}"))
+            
+            # Auto-reparo de chave caso seja um erro de autenticacao
+            error_msg = str(e).lower()
+            if "403" in error_msg or "401" in error_msg or "invalid api key" in error_msg or "api_key" in error_msg:
+                try:
+                    user_profile = os.environ.get('USERPROFILE')
+                    key_file = Path(user_profile) / 'AppData' / 'Local' / 'Z7' / 'Tmp' / 'StdProposers' / 'gemini.key'
+                    if key_file.exists():
+                        key_file.unlink()
+                        LOGGER.info("Invalid API key file deleted")
+                except Exception as del_e:
+                    pass
+                self.root.after(0, lambda: self.status_lbl.config(text="Erro: Chave Inválida. Reinicie."))
+                self.root.after(0, lambda: self.append_message("Sistema", "Sua chave da API é inválida ou expirou. O arquivo de chave foi deletado. Feche e abra o chat novamente para inserir uma nova chave."))
+            else:
+                self.root.after(0, lambda: self.status_lbl.config(text="Erro na inicialização."))
+                self.root.after(0, lambda: self.append_message("Sistema", f"Erro crítico: {str(e)}"))
 
     def _on_ai_ready(self):
         self.status_lbl.config(text="Pronto para conversar")
+        self.append_message("Sistema", "Aviso de Privacidade: O texto do seu documento foi enviado ao Google Gemini para servir de contexto. Certifique-se de que não há dados sigilosos.")
         self.append_message("AI", "Olá! Li o seu documento atual. Como posso ajudar?")
 
     def send_message(self):

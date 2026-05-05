@@ -96,36 +96,65 @@ def get_api_key():
 
 def main():
     LOGGER.info("Starting grammar correction flow")
-    api_key = get_api_key()
-    if not api_key:
-        LOGGER.warning("Aborting grammar flow because API key is unavailable")
-        return
-
-    # Cria o cliente da API do Gemini
-    client = genai.Client(api_key=api_key)
-    LOGGER.info("Gemini client configured")
-
+    
     try:
-        # Conecta ao aplicativo Word que já está em execução
-        word = win32com.client.Dispatch("Word.Application")
+        try:
+            word = win32com.client.GetObject(Class="Word.Application")
+        except Exception:
+            word = win32com.client.Dispatch("Word.Application")
         LOGGER.info("Connected to running Word instance")
     except Exception as e:
         log_exception(LOGGER, "Failed to connect to Word", e)
         root = tk.Tk()
         root.withdraw()
+        root.attributes('-topmost', True)
         messagebox.showerror("Z7 StdProposers - Erro", f"Erro ao conectar ao Word:\n{e}")
         return
 
-    # Pega o texto selecionado pelo usuário
-    selection = word.Selection
-    text = selection.Text.strip()
+    try:
+        selection = word.Selection
+        text = selection.Text.strip()
+    except Exception as e:
+        LOGGER.error("Erro ao obter selection: %s", str(e))
+        return
 
-    # Se nada estiver selecionado ou houver apenas espaços em branco, encerra
     if not text or len(text) < 2:
         LOGGER.info("Selection too short; nothing to process")
         return
 
-    # Lê o prompt configurado do arquivo, se existir
+    root = tk.Tk()
+    root.withdraw()
+    root.attributes('-topmost', True)
+    
+    # 1. Privacy Warning
+    if not messagebox.askokcancel(
+        "Aviso de Privacidade - Z7 StdProposers",
+        "O trecho selecionado será enviado para a API do Google Gemini para revisão gramatical.\n\n"
+        "Certifique-se de que não há dados sigilosos e que o uso está de acordo com as diretrizes do seu órgão.\n\n"
+        "Deseja continuar?",
+        parent=root
+    ):
+        LOGGER.info("User cancelled at privacy warning")
+        root.destroy()
+        return
+
+    api_key = get_api_key()
+    if not api_key:
+        LOGGER.warning("Aborting grammar flow because API key is unavailable")
+        root.destroy()
+        return
+
+    client = genai.Client(api_key=api_key)
+    LOGGER.info("Gemini client configured")
+
+    # Mostrar carregamento
+    loading = tk.Toplevel(root)
+    loading.title("Z7 StdProposers")
+    loading.geometry("300x100")
+    loading.attributes('-topmost', True)
+    tk.Label(loading, text="Consultando Google Gemini...\nPor favor, aguarde.", font=("Segoe UI", 10)).pack(expand=True)
+    loading.update()
+
     user_profile = os.environ.get('USERPROFILE')
     base_prompt = ""
     if user_profile:
@@ -136,7 +165,6 @@ def main():
                     base_prompt = f.read().strip()
                 LOGGER.info("Custom prompt loaded from file")
             except Exception:
-                LOGGER.warning("Unable to read custom prompt; falling back to default")
                 pass
                 
     if not base_prompt:
@@ -149,8 +177,7 @@ Retorne APENAS o texto corrigido, sem adicionar nenhum comentário, explicação
 
     prompt = f"{base_prompt}\n\nTexto original:\n{text}\n"
 
-    # Check for custom model selection
-    model_name = 'gemini-2.0-flash' # Default
+    model_name = 'gemini-2.0-flash'
     if user_profile:
         try:
             model_file = Path(user_profile) / 'AppData' / 'Local' / 'Z7' / 'Tmp' / 'StdProposers' / 'selected_model.txt'
@@ -159,30 +186,72 @@ Retorne APENAS o texto corrigido, sem adicionar nenhum comentário, explicação
                     saved_model = f.read().strip()
                     if saved_model:
                         model_name = saved_model
-        except Exception as e:
-            log_exception(LOGGER, "Failed to load selected model for correct_grammar", e)
+        except Exception:
+            pass
 
     try:
-        # Faz a requisiÃ§Ã£o para a API do Gemini
         response = client.models.generate_content(model=model_name, contents=prompt)
         corrected_text = response.text.strip()
         LOGGER.info("Gemini response received with model: %s", model_name)
-        
-        if corrected_text:
-            # Preserva a formatação substituindo o texto da seleção
-            selection.Text = corrected_text
-            LOGGER.info("Selection updated with corrected content")
-        else:
-            LOGGER.warning("Gemini returned empty response")
-            root = tk.Tk()
-            root.withdraw()
-            messagebox.showwarning("Z7 StdProposers - Aviso", "A API do Gemini retornou um texto vazio.")
-            
     except Exception as e:
+        loading.destroy()
         log_exception(LOGGER, "Gemini API request failed", e)
-        root = tk.Tk()
-        root.withdraw()
-        messagebox.showerror("Z7 StdProposers - Erro na API", f"Erro ao chamar a API do Gemini:\n{e}")
+        error_msg = str(e).lower()
+        if "403" in error_msg or "401" in error_msg or "invalid api key" in error_msg or "api_key" in error_msg:
+            try:
+                key_file = Path(user_profile) / 'AppData' / 'Local' / 'Z7' / 'Tmp' / 'StdProposers' / 'gemini.key'
+                if key_file.exists():
+                    key_file.unlink()
+            except Exception:
+                pass
+            messagebox.showerror("Z7 StdProposers - Erro na API", "Sua chave da API é inválida ou expirou. O arquivo de chave foi deletado.\nTente rodar a macro novamente para inserir uma nova chave.", parent=root)
+        else:
+            messagebox.showerror("Z7 StdProposers - Erro na API", f"Erro ao chamar a API do Gemini:\n{e}", parent=root)
+        root.destroy()
+        return
+
+    loading.destroy()
+
+    if not corrected_text:
+        messagebox.showwarning("Z7 StdProposers - Aviso", "A API do Gemini retornou um texto vazio.", parent=root)
+        root.destroy()
+        return
+
+    def apply_text():
+        selection.Text = corrected_text
+        root.destroy()
+
+    def copy_text():
+        root.clipboard_clear()
+        root.clipboard_append(corrected_text)
+        root.update()
+        messagebox.showinfo("Copiado", "Texto copiado para a Área de Transferência!", parent=result_window)
+        root.destroy()
+
+    def cancel_action():
+        root.destroy()
+
+    result_window = tk.Toplevel(root)
+    result_window.title("Revisão Concluída")
+    result_window.geometry("700x500")
+    result_window.attributes('-topmost', True)
+    result_window.protocol("WM_DELETE_WINDOW", cancel_action)
+    
+    tk.Label(result_window, text="Texto Sugerido:", font=("Segoe UI", 10, "bold")).pack(pady=(10, 5))
+    text_area = tk.Text(result_window, wrap=tk.WORD, height=15, font=("Segoe UI", 11))
+    text_area.pack(expand=True, fill=tk.BOTH, padx=15, pady=5)
+    text_area.insert(tk.END, corrected_text)
+    
+    btn_frame = tk.Frame(result_window)
+    btn_frame.pack(fill=tk.X, pady=15)
+    
+    tk.Button(btn_frame, text="Substituir no Word (Atenção: remove formatação rica)", 
+              command=apply_text, font=("Segoe UI", 9), fg="#b91c1c").pack(side=tk.LEFT, padx=15)
+              
+    tk.Button(btn_frame, text="Copiar para Área de Transferência", 
+              command=copy_text, font=("Segoe UI", 9, "bold")).pack(side=tk.RIGHT, padx=15)
+
+    root.mainloop()
 
 if __name__ == "__main__":
     main()
