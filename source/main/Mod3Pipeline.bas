@@ -4,7 +4,7 @@ Option Explicit
 ' =============================================================================
 ' Z7_STDPROPOSERS - Sistema de Padronizacao de Proposituras Legislativas
 ' =============================================================================
-' Versao: 5.0.1-beta
+' Versao: 6.2.1-beta1
 ' Data: 2026-01-12
 ' Licenca: GNU GPLv3 (https://www.gnu.org/licenses/gpl-3.0.html)
 ' Compatibilidade: Microsoft Word 2010+
@@ -420,7 +420,9 @@ Public Function DetectSpecialParagraph(cleanText As String, ByRef specialType As
     ElseIf textForAnalysis = JUSTIFICATIVA_TEXT Then
         specialType = "justificativa"
         DetectSpecialParagraph = True
-    ElseIf textForAnalysis = "vereador" Or textForAnalysis = "vereadora" Then
+    ElseIf textForAnalysis = "vereador" Or textForAnalysis = "vereadora" _
+        Or textForAnalysis = "presidente" Or textForAnalysis = "prefeito" Or textForAnalysis = "vicepresidente" _
+        Or textForAnalysis = "vice-presidente" Or textForAnalysis = "vice presidente" Then
         specialType = "vereador"
         DetectSpecialParagraph = True
     ElseIf Left(textForAnalysis, 17) = "diante do exposto" Then
@@ -2678,36 +2680,31 @@ Public Function InsertFooterStamp(doc As Document) As Boolean
             rngInitials.ParagraphFormat.alignment = wdAlignParagraphLeft
             rngInitials.InsertParagraphAfter
 
-            ' Insere "X-Y" centralizado (numero da pagina - total de paginas)
+            ' Insere "Pág. X de Y" centralizado (numero da pagina e total de paginas)
             Set rngPage = footer.Range.Paragraphs.Last.Range
-            rngPage.text = ""
             rngPage.Collapse Direction:=wdCollapseStart
+            rngPage.text = "Pág. "
+            rngPage.Collapse Direction:=wdCollapseEnd
 
             ' Campo PAGE (numero da pagina atual)
             Set fPage = rngPage.Fields.Add(Range:=rngPage, Type:=wdFieldPage)
 
-            ' Texto "-"
+            ' Texto " de "
             Set rngDash = footer.Range.Paragraphs.Last.Range
             rngDash.Collapse Direction:=wdCollapseEnd
-            rngDash.text = "-"
+            rngDash.text = " de "
 
             ' Campo NUMPAGES (total de paginas)
             Set rngNum = footer.Range.Paragraphs.Last.Range
             rngNum.Collapse Direction:=wdCollapseEnd
             Set fTotal = rngNum.Fields.Add(Range:=rngNum, Type:=wdFieldNumPages)
 
-            ' Centraliza os numeros de pagina
-            footer.Range.Paragraphs.Last.Range.ParagraphFormat.alignment = wdAlignParagraphCenter
-
-            ' Formata os campos de numero de pagina
-            With fPage.result
+            ' Formata todo o paragrafo e centraliza os numeros de pagina
+            With footer.Range.Paragraphs.Last.Range
+                .ParagraphFormat.alignment = wdAlignParagraphCenter
                 .Font.Name = STANDARD_FONT
                 .Font.size = FOOTER_FONT_SIZE
-            End With
-
-            With fTotal.result
-                .Font.Name = STANDARD_FONT
-                .Font.size = FOOTER_FONT_SIZE
+                .Font.Color = wdColorAutomatic
             End With
         End If
     Next sec
@@ -6388,7 +6385,8 @@ Public Sub RemoverLinhasEmBrancoExtras(doc As Document)
         If tituloJustificativaIndex = 0 Or adjustCounter > tituloJustificativaIndex Then
             If Left(cleanTxt, 8) = "vereador" _
                Or Left(cleanTxt, 9) = "vereadora" _
-               Or InStr(cleanTxt, "vicepresidente") > 0 Then
+               Or InStr(cleanTxt, "presidente") > 0 _
+               Or InStr(cleanTxt, "prefeito") > 0 Then
     
                 ' Cargo
                 With para.Format

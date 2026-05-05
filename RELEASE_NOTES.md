@@ -1,4 +1,27 @@
-﻿# Release Notes
+# Release Notes
+
+## v6.2.1-beta1 — 2026-05-05 — Performance & Formatting Fixes
+
+### Resumo
+
+Esta versão foca na melhoria dramática do tempo de inicialização das ferramentas de IA através de *lazy loading* de módulos pesados, além da correção de lints reportados por analisadores estáticos e ajustes na formatação do documento.
+
+---
+
+### Novidades
+
+- **Performance (Lazy Loading):** As importações pesadas (`google.genai`, `win32com`, `win32crypt`) foram removidas do escopo global de `chat_ia.py` e `correct_grammar.py` e deferidas para dentro das funções/threads onde são utilizadas. Isso resultou em uma interface gráfica que abre instantaneamente (economia de ~2.5 segundos no carregamento inicial da UI).
+- **Rodapé Padronizado:** A formatação da numeração de páginas foi atualizada de `X-Y` para o formato explícito `Pág. X de Y`. A fonte (tamanho e cor) é agora consistentemente aplicada em todo o parágrafo do rodapé.
+
+---
+
+### Correções
+
+- **VBA — Hardcoding & Redundância:** Corrigida a lógica de detecção de assinaturas em `Mod3Pipeline.bas` para englobar de forma correta e limpa proposituras de autoria do "Presidente" e "Prefeito".
+- **VBA — Formatação de Rodapé:** Corrigida a perda do caractere de marca de parágrafo (`vbCr`) que ocorria ao sobrescrever via `.text`, utilizando o método `Collapse` adequado.
+- **Python — Lints:** Corrigidos falsos positivos de importação não utilizada (ex: `types` do `google.genai`).
+
+---
 
 ## v5.0.3-beta1 — 2026-05-04 — COM Invocation Hotfix
 

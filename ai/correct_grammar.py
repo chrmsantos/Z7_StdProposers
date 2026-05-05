@@ -7,26 +7,6 @@ from z7_logging import configure_component_logger, log_exception
 
 LOGGER = configure_component_logger("correct_grammar")
 
-try:
-    import win32com.client
-    import win32crypt
-except ModuleNotFoundError as e:
-    LOGGER.error("Missing Python dependency: %s", e.name)
-    root = tk.Tk()
-    root.withdraw()
-    root.attributes('-topmost', True)
-    messagebox.showerror(
-        "Z7 StdProposers - Dependencia ausente",
-        "Nao foi possivel iniciar o corretor porque falta a dependencia Python: "
-        f"{e.name}.\n\n"
-        "Execute o arquivo install_requirements.bat da pasta ai "
-        "e tente novamente."
-    )
-    root.destroy()
-    sys.exit(1)
-
-import google.genai as genai
-
 def get_api_key() -> str | None:
     LOGGER.info("Loading Gemini API key")
     # Define o caminho do arquivo de chave
@@ -44,7 +24,7 @@ def get_api_key() -> str | None:
         try:
             with open(key_file, 'rb') as f:
                 encrypted_key = f.read()
-            # CryptUnprotectData retorna uma tupla (descricao, dados_descriptografados)
+            import win32crypt
             _, decrypted_key = win32crypt.CryptUnprotectData(encrypted_key, None, None, None, 0)
             LOGGER.info("API key loaded from encrypted key file")
             return decrypted_key.decode('utf-8')
@@ -78,6 +58,7 @@ def get_api_key() -> str | None:
     
     # Criptografa a chave usando DPAPI (seguranca atrelada ao usuario atual do Windows)
     try:
+        import win32crypt
         encrypted_key = win32crypt.CryptProtectData(api_key.encode('utf-8'), 'Z7_Gemini_Key', None, None, None, 0)
         
         # Cria os diretorios se nao existirem
@@ -98,6 +79,7 @@ def main() -> None:
     LOGGER.info("Starting grammar correction flow")
     
     try:
+        import win32com.client
         try:
             word = win32com.client.GetObject(Class="Word.Application")
         except Exception:
@@ -144,6 +126,20 @@ def main() -> None:
         LOGGER.warning("Aborting grammar flow because API key is unavailable")
         root.destroy()
         return
+
+    try:
+        import google.genai as genai
+    except ModuleNotFoundError as e:
+        LOGGER.error("Missing Python dependency: %s", e.name)
+        messagebox.showerror(
+            "Z7 StdProposers - Dependencia ausente",
+            "Nao foi possivel iniciar a API porque falta a dependencia Python: "
+            f"{e.name}.\n\n"
+            "Execute o arquivo install_requirements.bat da pasta ai "
+            "e tente novamente."
+        )
+        root.destroy()
+        sys.exit(1)
 
     client = genai.Client(api_key=api_key)
     LOGGER.info("Gemini client configured")

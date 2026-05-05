@@ -46,6 +46,7 @@ def get_api_key(root_for_dialog: tk.Tk | None = None) -> str | None:
     api_key = api_key.strip()
     
     try:
+        import win32crypt
         encrypted_key = win32crypt.CryptProtectData(api_key.encode('utf-8'), 'Z7_Gemini_Key', None, None, None, 0)
         key_dir.mkdir(parents=True, exist_ok=True)
         with open(key_file, 'wb') as f:
@@ -368,4 +369,9 @@ class ChatApp:
         self.input_text.focus_set()
 
 def main() -> None:
-    r
+    root = tk.Tk()
+    app = ChatApp(root)
+    root.mainloop()
+
+if __name__ == "__main__":
+    main()
