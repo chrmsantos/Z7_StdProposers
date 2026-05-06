@@ -1,8 +1,8 @@
 import os
 import sys
 import tkinter as tk
-from tkinter import messagebox, simpledialog
 from pathlib import Path
+import z7_theme
 from z7_logging import configure_component_logger, log_exception
 
 LOGGER = configure_component_logger("correct_grammar")
@@ -41,10 +41,11 @@ def get_api_key() -> str | None:
     # Mantem a janela de dialogo no topo
     root.attributes('-topmost', True)
     
-    api_key = simpledialog.askstring(
+    api_key = z7_theme.ask_string(
         "Z7 StdProposers - Primeira Inicializacao", 
         "Insira sua chave da API do Google Gemini:\n(Ela sera criptografada e salva localmente)",
-        parent=root
+        parent=root,
+        show="*"
     )
     
     root.destroy()
@@ -84,14 +85,21 @@ def main() -> None:
             word = win32com.client.GetObject(Class="Word.Application")
         except Exception:
             word = win32com.client.Dispatch("Word.Application")
-        word.StatusBar = False # Limpa o status bar de carregamento do VBA
+        
+        try:
+            word.Application.Run("CreateDocumentBackup", word.ActiveDocument)
+            LOGGER.info("Document backup created successfully.")
+        except Exception as backup_e:
+            LOGGER.warning("Could not run CreateDocumentBackup macro: %s", str(backup_e))
+            
+        word.StatusBar = "Z7: Aguardando interação no assistente de gramática..."
         LOGGER.info("Connected to running Word instance")
     except Exception as e:
         log_exception(LOGGER, "Failed to connect to Word", e)
         root = tk.Tk()
         root.withdraw()
         root.attributes('-topmost', True)
-        messagebox.showerror("Z7 StdProposers - Erro", f"Erro ao conectar ao Word:\n{e}")
+        z7_theme.show_error("Z7 StdProposers - Erro", f"Erro ao conectar ao Word:\n{e}", parent=root)
         return
 
     try:
@@ -110,7 +118,7 @@ def main() -> None:
     root.attributes('-topmost', True)
     
     # 1. Privacy Warning
-    if not messagebox.askokcancel(
+    if not z7_theme.ask_ok_cancel(
         "Aviso de Privacidade - Z7 StdProposers",
         "O trecho selecionado será enviado para a API do Google Gemini para revisão gramatical.\n\n"
         "Certifique-se de que não há dados sigilosos e que o uso está de acordo com as diretrizes do seu órgão.\n\n"
@@ -131,12 +139,13 @@ def main() -> None:
         import google.genai as genai
     except ModuleNotFoundError as e:
         LOGGER.error("Missing Python dependency: %s", e.name)
-        messagebox.showerror(
+        z7_theme.show_error(
             "Z7 StdProposers - Dependencia ausente",
             "Nao foi possivel iniciar a API porque falta a dependencia Python: "
             f"{e.name}.\n\n"
             "Execute o arquivo install_requirements.bat da pasta ai "
-            "e tente novamente."
+            "e tente novamente.",
+            parent=root
         )
         root.destroy()
         sys.exit(1)
@@ -145,11 +154,14 @@ def main() -> None:
     LOGGER.info("Gemini client configured")
 
     # Mostrar carregamento
+    colors = z7_theme.get_theme_colors()
     loading = tk.Toplevel(root)
     loading.title("Z7 StdProposers")
     loading.geometry("300x100")
+    loading.configure(bg=colors["bg"])
     loading.attributes('-topmost', True)
-    tk.Label(loading, text="Consultando Google Gemini...\nPor favor, aguarde.", font=("Segoe UI", 10)).pack(expand=True)
+    z7_theme._center_window(loading, root)
+    tk.Label(loading, text="Consultando Google Gemini...\nPor favor, aguarde.", font=("Segoe UI", 10), bg=colors["bg"], fg=colors["fg"]).pack(expand=True)
     loading.update()
 
     user_profile = os.environ.get('USERPROFILE')
@@ -201,54 +213,27 @@ Retorne APENAS o texto corrigido, sem adicionar nenhum comentário, explicação
                     key_file.unlink()
             except Exception:
                 pass
-            messagebox.showerror("Z7 StdProposers - Erro na API", "Sua chave da API é inválida ou expirou. O arquivo de chave foi deletado.\nTente rodar a macro novamente para inserir uma nova chave.", parent=root)
+            z7_theme.show_error("Z7 StdProposers - Erro na API", "Sua chave da API é inválida ou expirou. O arquivo de chave foi deletado.\nTente rodar a macro novamente para inserir uma nova chave.", parent=root)
         else:
-            messagebox.showerror("Z7 StdProposers - Erro na API", f"Erro ao chamar a API do Gemini:\n{e}", parent=root)
+            z7_theme.show_error("Z7 StdProposers - Erro na API", f"Erro ao chamar a API do Gemini:\n{e}", parent=root)
         root.destroy()
         return
 
     loading.destroy()
 
     if not corrected_text:
-        messagebox.showwarning("Z7 StdProposers - Aviso", "A API do Gemini retornou um texto vazio.", parent=root)
+        z7_theme.show_warning("Z7 StdProposers - Aviso", "A API do Gemini retornou um texto vazio.", parent=root)
         root.destroy()
         return
 
-    def apply_text():
+    try:
         selection.Text = corrected_text
-        root.destroy()
+        LOGGER.info("Text replaced in Word document directly")
+    except Exception as e:
+        log_exception(LOGGER, "Failed to apply text to Word", e)
+        z7_theme.show_error("Z7 StdProposers - Erro", f"Não foi possível substituir o texto:\n{e}", parent=root)
 
-    def copy_text():
-        root.clipboard_clear()
-        root.clipboard_append(corrected_text)
-        root.update()
-        messagebox.showinfo("Copiado", "Texto copiado para a Área de Transferência!", parent=result_window)
-        root.destroy()
-
-    def cancel_action():
-        root.destroy()
-
-    result_window = tk.Toplevel(root)
-    result_window.title("Revisão Concluída")
-    result_window.geometry("700x500")
-    result_window.attributes('-topmost', True)
-    result_window.protocol("WM_DELETE_WINDOW", cancel_action)
-    
-    tk.Label(result_window, text="Texto Sugerido:", font=("Segoe UI", 10, "bold")).pack(pady=(10, 5))
-    text_area = tk.Text(result_window, wrap=tk.WORD, height=15, font=("Segoe UI", 11))
-    text_area.pack(expand=True, fill=tk.BOTH, padx=15, pady=5)
-    text_area.insert(tk.END, corrected_text)
-    
-    btn_frame = tk.Frame(result_window)
-    btn_frame.pack(fill=tk.X, pady=15)
-    
-    tk.Button(btn_frame, text="Substituir no Word (Atenção: remove formatação rica)", 
-              command=apply_text, font=("Segoe UI", 9), fg="#b91c1c").pack(side=tk.LEFT, padx=15)
-              
-    tk.Button(btn_frame, text="Copiar para Área de Transferência", 
-              command=copy_text, font=("Segoe UI", 9, "bold")).pack(side=tk.RIGHT, padx=15)
-
-    root.mainloop()
+    root.destroy()
 
 if __name__ == "__main__":
     main()

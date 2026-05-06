@@ -2,8 +2,10 @@ import os
 import json
 import threading
 import tkinter as tk
-from tkinter import simpledialog, messagebox, scrolledtext
+from tkinter import scrolledtext
 from pathlib import Path
+
+import z7_theme
 
 from z7_logging import configure_component_logger, log_exception
 
@@ -33,10 +35,11 @@ def get_api_key(root_for_dialog: tk.Tk | None = None) -> str | None:
         except Exception as e:
             log_exception(LOGGER, "Failed to decrypt API key", e)
             
-    api_key = simpledialog.askstring(
+    api_key = z7_theme.ask_string(
         "Z7 StdProposers", 
         "Insira sua chave da API do Google Gemini:\n(Ela será criptografada e salva localmente)",
-        parent=root_for_dialog
+        parent=root_for_dialog,
+        show="*"
     )
     
     if not api_key or not api_key.strip():
@@ -57,35 +60,6 @@ def get_api_key(root_for_dialog: tk.Tk | None = None) -> str | None:
         
     return api_key
 
-def get_theme_file_path() -> Path | None:
-    user_profile = os.environ.get('USERPROFILE')
-    if not user_profile:
-        return None
-    key_dir = Path(user_profile) / 'AppData' / 'Local' / 'Z7' / 'Tmp' / 'StdProposers'
-    key_dir.mkdir(parents=True, exist_ok=True)
-    return key_dir / 'theme_config.json'
-
-def load_theme() -> str:
-    theme_file = get_theme_file_path()
-    if theme_file and theme_file.exists():
-        try:
-            with open(theme_file, 'r', encoding='utf-8') as f:
-                config = json.load(f)
-                return config.get('theme', 'light')
-        except Exception as e:
-            log_exception(LOGGER, "Failed to load theme config", e)
-    return 'light'
-
-def save_theme(theme_mode: str) -> None:
-    theme_file = get_theme_file_path()
-    if theme_file:
-        try:
-            with open(theme_file, 'w', encoding='utf-8') as f:
-                json.dump({'theme': theme_mode}, f)
-            LOGGER.info("Theme saved: %s", theme_mode)
-        except Exception as e:
-            log_exception(LOGGER, "Failed to save theme config", e)
-
 # ==========================================
 # Classe Principal do Chat
 # ==========================================
@@ -98,18 +72,19 @@ class ChatApp:
         screen_width = self.root.winfo_screenwidth()
         screen_height = self.root.winfo_screenheight()
         
-        chat_width = screen_width // 4
-        chat_height = screen_height
-        chat_left = screen_width - chat_width
-        chat_top = 0
+        chat_width = int((screen_width // 4) * 0.9)
+        chat_height = int(screen_height * 0.75)
+        chat_left = 0
+        chat_top = (screen_height - chat_height) // 2 + int(screen_height * 0.1)  # Centraliza e desloca 10% para baixo
         
+        self.chat_width_px = chat_width
         self.root.geometry(f"{chat_width}x{chat_height}+{chat_left}+{chat_top}")
         self.root.minsize(300, 500)
         self.root.attributes('-topmost', True)
         
         self.resize_word_window(screen_width, screen_height)
         
-        self.mode = load_theme()
+        self.mode = z7_theme.load_theme()
         self.client = None
         self.chat_session = None
         self.is_generating = False
@@ -118,7 +93,7 @@ class ChatApp:
         self.apply_theme()
         
         # Privacy Warning before starting AI
-        if not messagebox.askokcancel(
+        if not z7_theme.ask_ok_cancel(
             "Aviso de Privacidade - Z7 StdProposers",
             "O texto do seu documento atual será enviado para a API do Google Gemini para servir de contexto do chat.\n\n"
             "Certifique-se de que não há dados sigilosos e que o uso está de acordo com as diretrizes do seu órgão.\n\n"
@@ -142,12 +117,17 @@ class ChatApp:
             word.WindowState = 1  # wdWindowStateNormal
             word.Left = 0
             word.Top = 0
-            word.StatusBar = False # Limpa o status de carregamento do VBA
+            word.StatusBar = "Z7: Aguardando interação no Chat..."
             
             # A API COM do Word trabalha em 'Points', enquanto o Tkinter usa 'Pixels'.
             # Precisamos converter para que a janela não fique gigante ou pequena demais.
-            target_width_px = screen_width * 3 // 4
+            target_width_px = screen_width - self.chat_width_px
             target_height_px = screen_height
+            
+            try:
+                word.Left = word.PixelsToPoints(self.chat_width_px)
+            except Exception:
+                word.Left = self.chat_width_px * 0.75
             
             try:
                 word.Width = word.PixelsToPoints(target_width_px)
@@ -161,38 +141,21 @@ class ChatApp:
         except Exception as e:
             log_exception(LOGGER, "Failed to resize Word window", e)
         
-    def toggle_theme(self) -> None:
-        self.mode = 'dark' if self.mode == 'light' else 'light'
-        save_theme(self.mode)
-        self.apply_theme()
-
     def apply_theme(self) -> None:
-        if self.mode == 'dark':
-            bg = "#1e1e1e"
-            fg = "#e4e4e4"
-            fg_muted = "#a0a0a0"
-            text_bg = "#252526"
-            btn_sec_hover = "#444444"
-            btn_primary_bg = "#005a9e"
-            user_tag_color = "#60a5fa"
-            ai_tag_color = "#34d399"
-        else:
-            bg = "#f3f4f6"
-            fg = "#111827"
-            fg_muted = "#4b5563"
-            text_bg = "#ffffff"
-            btn_sec_hover = "#d1d5db"
-            btn_primary_bg = "#2563eb"
-            user_tag_color = "#2563eb"
-            ai_tag_color = "#10b981"
+        colors = z7_theme.get_theme_colors(self.mode)
+        bg = colors["bg"]
+        fg = colors["fg"]
+        fg_muted = colors["fg_muted"]
+        text_bg = colors["text_bg"]
+        btn_sec_hover = colors["btn_sec_hover"]
+        btn_primary_bg = colors["btn_primary_bg"]
+        user_tag_color = colors["user_tag"]
+        ai_tag_color = colors["ai_tag"]
             
         self.root.configure(bg=bg)
         self.top_frame.configure(bg=bg)
         self.title_lbl.configure(bg=bg, fg=fg)
         self.status_lbl.configure(bg=bg, fg=fg_muted)
-        
-        icon = "🌙 Tema Escuro" if self.mode == 'light' else "☀️ Tema Claro"
-        self.toggle_btn.configure(text=icon, bg=bg, fg=fg, activebackground=bg, activeforeground=fg)
         
         self.chat_area.configure(bg=text_bg, fg=fg, insertbackground=fg)
         self.input_frame.configure(bg=bg)
@@ -207,20 +170,13 @@ class ChatApp:
         self.top_frame = tk.Frame(self.root)
         self.top_frame.pack(side=tk.TOP, fill=tk.X, pady=(15, 10), padx=20)
         
-        self.toggle_btn = tk.Button(self.top_frame, font=("Segoe UI", 10), relief=tk.FLAT, cursor="hand2", command=self.toggle_theme, bd=0)
-        self.toggle_btn.pack(side=tk.LEFT)
-        
         self.title_lbl = tk.Label(self.top_frame, text="Assistente de IA", font=("Segoe UI", 16, "bold"))
-        self.title_lbl.pack(side=tk.LEFT, padx=20)
+        self.title_lbl.pack(side=tk.TOP, anchor="w")
         
         self.status_lbl = tk.Label(self.top_frame, text="Carregando contexto...", font=("Segoe UI", 10, "italic"))
-        self.status_lbl.pack(side=tk.RIGHT)
+        self.status_lbl.pack(side=tk.TOP, anchor="w", pady=(2, 0))
         
-        # Chat Area
-        self.chat_area = scrolledtext.ScrolledText(self.root, wrap=tk.WORD, font=("Segoe UI", 11), relief=tk.FLAT, padx=15, pady=15, state=tk.DISABLED)
-        self.chat_area.pack(expand=True, fill=tk.BOTH, padx=20, pady=5)
-        
-        # Input Area
+        # Input Area (Packed before Chat Area to ensure it stays visible at the bottom)
         self.input_frame = tk.Frame(self.root)
         self.input_frame.pack(side=tk.BOTTOM, fill=tk.X, padx=20, pady=(10, 20))
         
@@ -231,6 +187,10 @@ class ChatApp:
         
         self.send_btn = tk.Button(self.input_frame, text="Enviar", width=12, font=("Segoe UI", 11, "bold"), relief=tk.FLAT, cursor="hand2", command=self.send_message)
         self.send_btn.pack(side=tk.RIGHT, fill=tk.Y, padx=(15, 0))
+
+        # Chat Area
+        self.chat_area = scrolledtext.ScrolledText(self.root, wrap=tk.WORD, font=("Segoe UI", 11), relief=tk.FLAT, padx=15, pady=15, state=tk.DISABLED)
+        self.chat_area.pack(expand=True, fill=tk.BOTH, padx=20, pady=5)
 
     def append_message(self, role: str, message: str) -> None:
         self.chat_area.config(state=tk.NORMAL)
@@ -275,6 +235,13 @@ class ChatApp:
                     word = win32com.client.GetObject(Class="Word.Application")
                 except Exception:
                     word = win32com.client.Dispatch("Word.Application")
+
+                try:
+                    word.Application.Run("CreateDocumentBackup", word.ActiveDocument)
+                    LOGGER.info("Document backup created successfully.")
+                except Exception as backup_e:
+                    LOGGER.warning("Could not run CreateDocumentBackup macro: %s", str(backup_e))
+
                 doc_text = word.ActiveDocument.Content.Text
                 if len(doc_text) > 150000:
                     doc_text = doc_text[:150000] # Limita tamanho pra segurança

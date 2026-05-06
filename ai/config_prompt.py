@@ -1,9 +1,9 @@
 import os
 import json
 import tkinter as tk
-from tkinter import messagebox
 from pathlib import Path
 import win32crypt
+import z7_theme
 from z7_logging import configure_component_logger, log_exception
 
 LOGGER = configure_component_logger("config_prompt")
@@ -22,14 +22,6 @@ def get_prompt_file_path() -> Path | None:
     key_dir = Path(user_profile) / 'AppData' / 'Local' / 'Z7' / 'Tmp' / 'StdProposers'
     key_dir.mkdir(parents=True, exist_ok=True)
     return key_dir / 'gemini_prompt.txt'
-
-def get_theme_file_path() -> Path | None:
-    user_profile = os.environ.get('USERPROFILE')
-    if not user_profile:
-        return None
-    key_dir = Path(user_profile) / 'AppData' / 'Local' / 'Z7' / 'Tmp' / 'StdProposers'
-    key_dir.mkdir(parents=True, exist_ok=True)
-    return key_dir / 'theme_config.json'
 
 def load_api_key() -> str:
     user_profile = os.environ.get('USERPROFILE')
@@ -107,7 +99,7 @@ def save_prompt(text_widget: tk.Text, root: tk.Tk, model_var: tk.StringVar, api_
     new_prompt = text_widget.get("1.0", tk.END).strip()
     if not new_prompt:
         LOGGER.warning("Prompt save blocked because text is empty")
-        messagebox.showwarning("Aviso", "O prompt não pode estar vazio.")
+        z7_theme.show_warning("Aviso", "O prompt não pode estar vazio.", parent=root)
         return
 
     prompt_file = get_prompt_file_path()
@@ -123,67 +115,37 @@ def save_prompt(text_widget: tk.Text, root: tk.Tk, model_var: tk.StringVar, api_
             # Save the API key
             save_api_key(api_var.get())
             
-            messagebox.showinfo("Sucesso", "Configurações salvas com sucesso!")
+            z7_theme.show_info("Sucesso", "Configurações salvas com sucesso!", parent=root)
             root.destroy()
         except Exception as e:
             log_exception(LOGGER, "Failed to save config", e)
-            messagebox.showerror("Erro", f"Erro ao salvar:\n{e}")
+            z7_theme.show_error("Erro", f"Erro ao salvar:\n{e}", parent=root)
 
 def restore_default(text_widget: tk.Text) -> None:
     text_widget.delete("1.0", tk.END)
     text_widget.insert(tk.END, DEFAULT_PROMPT)
 
-def load_theme() -> str:
-    theme_file = get_theme_file_path()
-    if theme_file and theme_file.exists():
-        try:
-            with open(theme_file, 'r', encoding='utf-8') as f:
-                config = json.load(f)
-                return config.get('theme', 'light')
-        except Exception as e:
-            log_exception(LOGGER, "Failed to load theme config", e)
-    return 'light'
-
-def save_theme(theme_mode: str) -> None:
-    theme_file = get_theme_file_path()
-    if theme_file:
-        try:
-            with open(theme_file, 'w', encoding='utf-8') as f:
-                json.dump({'theme': theme_mode}, f)
-            LOGGER.info("Theme saved: %s", theme_mode)
-        except Exception as e:
-            log_exception(LOGGER, "Failed to save theme config", e)
-
 class AppTheme:
     def __init__(self, root: tk.Tk) -> None:
         self.root = root
-        self.mode = load_theme()
+        self.mode = z7_theme.load_theme()
         self.widgets = {}
 
     def toggle(self) -> None:
         self.mode = 'dark' if self.mode == 'light' else 'light'
-        save_theme(self.mode)
+        z7_theme.save_theme(self.mode)
         self.apply()
 
     def apply(self) -> None:
-        if self.mode == 'dark':
-            bg = "#1e1e1e"
-            fg = "#e4e4e4"
-            fg_muted = "#a0a0a0"
-            text_bg = "#252526"
-            border = "#333333"
-            btn_sec_bg = "#333333"
-            btn_sec_fg = "#cccccc"
-            btn_sec_hover = "#444444"
-        else:
-            bg = "#f3f4f6"
-            fg = "#111827"
-            fg_muted = "#4b5563"
-            text_bg = "#ffffff"
-            border = "#d1d5db"
-            btn_sec_bg = "#e5e7eb"
-            btn_sec_fg = "#374151"
-            btn_sec_hover = "#d1d5db"
+        colors = z7_theme.get_theme_colors(self.mode)
+        bg = colors["bg"]
+        fg = colors["fg"]
+        fg_muted = colors["fg_muted"]
+        text_bg = colors["text_bg"]
+        border = colors["border"]
+        btn_sec_bg = colors["btn_sec_bg"]
+        btn_sec_fg = colors["btn_sec_fg"]
+        btn_sec_hover = colors["btn_sec_hover"]
             
         self.root.configure(bg=bg)
         

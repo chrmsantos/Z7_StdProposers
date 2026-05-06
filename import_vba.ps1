@@ -45,8 +45,10 @@ Write-Host "Conectando ao Word..." -ForegroundColor Cyan
 try {
     $word = [Runtime.InteropServices.Marshal]::GetActiveObject("Word.Application")
 } catch {
-    Write-Error "Word nao esta aberto. Abra o Word e tente novamente."
-    exit 1
+    Write-Warning "O Word deve estar aberto para a importacao funcionar corretamente. Abrindo uma nova instancia do Word com um novo documento..."
+    $word = New-Object -ComObject Word.Application
+    $word.Visible = $true
+    $word.Documents.Add() | Out-Null
 }
 
 # Seleciona o Normal.dotm (padrao) ou documento informado
