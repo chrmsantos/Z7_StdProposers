@@ -117,6 +117,18 @@ def main() -> None:
     root.withdraw()
     root.attributes('-topmost', True)
 
+    if not z7_theme.ask_privacy_warning(
+        "Aviso de Privacidade - Z7 StdProposers",
+        "O trecho selecionado será enviado para a API do Google Gemini para correção gramatical.\n\n"
+        "Certifique-se de que não há dados sigilosos e que o uso está de acordo com as diretrizes do seu órgão.\n\n"
+        "Deseja continuar?",
+        key="correct_grammar",
+        parent=root
+    ):
+        LOGGER.info("User cancelled grammar correction at privacy warning")
+        root.destroy()
+        return
+
     api_key = get_api_key()
     if not api_key:
         LOGGER.warning("Aborting grammar flow because API key is unavailable")

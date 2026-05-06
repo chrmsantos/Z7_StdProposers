@@ -93,11 +93,12 @@ class ChatApp:
         self.apply_theme()
         
         # Privacy Warning before starting AI
-        if not z7_theme.ask_ok_cancel(
+        if not z7_theme.ask_privacy_warning(
             "Aviso de Privacidade - Z7 StdProposers",
             "O texto do seu documento atual será enviado para a API do Google Gemini para servir de contexto do chat.\n\n"
             "Certifique-se de que não há dados sigilosos e que o uso está de acordo com as diretrizes do seu órgão.\n\n"
             "Deseja iniciar o assistente?",
+            key="chat_ia",
             parent=self.root
         ):
             LOGGER.info("User cancelled chat at privacy warning")
@@ -271,7 +272,22 @@ class ChatApp:
                 config=types.GenerateContentConfig(system_instruction=system_instruction)
             )
             LOGGER.info("Chat session started")
-            
+
+            # Envia o contexto do documento imediatamente, antes do primeiro pedido do usuário
+            doc_context = getattr(self, 'doc_text', '')
+            if doc_context and "erro ao obter" not in doc_context.lower() and "nenhum documento" not in doc_context.lower():
+                context_msg = (
+                    f"Abaixo está o texto atual do meu documento no Word para ser usado como base e contexto dessa conversa:\n\n"
+                    f"{doc_context}\n\n"
+                    "Apresente-se brevemente, confirme que leu o documento e aguarde meu primeiro pedido."
+                )
+                context_response = self.chat_session.send_message(context_msg)
+                self.initial_greeting = context_response.text
+                LOGGER.info("Document context sent to AI during initialization")
+            else:
+                self.initial_greeting = "Olá! Não consegui acessar o documento atual. Como posso ajudar?"
+                LOGGER.warning("No document context available for AI initialization")
+
             self.root.after(0, self._on_ai_ready)
             
         except Exception as e:
@@ -296,7 +312,7 @@ class ChatApp:
 
     def _on_ai_ready(self) -> None:
         self.status_lbl.config(text="Pronto para conversar")
-        self.append_message("AI", "Olá! Li o seu documento atual. Como posso ajudar?")
+        self.append_message("AI", getattr(self, 'initial_greeting', "Olá! Como posso ajudar?"))
 
     def send_message(self) -> None:
         if self.is_generating or not self.chat_session:
@@ -315,14 +331,7 @@ class ChatApp:
         self.status_lbl.config(text="IA digitando...")
         self.send_btn.config(state=tk.DISABLED)
         
-        actual_send_msg = user_msg
-        if not hasattr(self, '_context_sent'):
-            self._context_sent = True
-            doc_context = getattr(self, 'doc_text', '')
-            if doc_context and "erro ao obter" not in doc_context.lower():
-                actual_send_msg = f"Abaixo está o texto atual do meu documento no Word para ser usado como base e contexto dessa conversa:\n\n{doc_context}\n\nE agora o meu primeiro pedido considerando o texto acima:\n{user_msg}"
-        
-        threading.Thread(target=self._send_message_thread, args=(actual_send_msg,), daemon=True).start()
+        threading.Thread(target=self._send_message_thread, args=(user_msg,), daemon=True).start()
 
     def _send_message_thread(self, user_msg: str) -> None:
         try:

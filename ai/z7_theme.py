@@ -138,6 +138,115 @@ def ask_string(title, message, parent=None, show=""):
 def ask_ok_cancel(title, message, parent=None):
     return _create_dialog(title, message, parent, is_prompt=False, is_cancelable=True)
 
+def _get_privacy_prefs_path() -> Path | None:
+    user_profile = os.environ.get('USERPROFILE')
+    if not user_profile:
+        return None
+    key_dir = Path(user_profile) / 'AppData' / 'Local' / 'Z7' / 'Tmp' / 'StdProposers'
+    key_dir.mkdir(parents=True, exist_ok=True)
+    return key_dir / 'privacy_prefs.json'
+
+def _load_privacy_prefs() -> dict:
+    path = _get_privacy_prefs_path()
+    if path and path.exists():
+        try:
+            with open(path, 'r', encoding='utf-8') as f:
+                return json.load(f)
+        except Exception:
+            pass
+    return {}
+
+def _save_privacy_pref(key: str) -> None:
+    path = _get_privacy_prefs_path()
+    if not path:
+        return
+    prefs = _load_privacy_prefs()
+    prefs[key] = True
+    try:
+        with open(path, 'w', encoding='utf-8') as f:
+            json.dump(prefs, f)
+    except Exception:
+        pass
+
+def load_privacy_prefs() -> dict:
+    return _load_privacy_prefs()
+
+def save_privacy_prefs(prefs: dict) -> None:
+    path = _get_privacy_prefs_path()
+    if not path:
+        return
+    try:
+        with open(path, 'w', encoding='utf-8') as f:
+            json.dump(prefs, f)
+    except Exception:
+        pass
+
+def ask_privacy_warning(title: str, message: str, key: str, parent=None) -> bool:
+    """Exibe aviso de privacidade com opção 'Não mostrar novamente'.
+    Retorna True se o usuário confirmou (ou já optou por não ver mais), False se cancelou.
+    'key' identifica o componente (ex.: 'chat_ia', 'correct_grammar').
+    """
+    prefs = _load_privacy_prefs()
+    if prefs.get(key):
+        return True
+
+    colors = get_theme_colors()
+
+    dlg = tk.Toplevel(parent)
+    dlg.title(title)
+    dlg.attributes('-topmost', True)
+    dlg.configure(bg=colors["bg"], padx=20, pady=20)
+    dlg.resizable(False, False)
+    if parent:
+        dlg.transient(parent)
+    dlg.grab_set()
+
+    tk.Label(dlg, text=message, font=("Segoe UI", 10), bg=colors["bg"], fg=colors["fg"],
+             justify=tk.LEFT, wraplength=400).pack(pady=(0, 15))
+
+    dont_show_var = tk.BooleanVar(value=False)
+    tk.Checkbutton(
+        dlg, text="Não mostrar este aviso novamente",
+        variable=dont_show_var,
+        font=("Segoe UI", 9),
+        bg=colors["bg"], fg=colors["fg_muted"],
+        activebackground=colors["bg"], activeforeground=colors["fg"],
+        selectcolor=colors["text_bg"],
+        relief=tk.FLAT, cursor="hand2"
+    ).pack(anchor="w", pady=(0, 15))
+
+    result = {"value": False}
+
+    def on_ok(event=None):
+        result["value"] = True
+        if dont_show_var.get():
+            _save_privacy_pref(key)
+        dlg.destroy()
+
+    def on_cancel(event=None):
+        result["value"] = False
+        dlg.destroy()
+
+    dlg.bind("<Return>", on_ok)
+    dlg.bind("<Escape>", on_cancel)
+    dlg.protocol("WM_DELETE_WINDOW", on_cancel)
+
+    btn_frame = tk.Frame(dlg, bg=colors["bg"])
+    btn_frame.pack(fill=tk.X)
+
+    tk.Button(btn_frame, text="Confirmar", font=("Segoe UI", 10, "bold"),
+              bg=colors["btn_primary_bg"], fg=colors["btn_primary_fg"],
+              activebackground=colors["btn_primary_hover"], activeforeground=colors["btn_primary_fg"],
+              relief=tk.FLAT, cursor="hand2", command=on_ok, width=10).pack(side=tk.RIGHT, padx=(10, 0))
+    tk.Button(btn_frame, text="Cancelar", font=("Segoe UI", 10),
+              bg=colors["btn_sec_bg"], fg=colors["btn_sec_fg"],
+              activebackground=colors["btn_sec_hover"], activeforeground=colors["btn_sec_fg"],
+              relief=tk.FLAT, cursor="hand2", command=on_cancel, width=10).pack(side=tk.RIGHT)
+
+    _center_window(dlg, parent)
+    dlg.wait_window()
+    return result["value"]
+
 def show_info(title, message, parent=None):
     _create_dialog(title, message, parent, is_prompt=False, is_cancelable=False)
 

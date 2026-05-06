@@ -95,7 +95,8 @@ def save_ai_model(model_name: str) -> None:
         except Exception as e:
             log_exception(LOGGER, "Failed to save model", e)
 
-def save_prompt(text_widget: tk.Text, root: tk.Tk, model_var: tk.StringVar, api_var: tk.StringVar) -> None:
+def save_prompt(text_widget: tk.Text, root: tk.Tk, model_var: tk.StringVar, api_var: tk.StringVar,
+               privacy_chat_var: tk.BooleanVar | None = None, privacy_grammar_var: tk.BooleanVar | None = None) -> None:
     new_prompt = text_widget.get("1.0", tk.END).strip()
     if not new_prompt:
         LOGGER.warning("Prompt save blocked because text is empty")
@@ -108,13 +109,26 @@ def save_prompt(text_widget: tk.Text, root: tk.Tk, model_var: tk.StringVar, api_
             with open(prompt_file, 'w', encoding='utf-8') as f:
                 f.write(new_prompt)
             LOGGER.info("Prompt saved successfully")
-            
-            # Save the model
+
             save_ai_model(model_var.get())
-            
-            # Save the API key
             save_api_key(api_var.get())
-            
+
+            # Save privacy prefs (True = aviso desativado; ausente/False = aviso ativo)
+            if privacy_chat_var is not None or privacy_grammar_var is not None:
+                prefs = z7_theme.load_privacy_prefs()
+                if privacy_chat_var is not None:
+                    if privacy_chat_var.get():
+                        prefs.pop('chat_ia', None)       # reativar aviso
+                    else:
+                        prefs['chat_ia'] = True          # suprimir aviso
+                if privacy_grammar_var is not None:
+                    if privacy_grammar_var.get():
+                        prefs.pop('correct_grammar', None)
+                    else:
+                        prefs['correct_grammar'] = True
+                z7_theme.save_privacy_prefs(prefs)
+                LOGGER.info("Privacy prefs saved")
+
             z7_theme.show_info("Sucesso", "Configurações salvas com sucesso!", parent=root)
             root.destroy()
         except Exception as e:
@@ -172,7 +186,15 @@ class AppTheme:
             self.widgets['api_lbl'].configure(bg=bg, fg=fg)
         if 'api_entry' in self.widgets:
             self.widgets['api_entry'].configure(bg=text_bg, fg=fg, insertbackground=fg)
-            
+
+        if 'privacy_frame' in self.widgets:
+            self.widgets['privacy_frame'].configure(bg=bg)
+        if 'privacy_lbl' in self.widgets:
+            self.widgets['privacy_lbl'].configure(bg=bg, fg=fg)
+        for cb in self.widgets.get('privacy_checks', []):
+            cb.configure(bg=bg, fg=fg_muted, activebackground=bg, activeforeground=fg,
+                         selectcolor=text_bg)
+
         for btn in self.widgets.get('sec_btns', []):
             btn.configure(bg=btn_sec_bg, fg=btn_sec_fg, activebackground=btn_sec_hover, activeforeground=fg)
         
@@ -252,7 +274,34 @@ def main() -> None:
     api_entry = tk.Entry(api_frame, textvariable=api_var, font=("Segoe UI", 10), relief=tk.FLAT, bd=2, show="*")
     api_entry.pack(side=tk.LEFT, padx=10, fill=tk.X, expand=True)
     theme.widgets['api_entry'] = api_entry
-    
+
+    # Avisos de Privacidade
+    privacy_prefs = z7_theme.load_privacy_prefs()
+
+    privacy_frame = tk.Frame(root)
+    privacy_frame.pack(fill=tk.X, padx=25, pady=(0, 10))
+    theme.widgets['privacy_frame'] = privacy_frame
+
+    privacy_lbl = tk.Label(privacy_frame, text="Avisos de Privacidade:", font=("Segoe UI", 10, "bold"))
+    privacy_lbl.pack(side=tk.LEFT)
+    theme.widgets['privacy_lbl'] = privacy_lbl
+
+    # Checked = exibir aviso (pref ausente); Unchecked = não exibir (pref True)
+    privacy_chat_var = tk.BooleanVar(value=not privacy_prefs.get('chat_ia', False))
+    privacy_grammar_var = tk.BooleanVar(value=not privacy_prefs.get('correct_grammar', False))
+
+    cb_chat = tk.Checkbutton(privacy_frame, text="Chat IA",
+                             variable=privacy_chat_var, font=("Segoe UI", 10),
+                             relief=tk.FLAT, cursor="hand2")
+    cb_chat.pack(side=tk.LEFT, padx=(15, 0))
+
+    cb_grammar = tk.Checkbutton(privacy_frame, text="Corretor Gramatical",
+                                variable=privacy_grammar_var, font=("Segoe UI", 10),
+                                relief=tk.FLAT, cursor="hand2")
+    cb_grammar.pack(side=tk.LEFT, padx=(10, 0))
+
+    theme.widgets['privacy_checks'] = [cb_chat, cb_grammar]
+
     frame = tk.Frame(root) # Borda sutil
     theme.widgets['border_frame'] = frame
     
@@ -271,7 +320,7 @@ def main() -> None:
     # Estilos de botão
     btn_font = ("Segoe UI", 10, "bold")
     
-    save_btn = tk.Button(btn_frame, text="Salvar Configuração", width=20, bg="#2563eb", fg="white", font=btn_font, relief=tk.FLAT, activebackground="#1d4ed8", activeforeground="white", cursor="hand2", command=lambda: save_prompt(text_area, root, model_var, api_var))
+    save_btn = tk.Button(btn_frame, text="Salvar Configuração", width=20, bg="#2563eb", fg="white", font=btn_font, relief=tk.FLAT, activebackground="#1d4ed8", activeforeground="white", cursor="hand2", command=lambda: save_prompt(text_area, root, model_var, api_var, privacy_chat_var, privacy_grammar_var))
     save_btn.pack(side=tk.RIGHT, padx=25)
     
     cancel_btn = tk.Button(btn_frame, text="Cancelar", width=15, font=btn_font, relief=tk.FLAT, cursor="hand2", command=root.destroy)
