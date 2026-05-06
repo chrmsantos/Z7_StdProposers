@@ -2,7 +2,7 @@
 
 > Note to AI Agents: read this document before modifying the VBA pipeline or Python integration.
 >
-> Last updated: 2026-05-04 (docs synchronized with modular VBA architecture, Python logging layer, and modernized test suites).
+> Last updated: 2026-05-06 (v6.5.0-beta1 — lazy loading, footer format, RotatingFileHandler, signature heuristics).
 
 ## 1. Project Overview
 
@@ -28,10 +28,10 @@ The active VBA architecture is consolidated into four modules:
 
 Main files in `ai/`:
 
-- `correct_grammar.py`: corrects selected text in Word.
+- `correct_grammar.py`: corrects selected text in Word. Heavy imports (`google.genai`, `win32com`, `win32crypt`) are deferred via lazy loading.
 - `config_prompt.py`: UI for prompt editing.
-- `chat_ia.py`: chat UI with Word document context.
-- `z7_logging.py`: shared structured logger for Python components.
+- `chat_ia.py`: chat UI with Word document context. Heavy imports are deferred via lazy loading (opens UI instantly, ~2.5 s savings).
+- `z7_logging.py`: shared structured logger; uses `RotatingFileHandler` (2 MB / 3 backups).
 - `build_exe.ps1`: PyInstaller build workflow for `.exe` artifacts.
 
 ## 3. Operational Conventions
@@ -52,7 +52,7 @@ Key anchors are inferred from text/format signatures:
 - Titulo and Ementa.
 - Justificativa header/body.
 - Plenario/Data anchors.
-- Assinatura block.
+- Assinatura block (includes authorship by "Presidente" and "Prefeito" — fixed in v6.2.1).
 - Anexo header/body.
 
 ### C. Index invalidation rule (critical)
@@ -109,6 +109,10 @@ Python scripts share `z7_logging.py` and write UTF-8 logs to:
 
 - `%LOCALAPPDATA%\Z7\Tmp\StdProposers\logs`
 
+Key API: `configure_component_logger(component, level)`, `log_exception(logger, context, exc)`, `build_log_path(component)`, `get_logs_dir()`.
+
+Log files are managed by `RotatingFileHandler` (max 2 MB, 3 backups). Format: `YYYY-MM-DD HH:MM:SS.mmm | LEVEL | z7.<component> | mensagem`.
+
 Log coverage includes:
 
 - Startup and initialization milestones.
@@ -140,7 +144,7 @@ Log coverage includes:
 
 ### 5.3 Current baseline
 
-As of this update, `Run-Tests.ps1 -TestSuite All -NoProgress` passes.
+As of v6.5.0-beta1 (2026-05-06), `Run-Tests.ps1 -TestSuite All -NoProgress` passes.
 
 ## 6. Immediate Development Guidelines
 
@@ -157,6 +161,7 @@ As of this update, `Run-Tests.ps1 -TestSuite All -NoProgress` passes.
 - Dependency install: `install_requirements.bat`.
 - Build executables: `ai/build_exe.ps1`.
 - Word macro launcher (`WordMacro.bas`) uses `pyw -3` and path fallback logic for script location.
+- Footer page numbering format: `Pág. X de Y` (changed from `X-Y` in v6.2.1). Font size and color are applied to the full footer paragraph.
 
 When changing runtime paths, update both VBA constants/macros and relevant docs together.
 
