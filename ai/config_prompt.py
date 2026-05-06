@@ -2,7 +2,6 @@ import os
 import json
 import tkinter as tk
 from pathlib import Path
-import win32crypt
 import z7_theme
 from z7_logging import configure_component_logger, log_exception
 
@@ -24,6 +23,7 @@ def get_prompt_file_path() -> Path | None:
     return key_dir / 'gemini_prompt.txt'
 
 def load_api_key() -> str:
+    import win32crypt
     user_profile = os.environ.get('USERPROFILE')
     if not user_profile:
         return ""
@@ -39,6 +39,7 @@ def load_api_key() -> str:
     return ""
 
 def save_api_key(api_key: str) -> None:
+    import win32crypt
     api_key = api_key.strip()
     if not api_key:
         return

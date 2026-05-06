@@ -1,6 +1,7 @@
 import os
 import json
 import tkinter as tk
+from functools import lru_cache
 from pathlib import Path
 
 def get_theme_file_path() -> Path | None:
@@ -11,6 +12,7 @@ def get_theme_file_path() -> Path | None:
     key_dir.mkdir(parents=True, exist_ok=True)
     return key_dir / 'theme_config.json'
 
+@lru_cache(maxsize=None)
 def load_theme() -> str:
     theme_file = get_theme_file_path()
     if theme_file and theme_file.exists():
@@ -30,7 +32,10 @@ def save_theme(theme_mode: str) -> None:
                 json.dump({'theme': theme_mode}, f)
         except Exception:
             pass
+    load_theme.cache_clear()
+    get_theme_colors.cache_clear()
 
+@lru_cache(maxsize=None)
 def get_theme_colors(mode=None):
     if mode is None:
         mode = load_theme()
@@ -139,6 +144,8 @@ def ask_string(title, message, parent=None, show=""):
 def ask_ok_cancel(title, message, parent=None):
     return _create_dialog(title, message, parent, is_prompt=False, is_cancelable=True)
 
+_privacy_prefs_cache: dict | None = None
+
 def _get_privacy_prefs_path() -> Path | None:
     user_profile = os.environ.get('USERPROFILE')
     if not user_profile:
@@ -148,16 +155,22 @@ def _get_privacy_prefs_path() -> Path | None:
     return key_dir / 'privacy_prefs.json'
 
 def _load_privacy_prefs() -> dict:
+    global _privacy_prefs_cache
+    if _privacy_prefs_cache is not None:
+        return _privacy_prefs_cache
     path = _get_privacy_prefs_path()
     if path and path.exists():
         try:
             with open(path, 'r', encoding='utf-8') as f:
-                return json.load(f)
+                _privacy_prefs_cache = json.load(f)
+                return _privacy_prefs_cache
         except Exception:
             pass
-    return {}
+    _privacy_prefs_cache = {}
+    return _privacy_prefs_cache
 
 def _save_privacy_pref(key: str) -> None:
+    global _privacy_prefs_cache
     path = _get_privacy_prefs_path()
     if not path:
         return
@@ -166,6 +179,7 @@ def _save_privacy_pref(key: str) -> None:
     try:
         with open(path, 'w', encoding='utf-8') as f:
             json.dump(prefs, f)
+        _privacy_prefs_cache = prefs
     except Exception:
         pass
 
@@ -173,12 +187,14 @@ def load_privacy_prefs() -> dict:
     return _load_privacy_prefs()
 
 def save_privacy_prefs(prefs: dict) -> None:
+    global _privacy_prefs_cache
     path = _get_privacy_prefs_path()
     if not path:
         return
     try:
         with open(path, 'w', encoding='utf-8') as f:
             json.dump(prefs, f)
+        _privacy_prefs_cache = prefs
     except Exception:
         pass
 
