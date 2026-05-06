@@ -92,7 +92,7 @@ def main() -> None:
         except Exception as backup_e:
             LOGGER.warning("Could not run CreateDocumentBackup macro: %s", str(backup_e))
             
-        word.StatusBar = "Z7: Aguardando interação no assistente de gramática..."
+        word.StatusBar = "Z7: Corrigindo gramática do trecho selecionado..."
         LOGGER.info("Connected to running Word instance")
     except Exception as e:
         log_exception(LOGGER, "Failed to connect to Word", e)
@@ -116,18 +116,6 @@ def main() -> None:
     root = tk.Tk()
     root.withdraw()
     root.attributes('-topmost', True)
-    
-    # 1. Privacy Warning
-    if not z7_theme.ask_ok_cancel(
-        "Aviso de Privacidade - Z7 StdProposers",
-        "O trecho selecionado será enviado para a API do Google Gemini para revisão gramatical.\n\n"
-        "Certifique-se de que não há dados sigilosos e que o uso está de acordo com as diretrizes do seu órgão.\n\n"
-        "Deseja continuar?",
-        parent=root
-    ):
-        LOGGER.info("User cancelled at privacy warning")
-        root.destroy()
-        return
 
     api_key = get_api_key()
     if not api_key:
@@ -227,8 +215,29 @@ Retorne APENAS o texto corrigido, sem adicionar nenhum comentário, explicação
         return
 
     try:
+        # Tenta salvar os atributos básicos de formatação do texto selecionado
+        try:
+            font_name = selection.Font.Name
+            font_size = selection.Font.Size
+            font_bold = selection.Font.Bold
+            font_italic = selection.Font.Italic
+        except Exception:
+            font_name, font_size, font_bold, font_italic = None, None, None, None
+
         selection.Text = corrected_text
-        LOGGER.info("Text replaced in Word document directly")
+        
+        # Reaplica os atributos básicos, se possível
+        if font_name is not None:
+            try:
+                selection.Font.Name = font_name
+                selection.Font.Size = font_size
+                selection.Font.Bold = font_bold
+                selection.Font.Italic = font_italic
+            except Exception:
+                pass
+                
+        LOGGER.info("Text replaced in Word document directly, keeping formatting")
+        word.StatusBar = "Z7: Correção finalizada."
     except Exception as e:
         log_exception(LOGGER, "Failed to apply text to Word", e)
         z7_theme.show_error("Z7 StdProposers - Erro", f"Não foi possível substituir o texto:\n{e}", parent=root)
