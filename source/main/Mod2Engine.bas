@@ -1,3 +1,4 @@
+Attribute VB_Name = "Mod2Engine"
 Option Explicit
 
 ' Mod2Engine.bas

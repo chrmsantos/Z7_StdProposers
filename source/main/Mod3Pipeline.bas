@@ -1,3 +1,4 @@
+Attribute VB_Name = "Mod3Pipeline"
 Option Explicit
 
 ' Mod3Pipeline.bas
