@@ -242,15 +242,15 @@ class ChatApp:
                 except Exception as backup_e:
                     LOGGER.warning("Could not run CreateDocumentBackup macro: %s", str(backup_e))
 
-                doc_text = word.ActiveDocument.Content.Text
-                if len(doc_text) > 150000:
-                    doc_text = doc_text[:150000] # Limita tamanho pra segurança
+                self.doc_text = word.ActiveDocument.Content.Text
+                if len(self.doc_text) > 150000:
+                    self.doc_text = self.doc_text[:150000] # Limita tamanho pra segurança
                 LOGGER.info("Loaded Word active document context for chat")
             except Exception as e:
                 log_exception(LOGGER, "Failed to load Word document context", e)
-                doc_text = "Nenhum documento ativo ou erro ao obter texto do Word."
+                self.doc_text = "Nenhum documento ativo ou erro ao obter texto do Word."
                 
-            system_instruction = f"Você é um assistente especialista em legislação prestativo e polido. Use o seguinte texto do documento ativo no Word como contexto principal para responder às dúvidas do usuário:\n\n{doc_text}"
+            system_instruction = "Você é um assistente especialista em legislação prestativo e polido. Auxilie o usuário alterando, revisando ou tirando dúvidas."
             
             # Check for custom model selection
             model = 'gemini-3.1-pro-preview' # Default
@@ -315,7 +315,14 @@ class ChatApp:
         self.status_lbl.config(text="IA digitando...")
         self.send_btn.config(state=tk.DISABLED)
         
-        threading.Thread(target=self._send_message_thread, args=(user_msg,), daemon=True).start()
+        actual_send_msg = user_msg
+        if not hasattr(self, '_context_sent'):
+            self._context_sent = True
+            doc_context = getattr(self, 'doc_text', '')
+            if doc_context and "erro ao obter" not in doc_context.lower():
+                actual_send_msg = f"Abaixo está o texto atual do meu documento no Word para ser usado como base e contexto dessa conversa:\n\n{doc_context}\n\nE agora o meu primeiro pedido considerando o texto acima:\n{user_msg}"
+        
+        threading.Thread(target=self._send_message_thread, args=(actual_send_msg,), daemon=True).start()
 
     def _send_message_thread(self, user_msg: str) -> None:
         try:
