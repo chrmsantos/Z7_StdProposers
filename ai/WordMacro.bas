@@ -1,61 +1,120 @@
 Attribute VB_Name = "MacroGeminiGrammar"
 Option Explicit
 
+' ============================================================
+' ResolverComando: monta o comando para um app da suite Z7.
+'   appName  - nome do executavel sem extensao (ex: "correct_grammar")
+'   Retorna o comando pronto para WScript.Shell.Run, ou "" se nao encontrado.
+' ============================================================
+Private Function ResolverComando(appName As String) As String
+    Dim base As String
+    base = Environ$("LOCALAPPDATA") & "\Z7\Apps\Z7_StdProposers\ai\"
+
+    ' 1. Executavel compilado (instalado via Install.ps1) — preferencial.
+    Dim caminhoExe As String
+    caminhoExe = base & appName & "\" & appName & ".exe"
+    If Dir(caminhoExe) <> "" Then
+        ResolverComando = """" & caminhoExe & """"
+        Exit Function
+    End If
+
+    ' 2. Fallback: script .py com pyw -3 (ambiente de desenvolvimento).
+    Dim caminhoScript As String
+    caminhoScript = base & appName & ".py"
+    If Dir(caminhoScript) <> "" Then
+        ResolverComando = "pyw -3 """ & caminhoScript & """"
+        Exit Function
+    End If
+
+    ResolverComando = ""
+End Function
+
+' ============================================================
+' CorrigirGramaticaComGemini
+'   Envia o texto selecionado no Word para correcao gramatical
+'   via Gemini, usando o executavel compilado (ou .py em dev).
+' ============================================================
 Sub CorrigirGramaticaComGemini()
     On Error GoTo ErrorHandler
-    ' Macro para enviar o texto selecionado para correção via script Python
-    ' usando a API do Gemini.
-    
+
     Dim objShell As Object
     Dim comandoExecucao As String
-    Dim caminhoScript As String
-    Dim caminhoPython As String
-    Dim baseLocalAppData As String
-    
-    baseLocalAppData = Environ$("LOCALAPPDATA")
 
-    ' Primeiro tenta a estrutura atual do repositorio.
-    caminhoScript = baseLocalAppData & "\Z7\Apps\Z7_StdProposers\ai\correct_grammar.py"
+    comandoExecucao = ResolverComando("correct_grammar")
 
-    ' Fallback para instalacoes antigas.
-    If Dir(caminhoScript) = "" Then
-        caminhoScript = baseLocalAppData & "\Z7\Apps\ai\correct_grammar.py"
-    End If
-
-    If Dir(caminhoScript) = "" Then
-        MsgBox "Arquivo do script nao encontrado: " & caminhoScript, vbExclamation, "Z7 StdProposers"
+    If comandoExecucao = "" Then
+        MsgBox "Executavel 'correct_grammar' nao encontrado." & vbCrLf & _
+               "Execute 'Install.ps1' para instalar os executaveis.", _
+               vbExclamation, "Z7 StdProposers"
         Exit Sub
     End If
-    
-    ' Usa pyw -3 para garantir consistencia com o Python 3 padrao do sistema.
-    caminhoPython = "pyw -3"
-    
-    ' Monta o comando completo com aspas em volta do caminho do script para evitar problemas com espaços
-    comandoExecucao = caminhoPython & " """ & caminhoScript & """"
-    
-    ' Cria o objeto WScript.Shell
+
     Set objShell = CreateObject("WScript.Shell")
-    
-    ' Muda o ponteiro do mouse para indicar carregamento
     Application.Cursor = wdCursorWait
-    
-    ' Executa o comando.
-    ' O primeiro parâmetro (0) oculta a janela.
-    ' O segundo parâmetro (True) faz o VBA aguardar até que o Python termine a execução.
     objShell.Run comandoExecucao, 0, True
-    
-    ' Retorna o ponteiro do mouse ao normal
     Application.Cursor = wdCursorNormal
-    
-    ' Como o script Python já substitui o texto diretamente via COM/win32com, 
-    ' não precisamos manipular o Word a partir daqui, apenas avisamos o fim.
-    ' (Opcional: remova o comentário da linha abaixo para ter um popup de aviso).
-    ' MsgBox "Correção finalizada!", vbInformation, "Revisor Gemini"
 
     Exit Sub
 
 ErrorHandler:
     Application.Cursor = wdCursorNormal
-    MsgBox "Ocorreu um erro ao executar a macro: " & Err.Description, vbCritical, "Erro de Execução"
+    MsgBox "Erro ao executar a macro: " & Err.Description, vbCritical, "Erro de Execucao"
+End Sub
+
+' ============================================================
+' AbrirChatIA
+'   Abre a interface de chat com contexto do documento ativo.
+' ============================================================
+Sub AbrirChatIA()
+    On Error GoTo ErrorHandler
+
+    Dim objShell As Object
+    Dim comandoExecucao As String
+
+    comandoExecucao = ResolverComando("chat_ia")
+
+    If comandoExecucao = "" Then
+        MsgBox "Executavel 'chat_ia' nao encontrado." & vbCrLf & _
+               "Execute 'Install.ps1' para instalar os executaveis.", _
+               vbExclamation, "Z7 StdProposers"
+        Exit Sub
+    End If
+
+    Set objShell = CreateObject("WScript.Shell")
+    ' Chat nao bloqueia o Word (False): janela fica aberta enquanto o usuario trabalha.
+    objShell.Run comandoExecucao, 0, False
+
+    Exit Sub
+
+ErrorHandler:
+    MsgBox "Erro ao abrir Chat IA: " & Err.Description, vbCritical, "Erro de Execucao"
+End Sub
+
+' ============================================================
+' ConfigurarPrompt
+'   Abre a interface de configuracao do prompt Gemini.
+' ============================================================
+Sub ConfigurarPrompt()
+    On Error GoTo ErrorHandler
+
+    Dim objShell As Object
+    Dim comandoExecucao As String
+
+    comandoExecucao = ResolverComando("config_prompt")
+
+    If comandoExecucao = "" Then
+        MsgBox "Executavel 'config_prompt' nao encontrado." & vbCrLf & _
+               "Execute 'Install.ps1' para instalar os executaveis.", _
+               vbExclamation, "Z7 StdProposers"
+        Exit Sub
+    End If
+
+    Set objShell = CreateObject("WScript.Shell")
+    objShell.Run comandoExecucao, 0, False
+
+    Exit Sub
+
+ErrorHandler:
+    MsgBox "Erro ao abrir Configurar Prompt: " & Err.Description, vbCritical, "Erro de Execucao"
 End Sub
 
