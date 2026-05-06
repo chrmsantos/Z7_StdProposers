@@ -182,6 +182,17 @@ class AppTheme:
 
 def main() -> None:
     LOGGER.info("Starting prompt configuration UI")
+    
+    try:
+        import win32com.client
+        try:
+            word = win32com.client.GetObject(Class="Word.Application")
+        except Exception:
+            word = win32com.client.Dispatch("Word.Application")
+        word.StatusBar = "Z7: Abrindo Configurações..."
+    except Exception as e:
+        LOGGER.warning("Could not connect to Word to update status bar: %s", str(e))
+        
     root = tk.Tk()
     root.title("Configurar Prompt do Gemini")
     root.geometry("700x600")

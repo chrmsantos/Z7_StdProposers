@@ -75,7 +75,7 @@ class ChatApp:
         chat_width = int((screen_width // 4) * 0.9)
         chat_height = int(screen_height * 0.75)
         chat_left = 0
-        chat_top = (screen_height - chat_height) // 2 + int(screen_height * 0.1)  # Centraliza e desloca 10% para baixo
+        chat_top = (screen_height - chat_height) // 2 + int(screen_height * 0.05)  # Centraliza e desloca 5% para baixo
         
         self.chat_width_px = chat_width
         self.root.geometry(f"{chat_width}x{chat_height}+{chat_left}+{chat_top}")
