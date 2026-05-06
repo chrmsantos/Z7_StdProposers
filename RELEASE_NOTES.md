@@ -1,5 +1,13 @@
 # Release Notes
 
+## v6.5.0-beta1 — 2026-05-06 — Estabilização Geral
+
+### Resumo
+
+Versão de estabilização geral do projeto.
+
+---
+
 ## v6.2.1-beta1 — 2026-05-05 — Performance & Formatting Fixes
 
 ### Resumo
