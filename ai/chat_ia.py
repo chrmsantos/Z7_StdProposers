@@ -273,6 +273,8 @@ class ChatApp:
         threading.Thread(target=self._init_ai_thread, daemon=True).start()
         
     def _init_ai_thread(self) -> None:
+        import pythoncom
+        pythoncom.CoInitialize()
         try:
             import win32com.client
             import google.genai as genai
@@ -381,6 +383,8 @@ class ChatApp:
             else:
                 self.root.after(0, lambda: self.status_lbl.config(text="Erro na inicialização."))
                 self.root.after(0, lambda: self.append_message("Sistema", f"Erro crítico: {str(e)}"))
+        finally:
+            pythoncom.CoUninitialize()
 
     def _on_ai_ready(self) -> None:
         self.status_lbl.config(text="Pronto para conversar")
