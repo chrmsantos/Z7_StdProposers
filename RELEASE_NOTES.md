@@ -134,4 +134,3 @@ Compilados com PyInstaller 6.20.0 / Python 3.14.4.
 ### Versão Anterior
 
 `v5.0.0` — release estável anterior
-
