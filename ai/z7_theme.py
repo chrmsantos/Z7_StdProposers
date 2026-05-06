@@ -88,9 +88,10 @@ def _create_dialog(title, message, parent=None, is_prompt=False, is_cancelable=F
     dlg.configure(bg=colors["bg"], padx=20, pady=20)
     dlg.resizable(False, False)
     
-    if parent:
+    if parent and parent.winfo_viewable():
         dlg.transient(parent)
     dlg.grab_set()
+    dlg.after(100, lambda: (dlg.lift(), dlg.focus_force()))
     
     tk.Label(dlg, text=message, font=("Segoe UI", 10), bg=colors["bg"], fg=colors["fg"], justify=tk.LEFT, wraplength=400).pack(pady=(0, 15))
     
@@ -197,9 +198,10 @@ def ask_privacy_warning(title: str, message: str, key: str, parent=None) -> bool
     dlg.attributes('-topmost', True)
     dlg.configure(bg=colors["bg"], padx=20, pady=20)
     dlg.resizable(False, False)
-    if parent:
+    if parent and parent.winfo_viewable():
         dlg.transient(parent)
     dlg.grab_set()
+    dlg.after(100, lambda: (dlg.lift(), dlg.focus_force()))
 
     tk.Label(dlg, text=message, font=("Segoe UI", 10), bg=colors["bg"], fg=colors["fg"],
              justify=tk.LEFT, wraplength=400).pack(pady=(0, 15))
