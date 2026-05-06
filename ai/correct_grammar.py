@@ -4,77 +4,9 @@ import tkinter as tk
 from pathlib import Path
 import z7_theme
 from z7_logging import configure_component_logger, log_exception
+from z7_gemini_key import get_api_key, delete_api_key
 
 LOGGER = configure_component_logger("correct_grammar")
-
-def get_api_key() -> str | None:
-    LOGGER.info("Loading Gemini API key")
-    # Define o caminho do arquivo de chave
-    user_profile = os.environ.get('USERPROFILE')
-    if not user_profile:
-        print("Erro: Variavel USERPROFILE nao encontrada.")
-        LOGGER.error("USERPROFILE env var not found")
-        return None
-        
-    key_dir = Path(user_profile) / 'AppData' / 'Local' / 'Z7' / 'Tmp' / 'StdProposers'
-    key_file = key_dir / 'gemini.key'
-    
-    # Se o arquivo ja existir, tenta ler e descriptografar
-    if key_file.exists():
-        try:
-            with open(key_file, 'rb') as f:
-                encrypted_key = f.read()
-            import win32crypt
-            _, decrypted_key = win32crypt.CryptUnprotectData(encrypted_key, None, None, None, 0)
-            LOGGER.info("API key loaded from encrypted key file")
-            return decrypted_key.decode('utf-8')
-        except Exception as e:
-            print(f"Erro ao descriptografar a chave: {e}")
-            log_exception(LOGGER, "Failed to decrypt API key", e)
-            # Se falhar, vamos pedir novamente
-            pass
-            
-    # Se nao existir ou falhar, pede a chave via Tkinter
-    root = tk.Tk()
-    root.withdraw() # Esconde a janela principal
-    
-    # Mantem a janela de dialogo no topo
-    root.attributes('-topmost', True)
-    
-    api_key = z7_theme.ask_string(
-        "Z7 StdProposers - Primeira Inicializacao", 
-        "Insira sua chave da API do Google Gemini:\n(Ela sera criptografada e salva localmente)",
-        parent=root,
-        show="*"
-    )
-    
-    root.destroy()
-    
-    if not api_key or not api_key.strip():
-        print("Chave nao fornecida pelo usuario.")
-        LOGGER.warning("User did not provide API key")
-        return None
-        
-    api_key = api_key.strip()
-    
-    # Criptografa a chave usando DPAPI (seguranca atrelada ao usuario atual do Windows)
-    try:
-        import win32crypt
-        encrypted_key = win32crypt.CryptProtectData(api_key.encode('utf-8'), 'Z7_Gemini_Key', None, None, None, 0)
-        
-        # Cria os diretorios se nao existirem
-        key_dir.mkdir(parents=True, exist_ok=True)
-        
-        # Salva o arquivo
-        with open(key_file, 'wb') as f:
-            f.write(encrypted_key)
-        LOGGER.info("API key encrypted and persisted")
-    except Exception as e:
-        print(f"Erro ao criptografar ou salvar a chave: {e}")
-        log_exception(LOGGER, "Failed to save encrypted API key", e)
-        # Mesmo se falhar ao salvar, podemos retornar a chave em memoria para uso atual
-        
-    return api_key
 
 def main() -> None:
     LOGGER.info("Starting grammar correction flow")
@@ -207,12 +139,7 @@ Retorne APENAS o texto corrigido, sem adicionar nenhum comentário, explicação
         log_exception(LOGGER, "Gemini API request failed", e)
         error_msg = str(e).lower()
         if "403" in error_msg or "401" in error_msg or "invalid api key" in error_msg or "api_key" in error_msg:
-            try:
-                key_file = Path(user_profile) / 'AppData' / 'Local' / 'Z7' / 'Tmp' / 'StdProposers' / 'gemini.key'
-                if key_file.exists():
-                    key_file.unlink()
-            except Exception:
-                pass
+            delete_api_key()
             z7_theme.show_error("Z7 StdProposers - Erro na API", "Sua chave da API é inválida ou expirou. O arquivo de chave foi deletado.\nTente rodar a macro novamente para inserir uma nova chave.", parent=root)
         else:
             z7_theme.show_error("Z7 StdProposers - Erro na API", f"Erro ao chamar a API do Gemini:\n{e}", parent=root)

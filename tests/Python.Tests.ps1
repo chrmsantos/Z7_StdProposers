@@ -8,6 +8,11 @@ Describe 'Z7_STDPROPOSERS - Python Logging and Test Harness' {
         Test-Path "$repoRoot\ai\z7_logging.py" | Should Be $true
     }
 
+    It 'Tem modulo compartilhado de chave Gemini' {
+        $repoRoot = Get-RepoRoot
+        Test-Path "$repoRoot\ai\z7_gemini_key.py" | Should Be $true
+    }
+
     It 'Scripts Python principais usam o logger compartilhado' {
         $repoRoot = Get-RepoRoot
 
@@ -15,6 +20,14 @@ Describe 'Z7_STDPROPOSERS - Python Logging and Test Harness' {
             $content = Get-Content "$repoRoot\ai\$script" -Raw -Encoding UTF8
             $content | Should Match 'from z7_logging import configure_component_logger'
             $content | Should Match 'LOGGER = configure_component_logger'
+        }
+    }
+
+    It 'Scripts que usam API Gemini importam de z7_gemini_key' {
+        $repoRoot = Get-RepoRoot
+        foreach ($script in @('correct_grammar.py', 'chat_ia.py')) {
+            $content = Get-Content "$repoRoot\ai\$script" -Raw -Encoding UTF8
+            $content | Should Match 'from z7_gemini_key import'
         }
     }
 

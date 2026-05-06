@@ -67,7 +67,7 @@ Public Const CHAT_IA_SCRIPT_RELATIVE_PATH As String = "\AppData\Local\Z7\Apps\Z7
 '================================================================================
 ' CONSTANTES DE SISTEMA
 '================================================================================
-Public Const Z7_STDPROPOSERS_VERSION As String = "5.0.1-beta"
+Public Const Z7_STDPROPOSERS_VERSION As String = "6.2.1-beta1"
 Public Const MIN_SUPPORTED_VERSION As Long = 14
 Public Const REQUIRED_STRING As String = "$NUMERO$/$ANO$"
 Public Const MAX_BACKUP_FILES As Long = 10
@@ -297,7 +297,7 @@ Public Function ConfigureDocumentView(doc As Document) As Boolean
     ' Remove configuracoes que alteravam configuracoes globais do Word
     ' Estas configuracoes sao agora preservadas do estado original
 
-    LogMessage "Visualizacao configurada: zoom definido para 120%, demais configuracoes preservadas"
+    LogMessage "Visualizacao configurada: zoom definido para 130%, demais configuracoes preservadas"
     ConfigureDocumentView = True
     Exit Function
 
@@ -342,7 +342,7 @@ Public Sub ShowUserFriendlyError(errNum As Long, errDesc As String)
                   "Verifique o log."
     End Select
 
-    MsgBox msg, vbCritical, "Z7_StdProposers v1.0-beta1"
+    MsgBox msg, vbCritical, "Z7_StdProposers v6.2.1-beta1"
 End Sub
 
 '================================================================================
