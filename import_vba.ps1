@@ -1,10 +1,10 @@
 #Requires -Version 5.1
 <#
 .SYNOPSIS
-    Importa os 4 modulos VBA do projeto Z7_StdProposers no documento Word ativo.
+    Importa os 5 modulos VBA do projeto Z7_StdProposers no documento Word ativo.
 
 .DESCRIPTION
-    Remove modulos existentes com o mesmo nome e reimporta os .bas de source\main\.
+    Remove modulos existentes com o mesmo nome e reimporta os .bas de source\main\ e ai\.
     Requer que a macro "Confiar no acesso ao modelo de objeto do projeto VBA" esteja
     habilitada em Word > Opcoes > Central de Confiabilidade > Configuracoes de Macro.
 
@@ -25,15 +25,16 @@ $ErrorActionPreference = "Stop"
 
 $BasDir = Join-Path $PSScriptRoot "source\main"
 $Modules = @(
-    "Mod1Infrastructure.bas",
-    "Mod2Engine.bas",
-    "Mod3Pipeline.bas",
-    "Mod4Main.bas"
+    @{ File = "Mod1Infrastructure.bas"; Dir = $BasDir },
+    @{ File = "Mod2Engine.bas";         Dir = $BasDir },
+    @{ File = "Mod3Pipeline.bas";       Dir = $BasDir },
+    @{ File = "Mod4Main.bas";           Dir = $BasDir },
+    @{ File = "WordMacro.bas";          Dir = (Join-Path $PSScriptRoot "ai") }
 )
 
 # Verifica que todos os arquivos existem antes de comecar
-foreach ($file in $Modules) {
-    $path = Join-Path $BasDir $file
+foreach ($m in $Modules) {
+    $path = Join-Path $m.Dir $m.File
     if (-not (Test-Path $path)) {
         Write-Error "Arquivo nao encontrado: $path"
         exit 1
@@ -97,8 +98,8 @@ $components = $vbp.VBComponents
 
 # Passagem 1: remove todos os modulos pre-existentes
 Write-Host "Removendo modulos pre-existentes..." -ForegroundColor Cyan
-foreach ($file in $Modules) {
-    $moduleName = [System.IO.Path]::GetFileNameWithoutExtension($file)
+foreach ($m in $Modules) {
+    $moduleName = [System.IO.Path]::GetFileNameWithoutExtension($m.File)
     try {
         $existing = $components.Item($moduleName)
         $components.Remove($existing)
@@ -110,9 +111,9 @@ foreach ($file in $Modules) {
 
 # Passagem 2: importa todos os modulos
 Write-Host "Importando modulos..." -ForegroundColor Cyan
-foreach ($file in $Modules) {
-    $moduleName = [System.IO.Path]::GetFileNameWithoutExtension($file)
-    $fullPath   = Join-Path $BasDir $file
+foreach ($m in $Modules) {
+    $moduleName = [System.IO.Path]::GetFileNameWithoutExtension($m.File)
+    $fullPath   = Join-Path $m.Dir $m.File
     $components.Import($fullPath) | Out-Null
     Write-Host "  Importado: $moduleName  <-  $fullPath" -ForegroundColor Green
 }
