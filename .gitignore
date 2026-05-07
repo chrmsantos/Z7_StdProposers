@@ -3,6 +3,11 @@ build/
 dist/
 *.spec
 
+# Executaveis compilados (gerados por build_exe.ps1)
+ai/correct_grammar/
+ai/config_prompt/
+ai/chat_ia/
+
 # Python cache
 __pycache__/
 *.pyc

@@ -1,3 +1,4 @@
+Attribute VB_Name = "Mod3Pipeline"
 Option Explicit
 
 ' Mod3Pipeline.bas
@@ -2683,7 +2684,7 @@ Public Function InsertFooterStamp(doc As Document) As Boolean
             ' Insere "P�g. X de Y" centralizado (numero da pagina e total de paginas)
             Set rngPage = footer.Range.Paragraphs.Last.Range
             rngPage.Collapse Direction:=wdCollapseStart
-            rngPage.text = "Pág. "
+            rngPage.text = "P" & Chr(225) & "g. "
             rngPage.Collapse Direction:=wdCollapseEnd
 
             ' Campo PAGE (numero da pagina atual)

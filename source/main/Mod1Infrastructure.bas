@@ -1,3 +1,4 @@
+Attribute VB_Name = "Mod1Infrastructure"
 Option Explicit
 
 ' Mod1Infrastructure.bas

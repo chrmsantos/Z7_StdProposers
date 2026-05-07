@@ -1,3 +1,4 @@
+Attribute VB_Name = "Mod4Main"
 Option Explicit
 
 ' Mod4Main.bas
