@@ -85,17 +85,6 @@ def main() -> None:
     client = genai.Client(api_key=api_key)
     LOGGER.info("Gemini client configured")
 
-    # Mostrar carregamento
-    colors = z7_theme.get_theme_colors()
-    loading = tk.Toplevel(root)
-    loading.title("Z7 StdProposers")
-    loading.geometry("300x100")
-    loading.configure(bg=colors["bg"])
-    loading.attributes('-topmost', True)
-    z7_theme._center_window(loading, root)
-    tk.Label(loading, text="Consultando Google Gemini...\nPor favor, aguarde.", font=("Segoe UI", 10), bg=colors["bg"], fg=colors["fg"]).pack(expand=True)
-    loading.update()
-
     from config_prompt import load_prompt, load_ai_model
     base_prompt = load_prompt()
     LOGGER.info("Prompt loaded via config_prompt")
@@ -108,7 +97,6 @@ def main() -> None:
         corrected_text = response.text.strip()
         LOGGER.info("Gemini response received with model: %s", model_name)
     except Exception as e:
-        loading.destroy()
         log_exception(LOGGER, "Gemini API request failed", e)
         error_msg = str(e).lower()
         if "403" in error_msg or "401" in error_msg or "invalid api key" in error_msg or "api_key" in error_msg:
@@ -125,8 +113,6 @@ def main() -> None:
             z7_theme.show_error("Z7 StdProposers - Erro na API", f"Erro ao chamar a API do Gemini:\n{e}", parent=root)
         root.destroy()
         return
-
-    loading.destroy()
 
     if not corrected_text:
         z7_theme.show_warning("Z7 StdProposers - Aviso", "A API do Gemini retornou um texto vazio.", parent=root)
