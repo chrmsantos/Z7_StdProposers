@@ -29,7 +29,6 @@ $Modules = @(
     @{ File = "Mod2Engine.bas";         Dir = $BasDir },
     @{ File = "Mod3Pipeline.bas";       Dir = $BasDir },
     @{ File = "Mod4Main.bas";           Dir = $BasDir },
-    @{ File = "WordMacro.bas";          Dir = (Join-Path $PSScriptRoot "ai") }
 )
 
 # Verifica que todos os arquivos existem antes de comecar
