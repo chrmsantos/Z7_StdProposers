@@ -7,6 +7,8 @@ from z7_logging import configure_component_logger, log_exception
 
 LOGGER = configure_component_logger("config_prompt")
 
+GITHUB_REPO_URL = "https://github.com/chrmsantos/Z7_StdProposers"
+
 DEFAULT_PROMPT = """Você é um especialista em revisão de textos legislativos no idioma Português do Brasil.
 Abaixo está um trecho de uma propositura legislativa.
 Sua tarefa é corrigir gramaticalmente o texto, realizando O MÍNIMO POSSÍVEL de alterações em relação ao original.
@@ -69,7 +71,7 @@ def save_ai_model(model_name: str) -> None:
         except Exception as e:
             log_exception(LOGGER, "Failed to save model", e)
 
-def save_prompt(text_widget: tk.Text, root: tk.Tk, model_var: tk.StringVar, api_var: tk.StringVar,
+def save_prompt(text_widget: tk.Text, root: tk.Tk, model_var: tk.StringVar,
                privacy_chat_var: tk.BooleanVar | None = None, privacy_grammar_var: tk.BooleanVar | None = None) -> None:
     new_prompt = text_widget.get("1.0", tk.END).strip()
     if not new_prompt:
@@ -85,7 +87,6 @@ def save_prompt(text_widget: tk.Text, root: tk.Tk, model_var: tk.StringVar, api_
             LOGGER.info("Prompt saved successfully")
 
             save_ai_model(model_var.get())
-            save_api_key(api_var.get())
 
             # Save privacy prefs (True = aviso desativado; ausente/False = aviso ativo)
             if privacy_chat_var is not None or privacy_grammar_var is not None:
@@ -156,10 +157,9 @@ class AppTheme:
 
         if 'api_frame' in self.widgets:
             self.widgets['api_frame'].configure(bg=bg)
-        if 'api_lbl' in self.widgets:
-            self.widgets['api_lbl'].configure(bg=bg, fg=fg)
-        if 'api_entry' in self.widgets:
-            self.widgets['api_entry'].configure(bg=text_bg, fg=fg, insertbackground=fg)
+        if 'api_btn' in self.widgets:
+            self.widgets['api_btn'].configure(bg=btn_sec_bg, fg=btn_sec_fg,
+                                              activebackground=btn_sec_hover, activeforeground=fg)
 
         if 'privacy_frame' in self.widgets:
             self.widgets['privacy_frame'].configure(bg=bg)
@@ -175,6 +175,74 @@ class AppTheme:
         if 'toggle_btn' in self.widgets:
             icon = "🌙 Modo Escuro" if self.mode == 'light' else "☀️ Modo Claro"
             self.widgets['toggle_btn'].configure(text=icon, bg=bg, fg=fg, activebackground=bg, activeforeground=fg)
+
+
+def open_api_key_dialog(parent: tk.Tk, theme_mode: str) -> None:
+    colors = z7_theme.get_theme_colors(theme_mode)
+    bg          = colors["bg"]
+    fg          = colors["fg"]
+    text_bg     = colors["text_bg"]
+    btn_sec_bg  = colors["btn_sec_bg"]
+    btn_sec_fg  = colors["btn_sec_fg"]
+    btn_sec_hover = colors["btn_sec_hover"]
+    btn_primary = colors.get("btn_primary_bg", "#2563eb")
+
+    dialog = tk.Toplevel(parent)
+    dialog.title("Chave de API Gemini")
+    dialog.geometry("460x155")
+    dialog.resizable(False, False)
+    dialog.transient(parent)
+    dialog.grab_set()
+    dialog.attributes('-topmost', True)
+    dialog.configure(bg=bg)
+
+    tk.Label(dialog, text="Chave de API do Gemini:", font=("Segoe UI", 10, "bold"),
+             bg=bg, fg=fg).pack(anchor="w", padx=25, pady=(20, 5))
+
+    entry_frame = tk.Frame(dialog, bg=bg)
+    entry_frame.pack(fill=tk.X, padx=25)
+
+    entry_var = tk.StringVar(value=load_api_key())
+    entry = tk.Entry(entry_frame, textvariable=entry_var, font=("Segoe UI", 11),
+                     relief=tk.FLAT, bd=2, show="*", bg=text_bg, fg=fg,
+                     insertbackground=fg)
+    entry.pack(side=tk.LEFT, fill=tk.X, expand=True)
+
+    def toggle_visibility() -> None:
+        if entry.cget("show") == "*":
+            entry.config(show="")
+            show_btn.config(text="Ocultar")
+        else:
+            entry.config(show="*")
+            show_btn.config(text="Mostrar")
+
+    show_btn = tk.Button(entry_frame, text="Mostrar", font=("Segoe UI", 9),
+                         relief=tk.FLAT, cursor="hand2",
+                         bg=btn_sec_bg, fg=btn_sec_fg,
+                         activebackground=btn_sec_hover, activeforeground=fg,
+                         command=toggle_visibility)
+    show_btn.pack(side=tk.LEFT, padx=(8, 0))
+
+    def do_save() -> None:
+        save_api_key(entry_var.get().strip())
+        LOGGER.info("API key saved from dialog")
+        dialog.destroy()
+
+    btn_row = tk.Frame(dialog, bg=bg)
+    btn_row.pack(fill=tk.X, padx=25, pady=(15, 0))
+
+    tk.Button(btn_row, text="Cancelar", font=("Segoe UI", 10, "bold"),
+              relief=tk.FLAT, cursor="hand2",
+              bg=btn_sec_bg, fg=btn_sec_fg,
+              activebackground=btn_sec_hover, activeforeground=fg,
+              command=dialog.destroy).pack(side=tk.RIGHT, padx=(10, 0))
+
+    tk.Button(btn_row, text="Salvar", font=("Segoe UI", 10, "bold"),
+              relief=tk.FLAT, cursor="hand2",
+              bg=btn_primary, fg="white",
+              activebackground="#1d4ed8", activeforeground="white",
+              command=do_save).pack(side=tk.RIGHT)
+
 
 def main() -> None:
     LOGGER.info("Starting prompt configuration UI")
@@ -237,17 +305,11 @@ def main() -> None:
     api_frame.pack(fill=tk.X, padx=25, pady=(0, 10))
     theme.widgets['api_frame'] = api_frame
 
-    api_lbl = tk.Label(api_frame, text="Chave de API:", font=("Segoe UI", 10, "bold"))
-    api_lbl.pack(side=tk.LEFT)
-    theme.widgets['api_lbl'] = api_lbl
-
-    api_var = tk.StringVar(root)
-    current_key = load_api_key()
-    api_var.set(current_key)
-
-    api_entry = tk.Entry(api_frame, textvariable=api_var, font=("Segoe UI", 10), relief=tk.FLAT, bd=2, show="*")
-    api_entry.pack(side=tk.LEFT, padx=10, fill=tk.X, expand=True)
-    theme.widgets['api_entry'] = api_entry
+    api_btn = tk.Button(api_frame, text="🔑 Chave de API...", font=("Segoe UI", 10),
+                        relief=tk.FLAT, cursor="hand2",
+                        command=lambda: open_api_key_dialog(root, theme.mode))
+    api_btn.pack(side=tk.LEFT)
+    theme.widgets['api_btn'] = api_btn
 
     # Avisos de Privacidade
     privacy_prefs = z7_theme.load_privacy_prefs()
@@ -294,7 +356,7 @@ def main() -> None:
     # Estilos de botão
     btn_font = ("Segoe UI", 10, "bold")
     
-    save_btn = tk.Button(btn_frame, text="Salvar Configuração", width=20, bg="#2563eb", fg="white", font=btn_font, relief=tk.FLAT, activebackground="#1d4ed8", activeforeground="white", cursor="hand2", command=lambda: save_prompt(text_area, root, model_var, api_var, privacy_chat_var, privacy_grammar_var))
+    save_btn = tk.Button(btn_frame, text="Salvar Configuração", width=20, bg="#2563eb", fg="white", font=btn_font, relief=tk.FLAT, activebackground="#1d4ed8", activeforeground="white", cursor="hand2", command=lambda: save_prompt(text_area, root, model_var, privacy_chat_var, privacy_grammar_var))
     save_btn.pack(side=tk.RIGHT, padx=25)
     
     cancel_btn = tk.Button(btn_frame, text="Cancelar", width=15, font=btn_font, relief=tk.FLAT, cursor="hand2", command=root.destroy)
@@ -302,6 +364,12 @@ def main() -> None:
 
     restore_btn = tk.Button(btn_frame, text="Restaurar Padrão", width=18, font=btn_font, relief=tk.FLAT, cursor="hand2", command=lambda: restore_default(text_area))
     restore_btn.pack(side=tk.LEFT, padx=25)
+
+    import webbrowser
+    github_btn = tk.Button(btn_frame, text="⧉ GitHub", font=("Segoe UI", 9), relief=tk.FLAT, cursor="hand2",
+                           command=lambda: webbrowser.open(GITHUB_REPO_URL))
+    github_btn.pack(side=tk.LEFT, padx=(0, 5))
+    theme.widgets.setdefault('sec_btns', []).append(github_btn)
 
     theme.widgets['sec_btns'] = [cancel_btn, restore_btn]
     

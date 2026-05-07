@@ -371,7 +371,6 @@ class ChatApp:
     def _on_ai_ready(self) -> None:
         self.status_lbl.config(text="Pronto para conversar")
         self.append_message("AI", getattr(self, 'initial_greeting', "Olá! Como posso ajudar?"))
-        self.root.attributes('-topmost', False)
 
     def send_message(self) -> None:
         if self.is_generating or not self.chat_session:
