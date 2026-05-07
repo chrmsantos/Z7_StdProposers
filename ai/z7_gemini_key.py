@@ -1,3 +1,4 @@
+import re
 import tkinter as tk
 from pathlib import Path
 from typing import Optional
@@ -15,6 +16,7 @@ __all__ = [
 ]
 
 _KEY_FILE_NAME = "gemini.key"
+_API_KEY_PATTERN = re.compile(r"^AIza[A-Za-z0-9_\-]{35}$")
 
 
 def _get_key_file() -> Path:
@@ -22,8 +24,8 @@ def _get_key_file() -> Path:
 
 
 def _validate_api_key(key: str) -> bool:
-    """Validação mínima da chave: não-vazia e com comprimento plausível."""
-    return bool(key) and len(key) >= 20
+    """Validação mínima da chave: formato AIza + 35 caracteres alfanuméricos."""
+    return bool(key) and bool(_API_KEY_PATTERN.match(key))
 
 
 def _decrypt_key_file(key_file: Path) -> Optional[str]:

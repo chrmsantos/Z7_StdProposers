@@ -5,8 +5,8 @@ Option Explicit
 ' =============================================================================
 ' Z7_STDPROPOSERS - Sistema de Padronizacao de Proposituras Legislativas
 ' =============================================================================
-' Versao: 6.2.1-beta1
-' Data: 2026-01-12
+' Versao: 6.5.0-beta1
+' Data: 2026-05-07
 ' Licenca: GNU GPLv3 (https://www.gnu.org/licenses/gpl-3.0.html)
 ' Compatibilidade: Microsoft Word 2010+
 ' Autor: Christian Martin dos Santos (chrmsantos@protonmail.com)

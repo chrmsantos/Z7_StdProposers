@@ -46,19 +46,25 @@ def _import_correct_grammar():
 
 
 class TestCorrectGrammarWordConnection(unittest.TestCase):
-    def test_connects_via_get_active_object(self):
-        with mock.patch.dict(sys.modules, _STUBS):
+    def test_get_active_object_called_on_main(self):
+        """Verifica que main() invoca GetActiveObject ao tentar conectar ao Word."""
+        win32_spy = mock.MagicMock()
+        win32_spy.client.GetActiveObject.return_value = _word_stub
+
+        stubs = dict(_STUBS)
+        stubs["win32com"] = win32_spy
+        stubs["win32com.client"] = win32_spy.client
+
+        with mock.patch.dict(sys.modules, stubs):
             import importlib
             import correct_grammar
             importlib.reload(correct_grammar)
-            with mock.patch(
-                "correct_grammar.main",
-                wraps=lambda: None,
-            ):
-                # Verifica que GetActiveObject está disponível como caminho principal
-                self.assertTrue(
-                    hasattr(_win32com_stub.client, "GetActiveObject")
-                )
+            try:
+                correct_grammar.main()
+            except Exception:
+                pass
+
+        win32_spy.client.GetActiveObject.assert_called_with("Word.Application")
 
     def test_get_active_object_is_primary_connection(self):
         """correct_grammar.py deve tentar GetActiveObject antes de GetObject."""

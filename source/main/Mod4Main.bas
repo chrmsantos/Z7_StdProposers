@@ -253,36 +253,6 @@ CleanUp:
 
     SafeFinalizeLogging
 
-    ' Mensagem de conclusao desativada - informacoes exibidas apenas na StatusBar
-    ' If Not formattingCancelled Then
-    '     Dim executionTimeText As String
-    '     Dim duration As Double
-    '     duration = (Now - executionStartTime) * 86400
-    '     If duration < 60 Then
-    '         executionTimeText = Format(duration, "0.0") & " segundos"
-    '     ElseIf duration < 3600 Then
-    '         executionTimeText = Format(Int(duration / 60), "0") & " minuto(s) e " & Format(duration Mod 60, "00") & " segundo(s)"
-    '     Else
-    '         executionTimeText = Format(Int(duration / 3600), "0") & " hora(s) e " & Format(Int((duration Mod 3600) / 60), "00") & " minuto(s)"
-    '     End If
-    '     Dim statusMsg As String
-    '     If errorCount > 0 Then
-    '         statusMsg = vbCrLf & vbCrLf & "[!] ATENCAO: " & errorCount & " erro(s) detectado(s) durante a execucao." & vbCrLf & _
-    '                    "   Verifique o log para mais detalhes."
-    '     ElseIf warningCount > 0 Then
-    '         statusMsg = vbCrLf & vbCrLf & "[i] INFORMACAO: " & warningCount & " aviso(s) registrado(s) durante a execucao." & vbCrLf & _
-    '                    "   Verifique o log para mais detalhes."
-    '     Else
-    '         statusMsg = vbCrLf & vbCrLf & "[OK] Nenhum erro ou aviso detectado durante a execucao."
-    '     End If
-    '     MsgBox "[OK] Processamento concluido com sucesso em " & executionTimeText & "!" & vbCrLf & vbCrLf & _
-    '            "[DIR] Backup criado em:" & vbCrLf & _
-    '            "   " & IIf(backupFilePath <> "", backupFilePath, GetZ7StdProposersBackupsPath()) & vbCrLf & vbCrLf & _
-    '            "[LOG] Log salvo em:" & vbCrLf & _
-    '            "   " & logFilePath & statusMsg, _
-    '            vbInformation, "Z7_STDPROPOSERS - Padronizacao Concluida"
-    ' End If
-
     ' Posiciona cursor no inicio do documento
     On Error Resume Next
     If Not doc Is Nothing Then

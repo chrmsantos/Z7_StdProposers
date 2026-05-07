@@ -50,7 +50,7 @@ def get_data_dir() -> Path:
 
 def get_logs_dir() -> Path:
     """Retorna e cria o diretório de logs."""
-    logs_dir = get_runtime_dir() / "source" / "logs"
+    logs_dir = get_data_dir() / "logs"
     logs_dir.mkdir(parents=True, exist_ok=True)
     return logs_dir
 

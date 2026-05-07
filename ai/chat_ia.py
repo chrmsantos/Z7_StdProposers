@@ -307,7 +307,7 @@ class ChatApp:
                 self.root.after(0, lambda: self.status_lbl.config(text="Erro: Chave API ausente."))
                 return
 
-            self.client = genai.Client(api_key=api_key)
+            self.client = genai.Client(api_key=api_key, http_options={'timeout': 60})
 
             # --- Texto do documento (carregado na thread principal via _load_doc_text_main_thread) ---
             _doc_truncated = self._doc_truncated

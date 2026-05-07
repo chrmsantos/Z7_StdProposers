@@ -27,8 +27,8 @@ Public Const wdFieldEmpty As Long = -1
 Public Const wdRelativeHorizontalPositionPage As Long = 1
 Public Const wdRelativeVerticalPositionPage As Long = 1
 Public Const wdWrapTopBottom As Long = 3
-Public Const wdAlertsAll As Long = 0
-Public Const wdAlertsNone As Long = -1
+Public Const wdAlertsAll As Long = -1
+Public Const wdAlertsNone As Long = 0
 Public Const wdColorAutomatic As Long = -16777216
 Public Const wdOrientPortrait As Long = 0
 Public Const wdUnderlineNone As Long = 0
@@ -312,7 +312,6 @@ End Function
 '================================================================================
 
 
-' Mod6System.bas
 '================================================================================
 ' TRATAMENTO AMIGAVEL DE ERROS
 '================================================================================
@@ -343,7 +342,7 @@ Public Sub ShowUserFriendlyError(errNum As Long, errDesc As String)
                   "Verifique o log."
     End Select
 
-    MsgBox msg, vbCritical, "Z7_StdProposers v6.2.1-beta1"
+    MsgBox msg, vbCritical, "Z7_StdProposers v" & Z7_STDPROPOSERS_VERSION
 End Sub
 
 '================================================================================
@@ -382,10 +381,11 @@ End Sub
 ' ATUALIZACAO DA BARRA DE PROGRESSO
 '================================================================================
 Public Sub UpdateProgress(message As String, percentComplete As Long)
-    ' Mostra apenas "Padronizando..." durante a execucao
-    Application.StatusBar = "Padronizando..."
-
-    ' Forca atualizacao da tela
+    If message <> "" Then
+        Application.StatusBar = "Padronizando... " & message
+    Else
+        Application.StatusBar = "Padronizando..."
+    End If
     DoEvents
 End Sub
 

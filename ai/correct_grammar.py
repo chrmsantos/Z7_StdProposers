@@ -88,13 +88,13 @@ def main() -> None:
         root.destroy()
         sys.exit(1)
 
-    client = genai.Client(api_key=api_key)
+    client = genai.Client(api_key=api_key, http_options={'timeout': 60})
     LOGGER.info("Gemini client configured")
 
     from config_prompt import load_prompt, load_ai_model
     base_prompt = load_prompt()
     LOGGER.info("Prompt loaded via config_prompt")
-    prompt = f"{base_prompt}\n\nTexto original:\n{text}\n"
+    prompt = f"{base_prompt}\n\n---INICIO DO TEXTO SELECIONADO---\n{text}\n---FIM DO TEXTO SELECIONADO---\n"
     model_name = load_ai_model()
     LOGGER.info("Model loaded via config_prompt: %s", model_name)
 

@@ -2,6 +2,7 @@
 build/
 dist/
 *.spec
+ai/build/
 
 # Executaveis compilados (gerados por build_exe.ps1)
 ai/correct_grammar/
@@ -10,12 +11,24 @@ ai/chat_ia/
 
 # Python cache
 __pycache__/
-*.pyc
+*.py[cod]
 *.pyo
+*.pyd
 
 # Logs de execucao
 source/logs/
+*.log
 
 # Backups e arquivos temporarios de recuperacao
 props/backups/
 props/recovery_tmp/
+
+# Chave API e dados sensiveis
+*.key
+
+# Temporarios do Windows
+Thumbs.db
+desktop.ini
+
+# VS Code
+.vscode/
