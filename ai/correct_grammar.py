@@ -96,39 +96,12 @@ def main() -> None:
     tk.Label(loading, text="Consultando Google Gemini...\nPor favor, aguarde.", font=("Segoe UI", 10), bg=colors["bg"], fg=colors["fg"]).pack(expand=True)
     loading.update()
 
-    user_profile = os.environ.get('USERPROFILE')
-    base_prompt = ""
-    if user_profile:
-        prompt_file = Path(user_profile) / 'AppData' / 'Local' / 'Z7' / 'Tmp' / 'StdProposers' / 'gemini_prompt.txt'
-        if prompt_file.exists():
-            try:
-                with open(prompt_file, 'r', encoding='utf-8') as f:
-                    base_prompt = f.read().strip()
-                LOGGER.info("Custom prompt loaded from file")
-            except Exception:
-                pass
-                
-    if not base_prompt:
-        base_prompt = """Você é um especialista em revisão de textos legislativos no idioma Português do Brasil.
-Abaixo está um trecho de uma propositura legislativa.
-Sua tarefa é corrigir gramaticalmente o texto, realizando O MÍNIMO POSSÍVEL de alterações em relação ao original.
-Mantenha o tom formal, o jargão jurídico/legislativo e a estrutura da frase intactos, corrigindo apenas erros de ortografia, concordância, regência, pontuação ou crase evidentes.
-Não adicione ponto final se o texto original não possuir um.
-Retorne APENAS o texto corrigido, sem adicionar nenhum comentário, explicação, formatação markdown ou aspas extras."""
-
+    from config_prompt import load_prompt, load_ai_model
+    base_prompt = load_prompt()
+    LOGGER.info("Prompt loaded via config_prompt")
     prompt = f"{base_prompt}\n\nTexto original:\n{text}\n"
-
-    model_name = 'gemini-2.0-flash'
-    if user_profile:
-        try:
-            model_file = Path(user_profile) / 'AppData' / 'Local' / 'Z7' / 'Tmp' / 'StdProposers' / 'selected_model.txt'
-            if model_file.exists():
-                with open(model_file, 'r', encoding='utf-8') as f:
-                    saved_model = f.read().strip()
-                    if saved_model:
-                        model_name = saved_model
-        except Exception:
-            pass
+    model_name = load_ai_model()
+    LOGGER.info("Model loaded via config_prompt: %s", model_name)
 
     try:
         response = client.models.generate_content(model=model_name, contents=prompt)
@@ -139,8 +112,15 @@ Retorne APENAS o texto corrigido, sem adicionar nenhum comentário, explicação
         log_exception(LOGGER, "Gemini API request failed", e)
         error_msg = str(e).lower()
         if "403" in error_msg or "401" in error_msg or "invalid api key" in error_msg or "api_key" in error_msg:
-            delete_api_key()
-            z7_theme.show_error("Z7 StdProposers - Erro na API", "Sua chave da API é inválida ou expirou. O arquivo de chave foi deletado.\nTente rodar a macro novamente para inserir uma nova chave.", parent=root)
+            if z7_theme.ask_ok_cancel(
+                "Z7 StdProposers - Chave Inválida",
+                "Sua chave da API parece inválida ou expirou.\n\nDeseja removê-la para inserir uma nova na próxima execução?",
+                parent=root
+            ):
+                delete_api_key()
+                z7_theme.show_info("Z7 StdProposers", "Chave removida. Tente rodar a macro novamente para inserir uma nova.", parent=root)
+            else:
+                z7_theme.show_error("Z7 StdProposers - Erro na API", f"Erro ao chamar a API do Gemini:\n{e}", parent=root)
         else:
             z7_theme.show_error("Z7 StdProposers - Erro na API", f"Erro ao chamar a API do Gemini:\n{e}", parent=root)
         root.destroy()

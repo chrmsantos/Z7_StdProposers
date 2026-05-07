@@ -1,6 +1,35 @@
 $ErrorActionPreference = "Stop"
 $PSNativeCommandUseErrorActionPreference = $false
-$pyinstallerPath = "C:\Users\csantos\AppData\Local\Programs\Python\Python314\Scripts\pyinstaller.exe"
+
+# Garante que o script roda a partir do proprio diretorio (ai/), independente do cwd do chamador.
+Push-Location $PSScriptRoot
+
+try {
+
+# Procura pyinstaller.exe: primeiro no PATH, depois nas instalacoes Python do sistema.
+# Nao usa o Python do venv ativo para evitar o caso em que pyinstaller nao esta no venv.
+$pyinstallerPath = $null
+$pyinstallerCmd = Get-Command pyinstaller -ErrorAction SilentlyContinue
+if ($pyinstallerCmd) {
+    $pyinstallerPath = $pyinstallerCmd.Source
+}
+
+if (-not $pyinstallerPath) {
+    $searchRoots = @(
+        "$env:LOCALAPPDATA\Programs\Python",
+        "$env:APPDATA\Python"
+    )
+    foreach ($root in $searchRoots) {
+        $found = Get-ChildItem "$root\*\Scripts\pyinstaller.exe" -ErrorAction SilentlyContinue |
+                 Sort-Object FullName -Descending |
+                 Select-Object -First 1
+        if ($found) { $pyinstallerPath = $found.FullName; break }
+    }
+}
+
+if (-not $pyinstallerPath) {
+    throw "PyInstaller nao encontrado. Execute (fora do venv): pip install pyinstaller"
+}
 
 function Invoke-PyInstaller {
 	param(
@@ -17,7 +46,8 @@ function Invoke-PyInstaller {
 	# --onedir: DLLs ficam pre-extraidas na pasta, eliminando 1-3s de extração em cada execução
 	# --noconfirm: sobrescreve dist sem pedir confirmacao interativa
 	# Nota: nao usar --clean pois remove o diretorio pre-criado (workaround bug Python 3.14)
-	$process = Start-Process -FilePath $pyinstallerPath -ArgumentList @("--onedir", "--noconsole", "--noconfirm", $ScriptName) -NoNewWindow -Wait -PassThru
+	$pyiArgs = @("--onedir", "--noconsole", "--noconfirm", $ScriptName)
+	$process = Start-Process -FilePath $pyinstallerPath -ArgumentList $pyiArgs -NoNewWindow -Wait -PassThru
 	if ($process.ExitCode -ne 0) {
 		throw "Falha ao compilar $ScriptName (exit code: $($process.ExitCode))."
 	}
@@ -46,3 +76,6 @@ Remove-Item -Path "*.spec" -Force
 
 Write-Host "Build concluido com sucesso!"
 
+} finally {
+    Pop-Location
+}

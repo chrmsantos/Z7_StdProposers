@@ -46,9 +46,13 @@ Describe 'Z7_STDPROPOSERS - Testes de Encoding e Emojis' {
                     }
                 }
 
-                # Verifica UTF-8 sem BOM (compativel com UTF-8)
-                $content = Get-Content $file.FullName -Raw
-                $isValidUtf8 = $true
+                # Verifica UTF-8 sem BOM usando decoder strict para rejeitar sequencias invalidas
+                $isValidUtf8 = $false
+                try {
+                    $utf8Strict = New-Object System.Text.UTF8Encoding($false, $true)
+                    [void] $utf8Strict.GetString($bytes)
+                    $isValidUtf8 = $true
+                } catch { }
 
                 ($isUtf8WithBom -or $isAscii -or $isValidUtf8) | Should Be $true
             }

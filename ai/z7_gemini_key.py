@@ -77,3 +77,43 @@ def delete_api_key() -> None:
             LOGGER.info("API key file deleted")
         except Exception as e:
             log_exception(LOGGER, "Failed to delete API key file", e)
+
+
+def read_stored_api_key() -> str:
+    """Retorna a chave armazenada descriptografada, ou string vazia se não existir.
+    Não exibe nenhum diálogo; use get_api_key() quando quiser solicitar ao usuário.
+    """
+    key_file = _get_key_file()
+    if key_file is None or not key_file.exists():
+        return ""
+    try:
+        import win32crypt
+        with open(key_file, 'rb') as f:
+            encrypted_key = f.read()
+        _, decrypted_key = win32crypt.CryptUnprotectData(encrypted_key, None, None, None, 0)
+        LOGGER.info("Stored API key read successfully")
+        return decrypted_key.decode('utf-8')
+    except Exception as e:
+        log_exception(LOGGER, "Failed to decrypt stored API key", e)
+        return ""
+
+
+def write_api_key(api_key: str) -> None:
+    """Criptografa e persiste uma chave da API Gemini sem interação com o usuário."""
+    api_key = api_key.strip()
+    if not api_key:
+        return
+    key_file = _get_key_file()
+    if key_file is None:
+        return
+    try:
+        import win32crypt
+        encrypted_key = win32crypt.CryptProtectData(
+            api_key.encode('utf-8'), 'Z7_Gemini_Key', None, None, None, 0
+        )
+        key_file.parent.mkdir(parents=True, exist_ok=True)
+        with open(key_file, 'wb') as f:
+            f.write(encrypted_key)
+        LOGGER.info("API key encrypted and persisted via write_api_key")
+    except Exception as e:
+        log_exception(LOGGER, "Failed to persist API key via write_api_key", e)

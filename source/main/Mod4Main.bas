@@ -194,7 +194,7 @@ Public Sub PadronizarDocumentoMain()
         .Name = STANDARD_FONT
         .size = STANDARD_FONT_SIZE
     End With
-    On Error GoTo 0
+    On Error GoTo CriticalErrorHandler
     LogMessage "Fonte final garantida: " & STANDARD_FONT & " " & STANDARD_FONT_SIZE & "pt em todo o documento", LOG_LEVEL_INFO
 
     ' Restaura configuracoes de visualizacao originais (exceto zoom)
@@ -772,15 +772,15 @@ Public Sub CorrigirGramaticaComGemini()
     
     On Error GoTo ErrorHandler
     
-    ' Obtem o caminho do executável usando o caminho relativo configurado em Mod1Config
+    ' Obtem o caminho do executï¿½vel usando o caminho relativo configurado em Mod1Config
     caminhoScript = Environ("USERPROFILE") & GRAMMAR_SCRIPT_RELATIVE_PATH
     
     If Dir(caminhoScript) = "" Then
-        MsgBox "Executável do Corretor Gramatical não encontrado em:" & vbCrLf & caminhoScript & vbCrLf & vbCrLf & "Por favor, recompile o projeto ou verifique a instalação.", vbCritical, "Erro de Arquivo"
+        MsgBox "Executï¿½vel do Corretor Gramatical nï¿½o encontrado em:" & vbCrLf & caminhoScript & vbCrLf & vbCrLf & "Por favor, recompile o projeto ou verifique a instalaï¿½ï¿½o.", vbCritical, "Erro de Arquivo"
         Exit Sub
     End If
     
-    ' Monta o comando completo com aspas em volta do caminho do executável
+    ' Monta o comando completo com aspas em volta do caminho do executï¿½vel
     comandoExecucao = """" & caminhoScript & """"
     
     ' Cria o objeto WScript.Shell
@@ -789,7 +789,7 @@ Public Sub CorrigirGramaticaComGemini()
     Application.StatusBar = "Carregando o assistente de IA... Isso pode levar alguns segundos."
     DoEvents
     
-    ' Executa o comando de forma ASSÍNCRONA para não travar o Word
+    ' Executa o comando de forma ASSï¿½NCRONA para nï¿½o travar o Word
     objShell.Run comandoExecucao, 0, False
     
     ' Opcionalmente exibe na status bar ou no log
@@ -817,10 +817,10 @@ Public Sub ConfigurarPromptGemini()
     
     On Error GoTo ErrorHandler
     
-    ' Obtem o caminho do executável usando o caminho relativo configurado em Mod1Infrastructure
+    ' Obtem o caminho do executï¿½vel usando o caminho relativo configurado em Mod1Infrastructure
     caminhoScript = Environ("USERPROFILE") & PROMPT_CONFIG_SCRIPT_RELATIVE_PATH
     
-    ' Monta o comando completo com aspas em volta do caminho do executável
+    ' Monta o comando completo com aspas em volta do caminho do executï¿½vel
     comandoExecucao = """" & caminhoScript & """"
     
     ' Cria o objeto WScript.Shell
@@ -855,15 +855,15 @@ Public Sub ChatComGemini()
     
     On Error GoTo ErrorHandler
     
-    ' Obtem o caminho do executável usando o caminho relativo configurado em Mod1Infrastructure
+    ' Obtem o caminho do executï¿½vel usando o caminho relativo configurado em Mod1Infrastructure
     caminhoScript = Environ("USERPROFILE") & CHAT_IA_SCRIPT_RELATIVE_PATH
     
     If Dir(caminhoScript) = "" Then
-        MsgBox "Executável do Chat IA não encontrado em:" & vbCrLf & caminhoScript & vbCrLf & vbCrLf & "Por favor, recompile o projeto ou verifique a instalação.", vbCritical, "Erro de Arquivo"
+        MsgBox "Executï¿½vel do Chat IA nï¿½o encontrado em:" & vbCrLf & caminhoScript & vbCrLf & vbCrLf & "Por favor, recompile o projeto ou verifique a instalaï¿½ï¿½o.", vbCritical, "Erro de Arquivo"
         Exit Sub
     End If
     
-    ' Monta o comando completo com aspas em volta do caminho do executável
+    ' Monta o comando completo com aspas em volta do caminho do executï¿½vel
     comandoExecucao = """" & caminhoScript & """"
     
     ' Cria o objeto WScript.Shell

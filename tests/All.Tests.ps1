@@ -67,4 +67,14 @@ Describe 'Z7_STDPROPOSERS - Testes de Integridade' {
         }
     }
 
+    Context 'Consistencia de versao' {
+        It 'Z7_STDPROPOSERS_VERSION em Mod1Infrastructure.bas coincide com o arquivo VERSION' {
+            $mod1Path = Join-Path (Get-RepoRoot) 'source\main\Mod1Infrastructure.bas'
+            $mod1Content = Get-Content $mod1Path -Raw -Encoding UTF8
+            $vbaVer = [regex]::Match($mod1Content, 'Z7_STDPROPOSERS_VERSION As String = "([^"]+)"').Groups[1].Value
+            $fileVer = (Get-Content (Join-Path (Get-RepoRoot) 'VERSION') -Raw -Encoding UTF8).Trim()
+            $vbaVer | Should Be $fileVer
+        }
+    }
+
 }

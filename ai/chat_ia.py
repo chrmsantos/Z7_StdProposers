@@ -220,7 +220,6 @@ class ChatApp:
 
     def _new_conversation_thread(self) -> None:
         try:
-            import google.genai as genai
             from google.genai import types
             system_instruction = "Você é um assistente especialista em legislação prestativo e polido. Auxilie o usuário alterando, revisando ou tirando dúvidas."
             self.chat_session = self.client.chats.create(
@@ -234,17 +233,7 @@ class ChatApp:
                         f"{self.doc_text}\n\n"
                         "Esta é uma nova conversa. Confirme brevemente que está pronto."
                     )
-                    greeting = self.client.chats.create(
-                        model=self._model,
-                        config=types.GenerateContentConfig(system_instruction=system_instruction)
-                    ).send_message(ctx).text
-                    # Descarta o chat temporário; usa o já criado com histórico limpo
-                    self.chat_session = self.client.chats.create(
-                        model=self._model,
-                        config=types.GenerateContentConfig(system_instruction=system_instruction)
-                    )
-                    # Re-envia contexto no novo histórico limpo
-                    self.chat_session.send_message(ctx)
+                    greeting = self.chat_session.send_message(ctx).text
                 else:
                     greeting = "Nova conversa iniciada. Como posso ajudar?"
             except Exception as ctx_e:
@@ -318,26 +307,20 @@ class ChatApp:
                 self.doc_text = "Nenhum documento ativo ou erro ao obter texto do Word."
 
             # --- Carrega modelo ---
-            model = _DEFAULT_MODEL
             try:
-                user_profile = os.environ.get('USERPROFILE')
-                if user_profile:
-                    model_file = Path(user_profile) / 'AppData' / 'Local' / 'Z7' / 'Tmp' / 'StdProposers' / 'selected_model.txt'
-                    if model_file.exists():
-                        with open(model_file, 'r', encoding='utf-8') as f:
-                            saved_model = f.read().strip()
-                            if saved_model:
-                                model = saved_model
+                from config_prompt import load_ai_model
+                self._model = load_ai_model()
+                LOGGER.info("Model loaded via config_prompt: %s", self._model)
             except Exception as e:
                 log_exception(LOGGER, "Failed to load selected model for chat_ia", e)
-            self._model = model
+                self._model = _DEFAULT_MODEL
 
             system_instruction = "Você é um assistente especialista em legislação prestativo e polido. Auxilie o usuário alterando, revisando ou tirando dúvidas."
             self.chat_session = self.client.chats.create(
-                model=model,
+                model=self._model,
                 config=types.GenerateContentConfig(system_instruction=system_instruction)
             )
-            LOGGER.info("Chat session started with model: %s", model)
+            LOGGER.info("Chat session started with model: %s", self._model)
 
             # --- Envia contexto do documento ---
             # Isolado em try/except próprio: falha aqui não deve travar o chat (#3)
@@ -377,9 +360,8 @@ class ChatApp:
             log_exception(LOGGER, "Failed to initialize chat AI", e)
             error_msg = str(e).lower()
             if "403" in error_msg or "401" in error_msg or "invalid api key" in error_msg or "api_key" in error_msg:
-                delete_api_key()
-                self.root.after(0, lambda: self.status_lbl.config(text="Erro: Chave Inválida. Reinicie."))
-                self.root.after(0, lambda: self.append_message("Sistema", "Sua chave da API é inválida ou expirou. O arquivo de chave foi deletado. Feche e abra o chat novamente para inserir uma nova chave."))
+                self.root.after(0, lambda: self.status_lbl.config(text="Erro: Chave Inválida."))
+                self.root.after(0, lambda: self.append_message("Sistema", "Sua chave da API parece inválida ou expirou. Abra as Configurações da IA para atualizar ou remover a chave."))
             else:
                 self.root.after(0, lambda: self.status_lbl.config(text="Erro na inicialização."))
                 self.root.after(0, lambda: self.append_message("Sistema", f"Erro crítico: {str(e)}"))
@@ -389,6 +371,7 @@ class ChatApp:
     def _on_ai_ready(self) -> None:
         self.status_lbl.config(text="Pronto para conversar")
         self.append_message("AI", getattr(self, 'initial_greeting', "Olá! Como posso ajudar?"))
+        self.root.attributes('-topmost', False)
 
     def send_message(self) -> None:
         if self.is_generating or not self.chat_session:

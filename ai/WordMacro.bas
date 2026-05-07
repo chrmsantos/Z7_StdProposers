@@ -1,6 +1,7 @@
-Attribute VB_Name = "MacroGeminiGrammar"
 Option Explicit
 
+' WordMacro.bas
+' Macros para integrar o Word com os apps da suite Z7 StdProposers AI
 ' ============================================================
 ' ResolverComando: monta o comando para um app da suite Z7.
 '   appName  - nome do executavel sem extensao (ex: "correct_grammar")
@@ -50,14 +51,11 @@ Sub CorrigirGramaticaComGemini()
     End If
 
     Set objShell = CreateObject("WScript.Shell")
-    Application.Cursor = wdCursorWait
     objShell.Run comandoExecucao, 0, True
-    Application.Cursor = wdCursorNormal
 
     Exit Sub
 
 ErrorHandler:
-    Application.Cursor = wdCursorNormal
     MsgBox "Erro ao executar a macro: " & Err.Description, vbCritical, "Erro de Execucao"
 End Sub
 

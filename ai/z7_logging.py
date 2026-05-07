@@ -6,11 +6,14 @@ from pathlib import Path
 
 
 def get_runtime_dir() -> Path:
-    user_profile = os.environ.get("USERPROFILE")
-    if not user_profile:
-        return Path.cwd()
+    local_app_data = os.environ.get("LOCALAPPDATA")
+    if not local_app_data:
+        user_profile = os.environ.get("USERPROFILE")
+        if not user_profile:
+            return Path.cwd()
+        local_app_data = str(Path(user_profile) / "AppData" / "Local")
 
-    runtime_dir = Path(user_profile) / "AppData" / "Local" / "Z7" / "Tmp" / "StdProposers"
+    runtime_dir = Path(local_app_data) / "Z7" / "Tmp" / "StdProposers"
     runtime_dir.mkdir(parents=True, exist_ok=True)
     return runtime_dir
 

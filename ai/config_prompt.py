@@ -23,39 +23,12 @@ def get_prompt_file_path() -> Path | None:
     return key_dir / 'gemini_prompt.txt'
 
 def load_api_key() -> str:
-    import win32crypt
-    user_profile = os.environ.get('USERPROFILE')
-    if not user_profile:
-        return ""
-    key_file = Path(user_profile) / 'AppData' / 'Local' / 'Z7' / 'Tmp' / 'StdProposers' / 'gemini.key'
-    if key_file.exists():
-        try:
-            with open(key_file, 'rb') as f:
-                encrypted_key = f.read()
-            _, decrypted_key = win32crypt.CryptUnprotectData(encrypted_key, None, None, None, 0)
-            return decrypted_key.decode('utf-8')
-        except Exception as e:
-            log_exception(LOGGER, "Failed to decrypt API key", e)
-    return ""
+    from z7_gemini_key import read_stored_api_key
+    return read_stored_api_key()
 
 def save_api_key(api_key: str) -> None:
-    import win32crypt
-    api_key = api_key.strip()
-    if not api_key:
-        return
-    user_profile = os.environ.get('USERPROFILE')
-    if not user_profile:
-        return
-    key_dir = Path(user_profile) / 'AppData' / 'Local' / 'Z7' / 'Tmp' / 'StdProposers'
-    key_file = key_dir / 'gemini.key'
-    try:
-        encrypted_key = win32crypt.CryptProtectData(api_key.encode('utf-8'), 'Z7_Gemini_Key', None, None, None, 0)
-        key_dir.mkdir(parents=True, exist_ok=True)
-        with open(key_file, 'wb') as f:
-            f.write(encrypted_key)
-        LOGGER.info("API key encrypted and persisted")
-    except Exception as e:
-        log_exception(LOGGER, "Failed to persist API key", e)
+    from z7_gemini_key import write_api_key
+    write_api_key(api_key)
 
 def load_prompt() -> str:
     prompt_file = get_prompt_file_path()

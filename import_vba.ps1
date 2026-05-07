@@ -20,7 +20,7 @@ param(
     [string]$TargetDocument = "Normal"
 )
 
-Set-StrictMode -Off
+Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 
 $BasDir = Join-Path $PSScriptRoot "source\main"
@@ -39,6 +39,9 @@ foreach ($file in $Modules) {
         exit 1
     }
 }
+
+# COM operations require strict mode disabled (InvokeMember / late-bound COM access fails under strict)
+Set-StrictMode -Off
 
 # Conecta ao Word via COM
 Write-Host "Conectando ao Word..." -ForegroundColor Cyan

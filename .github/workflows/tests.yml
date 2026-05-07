@@ -1,0 +1,48 @@
+name: Tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  static-tests:
+    name: VBA / Encoding / Logging (static)
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Pester
+        shell: pwsh
+        run: Install-Module Pester -Force -SkipPublisherCheck -Scope CurrentUser
+
+      - name: Run VBA tests
+        shell: pwsh
+        run: .\tests\Run-Tests.ps1 -TestSuite VBA -NoProgress
+
+      - name: Run Encoding tests
+        shell: pwsh
+        run: .\tests\Run-Tests.ps1 -TestSuite Encoding -NoProgress
+
+      - name: Run VBA-Logging tests
+        shell: pwsh
+        run: .\tests\Run-Tests.ps1 -TestSuite VBA-Logging -NoProgress
+
+      - name: Run All integrity tests
+        shell: pwsh
+        run: .\tests\Run-Tests.ps1 -TestSuite All -NoProgress
+
+  python-tests:
+    name: Python unit tests
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+
+      - name: Run z7_logging unit tests
+        shell: pwsh
+        run: python -m unittest tests.python.test_z7_logging -v
