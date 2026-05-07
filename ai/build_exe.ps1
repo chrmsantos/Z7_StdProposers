@@ -15,7 +15,9 @@ function Invoke-PyInstaller {
 	if (Test-Path "$baseName.spec") { Remove-Item "$baseName.spec" -Force }
 
 	# --onedir: DLLs ficam pre-extraidas na pasta, eliminando 1-3s de extração em cada execução
-	$process = Start-Process -FilePath $pyinstallerPath -ArgumentList @("--onedir", "--noconsole", "--clean", $ScriptName) -NoNewWindow -Wait -PassThru
+	# --noconfirm: sobrescreve dist sem pedir confirmacao interativa
+	# Nota: nao usar --clean pois remove o diretorio pre-criado (workaround bug Python 3.14)
+	$process = Start-Process -FilePath $pyinstallerPath -ArgumentList @("--onedir", "--noconsole", "--noconfirm", $ScriptName) -NoNewWindow -Wait -PassThru
 	if ($process.ExitCode -ne 0) {
 		throw "Falha ao compilar $ScriptName (exit code: $($process.ExitCode))."
 	}

@@ -153,18 +153,26 @@ Retorne APENAS o texto corrigido, sem adicionar nenhum comentário, explicação
         root.destroy()
         return
 
+    # Tenta salvar os atributos básicos de formatação do texto selecionado
     try:
-        # Tenta salvar os atributos básicos de formatação do texto selecionado
+        font_name = selection.Font.Name
+        font_size = selection.Font.Size
+        font_bold = selection.Font.Bold
+        font_italic = selection.Font.Italic
+    except Exception:
+        font_name, font_size, font_bold, font_italic = None, None, None, None
+
+    undo_started = False
+    try:
+        # Agrupa todas as alterações em um único passo de desfazer (Ctrl+Z = 1 clique)
         try:
-            font_name = selection.Font.Name
-            font_size = selection.Font.Size
-            font_bold = selection.Font.Bold
-            font_italic = selection.Font.Italic
+            word.Application.UndoRecord.StartCustomRecord("Z7 - Correção Gramatical")
+            undo_started = True
         except Exception:
-            font_name, font_size, font_bold, font_italic = None, None, None, None
+            pass
 
         selection.Text = corrected_text
-        
+
         # Reaplica os atributos básicos, se possível
         if font_name is not None:
             try:
@@ -174,12 +182,18 @@ Retorne APENAS o texto corrigido, sem adicionar nenhum comentário, explicação
                 selection.Font.Italic = font_italic
             except Exception:
                 pass
-                
+
         LOGGER.info("Text replaced in Word document directly, keeping formatting")
         word.StatusBar = "Z7: Correção finalizada."
     except Exception as e:
         log_exception(LOGGER, "Failed to apply text to Word", e)
         z7_theme.show_error("Z7 StdProposers - Erro", f"Não foi possível substituir o texto:\n{e}", parent=root)
+    finally:
+        if undo_started:
+            try:
+                word.Application.UndoRecord.EndCustomRecord()
+            except Exception:
+                pass
 
     root.destroy()
 
