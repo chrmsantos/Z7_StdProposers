@@ -1,9 +1,8 @@
-import os
 import json
 import tkinter as tk
 from pathlib import Path
 import z7_theme
-from z7_logging import configure_component_logger, log_exception
+from z7_logging import configure_component_logger, get_data_dir, log_exception
 
 LOGGER = configure_component_logger("config_prompt")
 
@@ -16,13 +15,9 @@ Mantenha o tom formal, o jargão jurídico/legislativo e a estrutura da frase in
 Não adicione ponto final se o texto original não possuir um.
 Retorne APENAS o texto corrigido, sem adicionar nenhum comentário, explicação, formatação markdown ou aspas extras."""
 
-def get_prompt_file_path() -> Path | None:
-    user_profile = os.environ.get('USERPROFILE')
-    if not user_profile:
-        return None
-    key_dir = Path(user_profile) / 'AppData' / 'Local' / 'Z7' / 'Tmp' / 'StdProposers'
-    key_dir.mkdir(parents=True, exist_ok=True)
-    return key_dir / 'gemini_prompt.txt'
+def get_prompt_file_path() -> Path:
+    return get_data_dir() / "gemini_prompt.txt"
+
 
 def load_api_key() -> str:
     from z7_gemini_key import read_stored_api_key
@@ -34,7 +29,7 @@ def save_api_key(api_key: str) -> None:
 
 def load_prompt() -> str:
     prompt_file = get_prompt_file_path()
-    if prompt_file and prompt_file.exists():
+    if prompt_file.exists():
         try:
             with open(prompt_file, 'r', encoding='utf-8') as f:
                 LOGGER.info("Loaded custom prompt file")
@@ -43,17 +38,12 @@ def load_prompt() -> str:
             log_exception(LOGGER, "Failed to load custom prompt", e)
     return DEFAULT_PROMPT
 
-def get_model_file_path() -> Path | None:
-    user_profile = os.environ.get('USERPROFILE')
-    if not user_profile:
-        return None
-    key_dir = Path(user_profile) / 'AppData' / 'Local' / 'Z7' / 'Tmp' / 'StdProposers'
-    key_dir.mkdir(parents=True, exist_ok=True)
-    return key_dir / 'selected_model.txt'
+def get_model_file_path() -> Path:
+    return get_data_dir() / "selected_model.txt"
 
 def load_ai_model() -> str:
     model_file = get_model_file_path()
-    if model_file and model_file.exists():
+    if model_file.exists():
         try:
             with open(model_file, 'r', encoding='utf-8') as f:
                 return f.read().strip()
@@ -63,13 +53,12 @@ def load_ai_model() -> str:
 
 def save_ai_model(model_name: str) -> None:
     model_file = get_model_file_path()
-    if model_file:
-        try:
-            with open(model_file, 'w', encoding='utf-8') as f:
-                f.write(model_name)
-            LOGGER.info(f"Model saved successfully: {model_name}")
-        except Exception as e:
-            log_exception(LOGGER, "Failed to save model", e)
+    try:
+        with open(model_file, 'w', encoding='utf-8') as f:
+            f.write(model_name)
+        LOGGER.info("Model saved successfully: %s", model_name)
+    except Exception as e:
+        log_exception(LOGGER, "Failed to save model", e)
 
 def save_prompt(text_widget: tk.Text, root: tk.Tk, model_var: tk.StringVar,
                privacy_chat_var: tk.BooleanVar | None = None, privacy_grammar_var: tk.BooleanVar | None = None) -> None:
@@ -80,35 +69,34 @@ def save_prompt(text_widget: tk.Text, root: tk.Tk, model_var: tk.StringVar,
         return
 
     prompt_file = get_prompt_file_path()
-    if prompt_file:
-        try:
-            with open(prompt_file, 'w', encoding='utf-8') as f:
-                f.write(new_prompt)
-            LOGGER.info("Prompt saved successfully")
+    try:
+        with open(prompt_file, 'w', encoding='utf-8') as f:
+            f.write(new_prompt)
+        LOGGER.info("Prompt saved successfully")
 
-            save_ai_model(model_var.get())
+        save_ai_model(model_var.get())
 
-            # Save privacy prefs (True = aviso desativado; ausente/False = aviso ativo)
-            if privacy_chat_var is not None or privacy_grammar_var is not None:
-                prefs = z7_theme.load_privacy_prefs()
-                if privacy_chat_var is not None:
-                    if privacy_chat_var.get():
-                        prefs.pop('chat_ia', None)       # reativar aviso
-                    else:
-                        prefs['chat_ia'] = True          # suprimir aviso
-                if privacy_grammar_var is not None:
-                    if privacy_grammar_var.get():
-                        prefs.pop('correct_grammar', None)
-                    else:
-                        prefs['correct_grammar'] = True
-                z7_theme.save_privacy_prefs(prefs)
-                LOGGER.info("Privacy prefs saved")
+        # Save privacy prefs (True = aviso desativado; ausente/False = aviso ativo)
+        if privacy_chat_var is not None or privacy_grammar_var is not None:
+            prefs = z7_theme.load_privacy_prefs()
+            if privacy_chat_var is not None:
+                if privacy_chat_var.get():
+                    prefs.pop('chat_ia', None)       # reativar aviso
+                else:
+                    prefs['chat_ia'] = True          # suprimir aviso
+            if privacy_grammar_var is not None:
+                if privacy_grammar_var.get():
+                    prefs.pop('correct_grammar', None)
+                else:
+                    prefs['correct_grammar'] = True
+            z7_theme.save_privacy_prefs(prefs)
+            LOGGER.info("Privacy prefs saved")
 
-            z7_theme.show_info("Sucesso", "Configurações salvas com sucesso!", parent=root)
-            root.destroy()
-        except Exception as e:
-            log_exception(LOGGER, "Failed to save config", e)
-            z7_theme.show_error("Erro", f"Erro ao salvar:\n{e}", parent=root)
+        z7_theme.show_info("Sucesso", "Configurações salvas com sucesso!", parent=root)
+        root.destroy()
+    except Exception as e:
+        log_exception(LOGGER, "Failed to save config", e)
+        z7_theme.show_error("Erro", f"Erro ao salvar:\n{e}", parent=root)
 
 def restore_default(text_widget: tk.Text) -> None:
     text_widget.delete("1.0", tk.END)
@@ -250,9 +238,9 @@ def main() -> None:
     try:
         import win32com.client
         try:
-            word = win32com.client.GetObject(Class="Word.Application")
+            word = win32com.client.GetActiveObject("Word.Application")
         except Exception:
-            word = win32com.client.Dispatch("Word.Application")
+            word = win32com.client.GetObject(Class="Word.Application")
         word.StatusBar = "Z7: Abrindo Configurações..."
     except Exception as e:
         LOGGER.warning("Could not connect to Word to update status bar: %s", str(e))

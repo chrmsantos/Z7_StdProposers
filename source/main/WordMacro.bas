@@ -51,7 +51,7 @@ Sub CorrigirGramaticaComGemini()
     End If
 
     Set objShell = CreateObject("WScript.Shell")
-    objShell.Run comandoExecucao, 0, True
+    objShell.Run comandoExecucao, 0, False
 
     Exit Sub
 

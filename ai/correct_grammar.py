@@ -14,9 +14,9 @@ def main() -> None:
     try:
         import win32com.client
         try:
-            word = win32com.client.GetObject(Class="Word.Application")
+            word = win32com.client.GetActiveObject("Word.Application")
         except Exception:
-            word = win32com.client.Dispatch("Word.Application")
+            word = win32com.client.GetObject(Class="Word.Application")
         
         try:
             word.Application.Run("CreateDocumentBackup", word.ActiveDocument)
@@ -36,6 +36,10 @@ def main() -> None:
 
     try:
         selection = word.Selection
+        if selection is None:
+            LOGGER.error("word.Selection is None: no active document or selection in Word")
+            word.StatusBar = "Z7: Nenhum documento ou seleção disponível."
+            return
         text = selection.Text.strip()
     except Exception as e:
         LOGGER.error("Erro ao obter selection: %s", str(e))

@@ -45,6 +45,7 @@ class ChatApp:
         self.last_ai_reply = ""
         self._model = _DEFAULT_MODEL
         self.doc_text = ""
+        self._doc_truncated = False
 
         self.build_ui()
         self.apply_theme()
@@ -61,16 +62,17 @@ class ChatApp:
             LOGGER.info("User cancelled chat at privacy warning")
             self.root.destroy()
             return
-            
+
+        self._load_doc_text_main_thread()
         self.init_ai()
 
     def resize_word_window(self, screen_width: int, screen_height: int) -> None:
         try:
             import win32com.client
             try:
-                word = win32com.client.GetObject(Class="Word.Application")
+                word = win32com.client.GetActiveObject("Word.Application")
             except Exception:
-                word = win32com.client.Dispatch("Word.Application")
+                word = win32com.client.GetObject(Class="Word.Application")
                 
             word.WindowState = 1  # wdWindowStateNormal
             word.Left = 0
@@ -257,6 +259,36 @@ class ChatApp:
         self.input_text.insert(tk.INSERT, "\n")
         return "break"
 
+    def _load_doc_text_main_thread(self) -> None:
+        """Lê o texto do documento ativo na thread principal (COM funciona corretamente aqui)."""
+        import win32com.client
+        try:
+            try:
+                word = win32com.client.GetActiveObject("Word.Application")
+            except Exception:
+                word = win32com.client.GetObject(Class="Word.Application")
+
+            try:
+                word.Application.Run("CreateDocumentBackup", word.ActiveDocument)
+                LOGGER.info("Document backup created successfully.")
+            except Exception as backup_e:
+                LOGGER.warning("Could not run CreateDocumentBackup macro: %s", str(backup_e))
+
+            raw_text = word.ActiveDocument.Content.Text
+            if len(raw_text) > _MAX_CONTEXT_CHARS:
+                cut = raw_text.rfind(' ', 0, _MAX_CONTEXT_CHARS)
+                if cut == -1:
+                    cut = _MAX_CONTEXT_CHARS
+                self.doc_text = raw_text[:cut]
+                self._doc_truncated = True
+                LOGGER.warning("Document context truncated at %d chars", cut)
+            else:
+                self.doc_text = raw_text
+            LOGGER.info("Loaded Word active document context for chat")
+        except Exception as e:
+            log_exception(LOGGER, "Failed to load Word document context", e)
+            self.doc_text = "Nenhum documento ativo ou erro ao obter texto do Word."
+
     def init_ai(self) -> None:
         # Inicialização em background para não travar a UI
         threading.Thread(target=self._init_ai_thread, daemon=True).start()
@@ -277,34 +309,8 @@ class ChatApp:
 
             self.client = genai.Client(api_key=api_key)
 
-            # --- Carrega texto do documento ---
-            _doc_truncated = False
-            try:
-                try:
-                    word = win32com.client.GetObject(Class="Word.Application")
-                except Exception:
-                    word = win32com.client.Dispatch("Word.Application")
-
-                try:
-                    word.Application.Run("CreateDocumentBackup", word.ActiveDocument)
-                    LOGGER.info("Document backup created successfully.")
-                except Exception as backup_e:
-                    LOGGER.warning("Could not run CreateDocumentBackup macro: %s", str(backup_e))
-
-                raw_text = word.ActiveDocument.Content.Text
-                if len(raw_text) > _MAX_CONTEXT_CHARS:
-                    cut = raw_text.rfind(' ', 0, _MAX_CONTEXT_CHARS)
-                    if cut == -1:
-                        cut = _MAX_CONTEXT_CHARS
-                    self.doc_text = raw_text[:cut]
-                    _doc_truncated = True
-                    LOGGER.warning("Document context truncated at %d chars", cut)
-                else:
-                    self.doc_text = raw_text
-                LOGGER.info("Loaded Word active document context for chat")
-            except Exception as e:
-                log_exception(LOGGER, "Failed to load Word document context", e)
-                self.doc_text = "Nenhum documento ativo ou erro ao obter texto do Word."
+            # --- Texto do documento (carregado na thread principal via _load_doc_text_main_thread) ---
+            _doc_truncated = self._doc_truncated
 
             # --- Carrega modelo ---
             try:

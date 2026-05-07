@@ -132,6 +132,13 @@ Public Sub PadronizarDocumentoMain()
         documentDirty = False  ' Reset flag antes de cada passagem
         LogMessage "=== PASSAGEM " & pipelinePass & " DE 2 ===", LOG_LEVEL_INFO
 
+        ' Reconstroi cache a partir da segunda passagem para evitar indices obsoletos
+        ' (paragrafos podem ter sido removidos na passagem anterior)
+        If pipelinePass > 1 Then
+            IncrementProgress "Reindexando paragrafos (passagem " & pipelinePass & ")"
+            BuildParagraphCache doc
+        End If
+
         ' Formata documento
         IncrementProgress "Formatando documento (" & pipelinePass & " passagem)"
         If Not PreviousFormatting(doc) Then

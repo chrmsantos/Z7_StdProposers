@@ -1,21 +1,41 @@
-import os
 import json
+import threading
 import tkinter as tk
 from functools import lru_cache
 from pathlib import Path
 
-def get_theme_file_path() -> Path | None:
-    user_profile = os.environ.get('USERPROFILE')
-    if not user_profile:
-        return None
-    key_dir = Path(user_profile) / 'AppData' / 'Local' / 'Z7' / 'Tmp' / 'StdProposers'
-    key_dir.mkdir(parents=True, exist_ok=True)
-    return key_dir / 'theme_config.json'
+__all__ = [
+    "load_theme",
+    "save_theme",
+    "get_theme_colors",
+    "ask_string",
+    "ask_ok_cancel",
+    "ask_privacy_warning",
+    "show_info",
+    "show_warning",
+    "show_error",
+    "load_privacy_prefs",
+    "save_privacy_prefs",
+]
+
+_privacy_prefs_cache: dict | None = None
+_privacy_prefs_lock = threading.Lock()
+
+
+def _get_data_dir() -> Path:
+    """Diretório de dados do usuário (reutiliza z7_logging para evitar duplicação)."""
+    from z7_logging import get_data_dir
+    return get_data_dir()
+
+
+def get_theme_file_path() -> Path:
+    return _get_data_dir() / "theme_config.json"
+
 
 @lru_cache(maxsize=None)
 def load_theme() -> str:
     theme_file = get_theme_file_path()
-    if theme_file and theme_file.exists():
+    if theme_file.exists():
         try:
             with open(theme_file, 'r', encoding='utf-8') as f:
                 config = json.load(f)
@@ -26,12 +46,11 @@ def load_theme() -> str:
 
 def save_theme(theme_mode: str) -> None:
     theme_file = get_theme_file_path()
-    if theme_file:
-        try:
-            with open(theme_file, 'w', encoding='utf-8') as f:
-                json.dump({'theme': theme_mode}, f)
-        except Exception:
-            pass
+    try:
+        with open(theme_file, 'w', encoding='utf-8') as f:
+            json.dump({'theme': theme_mode}, f)
+    except Exception:
+        pass
     load_theme.cache_clear()
     get_theme_colors.cache_clear()
 
@@ -146,42 +165,37 @@ def ask_ok_cancel(title, message, parent=None):
 
 _privacy_prefs_cache: dict | None = None
 
-def _get_privacy_prefs_path() -> Path | None:
-    user_profile = os.environ.get('USERPROFILE')
-    if not user_profile:
-        return None
-    key_dir = Path(user_profile) / 'AppData' / 'Local' / 'Z7' / 'Tmp' / 'StdProposers'
-    key_dir.mkdir(parents=True, exist_ok=True)
-    return key_dir / 'privacy_prefs.json'
+def _get_privacy_prefs_path() -> Path:
+    return _get_data_dir() / "privacy_prefs.json"
 
 def _load_privacy_prefs() -> dict:
     global _privacy_prefs_cache
-    if _privacy_prefs_cache is not None:
+    with _privacy_prefs_lock:
+        if _privacy_prefs_cache is not None:
+            return _privacy_prefs_cache
+        path = _get_privacy_prefs_path()
+        if path.exists():
+            try:
+                with open(path, 'r', encoding='utf-8') as f:
+                    _privacy_prefs_cache = json.load(f)
+                    return _privacy_prefs_cache
+            except Exception:
+                pass
+        _privacy_prefs_cache = {}
         return _privacy_prefs_cache
-    path = _get_privacy_prefs_path()
-    if path and path.exists():
-        try:
-            with open(path, 'r', encoding='utf-8') as f:
-                _privacy_prefs_cache = json.load(f)
-                return _privacy_prefs_cache
-        except Exception:
-            pass
-    _privacy_prefs_cache = {}
-    return _privacy_prefs_cache
 
 def _save_privacy_pref(key: str) -> None:
     global _privacy_prefs_cache
     path = _get_privacy_prefs_path()
-    if not path:
-        return
-    prefs = _load_privacy_prefs()
-    prefs[key] = True
-    try:
-        with open(path, 'w', encoding='utf-8') as f:
-            json.dump(prefs, f)
-        _privacy_prefs_cache = prefs
-    except Exception:
-        pass
+    with _privacy_prefs_lock:
+        prefs = _load_privacy_prefs()
+        prefs[key] = True
+        try:
+            with open(path, 'w', encoding='utf-8') as f:
+                json.dump(prefs, f)
+            _privacy_prefs_cache = prefs
+        except Exception:
+            pass
 
 def load_privacy_prefs() -> dict:
     return _load_privacy_prefs()
@@ -189,14 +203,13 @@ def load_privacy_prefs() -> dict:
 def save_privacy_prefs(prefs: dict) -> None:
     global _privacy_prefs_cache
     path = _get_privacy_prefs_path()
-    if not path:
-        return
-    try:
-        with open(path, 'w', encoding='utf-8') as f:
-            json.dump(prefs, f)
-        _privacy_prefs_cache = prefs
-    except Exception:
-        pass
+    with _privacy_prefs_lock:
+        try:
+            with open(path, 'w', encoding='utf-8') as f:
+                json.dump(prefs, f)
+            _privacy_prefs_cache = prefs
+        except Exception:
+            pass
 
 def ask_privacy_warning(title: str, message: str, key: str, parent=None) -> bool:
     """Exibe aviso de privacidade com opção 'Não mostrar novamente'.
@@ -266,10 +279,10 @@ def ask_privacy_warning(title: str, message: str, key: str, parent=None) -> bool
     return result["value"]
 
 def show_info(title, message, parent=None):
-    _create_dialog(title, message, parent, is_prompt=False, is_cancelable=False)
+    _create_dialog(title, f"\u2139\ufe0f  {message}", parent, is_prompt=False, is_cancelable=False)
 
 def show_warning(title, message, parent=None):
-    _create_dialog(title, message, parent, is_prompt=False, is_cancelable=False)
+    _create_dialog(title, f"\u26a0\ufe0f  {message}", parent, is_prompt=False, is_cancelable=False)
 
 def show_error(title, message, parent=None):
-    _create_dialog(title, message, parent, is_prompt=False, is_cancelable=False)
+    _create_dialog(title, f"\u274c  {message}", parent, is_prompt=False, is_cancelable=False)
