@@ -15,3 +15,7 @@ __pycache__/
 
 # Logs de execucao
 source/logs/
+
+# Backups e arquivos temporarios de recuperacao
+props/backups/
+props/recovery_tmp/

@@ -516,7 +516,7 @@ Public Function GetProjectRootPath() As String
 End Function
 
 Public Function GetZ7StdProposersBackupsPath() As String
-    GetZ7StdProposersBackupsPath = Environ("TEMP") & "\.z7_stdproposers\props\backups"
+    GetZ7StdProposersBackupsPath = GetProjectRootPath() & "\props\backups"
 End Function
 
 Public Function GetZ7StdProposersRecoveryPath() As String
@@ -542,14 +542,6 @@ Public Sub EnsureZ7StdProposersFolders()
     If Not fso.FolderExists(propsPath) Then fso.CreateFolder propsPath
     If Not fso.FolderExists(sourcePath) Then fso.CreateFolder sourcePath
 
-    Dim z7TempRoot As String
-    z7TempRoot = Environ("TEMP") & "\.z7_stdproposers"
-
-    Dim z7TempProps As String
-    z7TempProps = z7TempRoot & "\props"
-
-    If Not fso.FolderExists(z7TempRoot) Then fso.CreateFolder z7TempRoot
-    If Not fso.FolderExists(z7TempProps) Then fso.CreateFolder z7TempProps
     If Not fso.FolderExists(GetZ7StdProposersBackupsPath()) Then fso.CreateFolder GetZ7StdProposersBackupsPath()
     If Not fso.FolderExists(GetZ7StdProposersRecoveryPath()) Then fso.CreateFolder GetZ7StdProposersRecoveryPath()
     If Not fso.FolderExists(GetZ7StdProposersLogsPath()) Then fso.CreateFolder GetZ7StdProposersLogsPath()

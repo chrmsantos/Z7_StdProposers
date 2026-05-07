@@ -39,10 +39,12 @@ def main() -> None:
         text = selection.Text.strip()
     except Exception as e:
         LOGGER.error("Erro ao obter selection: %s", str(e))
+        word.StatusBar = "Z7: Nenhum documento ou seleção disponível."
         return
 
     if not text or len(text) < 2:
         LOGGER.info("Selection too short; nothing to process")
+        word.StatusBar = "Z7: Selecione um trecho de texto antes de executar."
         return
 
     root = tk.Tk()

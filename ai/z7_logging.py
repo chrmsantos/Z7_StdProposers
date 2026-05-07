@@ -13,13 +13,13 @@ def get_runtime_dir() -> Path:
             return Path.cwd()
         local_app_data = str(Path(user_profile) / "AppData" / "Local")
 
-    runtime_dir = Path(local_app_data) / "Z7" / "Tmp" / "StdProposers"
+    runtime_dir = Path(local_app_data) / "Z7" / "Apps" / "Z7_StdProposers"
     runtime_dir.mkdir(parents=True, exist_ok=True)
     return runtime_dir
 
 
 def get_logs_dir() -> Path:
-    logs_dir = get_runtime_dir() / "logs"
+    logs_dir = get_runtime_dir() / "source" / "logs"
     logs_dir.mkdir(parents=True, exist_ok=True)
     return logs_dir
 
