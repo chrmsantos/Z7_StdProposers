@@ -6383,39 +6383,48 @@ Public Sub RemoverLinhasEmBrancoExtras(doc As Document)
         End If
 
         ' Centraliza nome, cargo e partido (apenas apos a Justificativa, se existir)
+        ' Excecao: vocativos como "Senhor Presidente,", "Senhores Vereadores,",
+        ' "Senhora Vereadora," e "Senhores Vereadores (as)," ficam logo abaixo da
+        ' ementa e nao devem ser centralizados por esta rotina de assinatura.
         If tituloJustificativaIndex = 0 Or adjustCounter > tituloJustificativaIndex Then
-            If Left(cleanTxt, 8) = "vereador" _
-               Or Left(cleanTxt, 9) = "vereadora" _
-               Or InStr(cleanTxt, "presidente") > 0 _
-               Or InStr(cleanTxt, "prefeito") > 0 Then
-    
-                ' Cargo
-                With para.Format
-                    .leftIndent = 0
-                    .RightIndent = 0
-                    .firstLineIndent = 0
-                    .alignment = wdAlignParagraphCenter
-                End With
-    
-                ' Nome (paragrafo anterior)
-                If Not para.Previous Is Nothing Then
-                    With para.Previous.Format
+            If Not (Left(cleanTxt, 7) = "senhor " _
+                 Or Left(cleanTxt, 7) = "senhora" _
+                 Or Left(cleanTxt, 8) = "senhores" _
+                 Or Left(cleanTxt, 12) = "considerando" _
+                 Or Left(cleanTxt, 8) = "requeiro") Then
+                If Left(cleanTxt, 8) = "vereador" _
+                   Or Left(cleanTxt, 9) = "vereadora" _
+                   Or InStr(cleanTxt, "presidente") > 0 _
+                   Or InStr(cleanTxt, "prefeito") > 0 Then
+        
+                    ' Cargo
+                    With para.Format
                         .leftIndent = 0
                         .RightIndent = 0
                         .firstLineIndent = 0
                         .alignment = wdAlignParagraphCenter
                     End With
-                    para.Previous.Range.Font.Bold = True
-                End If
-    
-                ' Partido (paragrafo seguinte)
-                If Not para.Next Is Nothing Then
-                    With para.Next.Format
-                        .leftIndent = 0
-                        .RightIndent = 0
-                        .firstLineIndent = 0
-                        .alignment = wdAlignParagraphCenter
-                    End With
+        
+                    ' Nome (paragrafo anterior)
+                    If Not para.Previous Is Nothing Then
+                        With para.Previous.Format
+                            .leftIndent = 0
+                            .RightIndent = 0
+                            .firstLineIndent = 0
+                            .alignment = wdAlignParagraphCenter
+                        End With
+                        para.Previous.Range.Font.Bold = True
+                    End If
+        
+                    ' Partido (paragrafo seguinte)
+                    If Not para.Next Is Nothing Then
+                        With para.Next.Format
+                            .leftIndent = 0
+                            .RightIndent = 0
+                            .firstLineIndent = 0
+                            .alignment = wdAlignParagraphCenter
+                        End With
+                    End If
                 End If
             End If
         End If

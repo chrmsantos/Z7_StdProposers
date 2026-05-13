@@ -1,5 +1,19 @@
 # Release Notes
 
+## v6.5.1-beta1 — 2026-05-13 — Correção de Centralização Indevida
+
+### Resumo
+
+Correção de bug onde parágrafos do corpo do documento erroneamente formatados com estilo Título/Heading permaneciam centralizados após a padronização.
+
+---
+
+### Correções
+
+- **VBA — `BackupCenteredParagraphs` (`Mod2Engine.bas`):** Parágrafos com estilo built-in Heading (`wdStyleHeading1`–`wdStyleHeading9`) ou Title (`wdStyleTitle`) agora são excluídos do backup de alinhamento centralizado. Anteriormente, a centralização herdada do estilo Heading era salva pelo backup e restaurada por `RestoreCenteredParagraphs`, anulando a correção feita por `ClearAllFormatting` e mantendo o parágrafo erroneamente centralizado no resultado final.
+
+---
+
 ## v6.5.0-beta1 — 2026-05-06 — Estabilização Geral
 
 ### Resumo

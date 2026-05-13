@@ -1,3 +1,4 @@
+Attribute VB_Name = "WordMacro"
 Option Explicit
 
 ' WordMacro.bas

@@ -3014,15 +3014,26 @@ Public Function BackupCenteredParagraphs(doc As Document) As Boolean
     Dim i As Long
     Dim totalCentered As Long
     Dim tempInfo As CenteredParaInfo
+    Dim builtinStyleId As Long
 
     ' Primeira passagem: conta quantos paragrafos sao centralizados
+    ' Paragrafos com estilo Heading/Titulo sao excluidos: a centralizacao deles vem
+    ' do proprio estilo e deve ser corrigida pelo pipeline, nao preservada.
     totalCentered = 0
     i = 0
     For Each para In doc.Paragraphs
         i = i + 1
         If i Mod 50 = 0 Then DoEvents
         If para.Format.alignment = wdAlignParagraphCenter Then
-            totalCentered = totalCentered + 1
+            On Error Resume Next
+            builtinStyleId = para.Style.BuiltinStyle
+            If Err.Number <> 0 Then builtinStyleId = 0 : Err.Clear
+            On Error GoTo ErrorHandler
+            ' Pula estilos Titulo 1-9 (wdStyleHeading1=2..wdStyleHeading9=10) e Titulo (wdStyleTitle=63)
+            If Not ((builtinStyleId >= wdStyleHeading1 And builtinStyleId <= wdStyleHeading9) _
+                    Or builtinStyleId = wdStyleTitle) Then
+                totalCentered = totalCentered + 1
+            End If
         End If
     Next para
 
@@ -3034,7 +3045,7 @@ Public Function BackupCenteredParagraphs(doc As Document) As Boolean
 
     ReDim savedCenteredParas(totalCentered - 1)
 
-    ' Segunda passagem: salva indices e chave de texto
+    ' Segunda passagem: salva indices e chave de texto (mesma exclusao de estilos Heading)
     i = 0
     Dim saveIdx As Long
     saveIdx = 0
@@ -3042,16 +3053,23 @@ Public Function BackupCenteredParagraphs(doc As Document) As Boolean
         i = i + 1
         If i Mod 50 = 0 Then DoEvents
         If para.Format.alignment = wdAlignParagraphCenter Then
-            Dim rawText As String
-            rawText = para.Range.text
-            rawText = Replace(Replace(rawText, vbCr, ""), vbLf, "")
-            If Len(rawText) > 50 Then rawText = Left(rawText, 50)
-            tempInfo.paraIndex = i
-            tempInfo.originalText = rawText
-            savedCenteredParas(saveIdx) = tempInfo
-            saveIdx = saveIdx + 1
-            centeredParaCount = saveIdx
-            If saveIdx >= UBound(savedCenteredParas) + 1 Then Exit For
+            On Error Resume Next
+            builtinStyleId = para.Style.BuiltinStyle
+            If Err.Number <> 0 Then builtinStyleId = 0 : Err.Clear
+            On Error GoTo ErrorHandler
+            If Not ((builtinStyleId >= wdStyleHeading1 And builtinStyleId <= wdStyleHeading9) _
+                    Or builtinStyleId = wdStyleTitle) Then
+                Dim rawText As String
+                rawText = para.Range.text
+                rawText = Replace(Replace(rawText, vbCr, ""), vbLf, "")
+                If Len(rawText) > 50 Then rawText = Left(rawText, 50)
+                tempInfo.paraIndex = i
+                tempInfo.originalText = rawText
+                savedCenteredParas(saveIdx) = tempInfo
+                saveIdx = saveIdx + 1
+                centeredParaCount = saveIdx
+                If saveIdx >= UBound(savedCenteredParas) + 1 Then Exit For
+            End If
         End If
     Next para
 
