@@ -86,6 +86,13 @@ def _show_issues_window(title: str, analysis: str, parent: tk.Tk) -> None:
 def main() -> None:
     LOGGER.info("Starting consistency check flow")
 
+    # Inicializa o Tk ANTES das operações COM para evitar conflito
+    # na fila de mensagens Win32 que causa travamento do dialog
+    root = tk.Tk()
+    root.withdraw()
+    root.attributes('-topmost', True)
+    root.update()
+
     try:
         import win32com.client
         try:
@@ -96,9 +103,6 @@ def main() -> None:
         LOGGER.info("Connected to running Word instance")
     except Exception as e:
         log_exception(LOGGER, "Failed to connect to Word", e)
-        root = tk.Tk()
-        root.withdraw()
-        root.attributes('-topmost', True)
         z7_theme.show_error("Z7 StdProposers - Erro", f"Erro ao conectar ao Word:\n{e}", parent=root)
         root.destroy()
         return
@@ -108,21 +112,20 @@ def main() -> None:
         if doc is None:
             LOGGER.error("No active document in Word")
             word.StatusBar = "Z7: Nenhum documento aberto."
+            root.destroy()
             return
         full_text = doc.Range().Text.strip()
     except Exception as e:
         log_exception(LOGGER, "Failed to read document text", e)
         word.StatusBar = "Z7: Erro ao ler o documento."
+        root.destroy()
         return
 
     if not full_text or len(full_text) < 10:
         word.StatusBar = "Z7: Documento vazio ou muito curto para análise."
         LOGGER.info("Document too short; nothing to analyze")
+        root.destroy()
         return
-
-    root = tk.Tk()
-    root.withdraw()
-    root.attributes('-topmost', True)
 
     if not z7_theme.ask_privacy_warning(
         "Aviso de Privacidade - Z7 StdProposers",
@@ -208,6 +211,7 @@ def main() -> None:
             api_result["analysis"] = response.text.strip()
         except Exception as exc:
             api_result["error"] = exc
+            log_exception(LOGGER, "Gemini API request failed", exc)
 
     api_thread = threading.Thread(target=_call_api, daemon=True)
     api_thread.start()
@@ -224,7 +228,6 @@ def main() -> None:
 
     if "error" in api_result:
         e = api_result["error"]
-        log_exception(LOGGER, "Gemini API request failed", e)
         error_msg = str(e).lower()
         if "403" in error_msg or "401" in error_msg or "invalid api key" in error_msg or "api_key" in error_msg:
             if z7_theme.ask_ok_cancel(
