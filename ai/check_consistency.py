@@ -1,4 +1,5 @@
 import sys
+import threading
 import tkinter as tk
 
 import z7_theme
@@ -175,11 +176,54 @@ def main() -> None:
     word.StatusBar = "Z7: Analisando consistência com Gemini... Aguarde."
     LOGGER.info("Sending document to Gemini for consistency analysis")
 
-    try:
-        response = client.models.generate_content(model=model_name, contents=prompt)
-        analysis = response.text.strip()
-        LOGGER.info("Gemini consistency response received")
-    except Exception as e:
+    # Exibe janela de progresso enquanto a chamada à API é feita em background
+    colors = z7_theme.get_theme_colors()
+    loading_win = tk.Toplevel(root)
+    loading_win.title("Z7 StdProposers")
+    loading_win.resizable(False, False)
+    loading_win.configure(bg=colors["bg"])
+    loading_win.attributes("-topmost", True)
+    tk.Label(
+        loading_win,
+        text="Analisando a propositura com Gemini AI...\nAguarde, isso pode levar alguns instantes.",
+        font=("Segoe UI", 10),
+        bg=colors["bg"], fg=colors["fg"],
+        justify=tk.CENTER,
+        padx=30, pady=30,
+    ).pack()
+    loading_win.update_idletasks()
+    loading_win.geometry(
+        "+%d+%d" % (
+            loading_win.winfo_screenwidth() // 2 - 200,
+            loading_win.winfo_screenheight() // 2 - 60,
+        )
+    )
+    loading_win.update()
+
+    api_result: dict = {}
+
+    def _call_api() -> None:
+        try:
+            response = client.models.generate_content(model=model_name, contents=prompt)
+            api_result["analysis"] = response.text.strip()
+        except Exception as exc:
+            api_result["error"] = exc
+
+    api_thread = threading.Thread(target=_call_api, daemon=True)
+    api_thread.start()
+
+    def _poll() -> None:
+        if api_thread.is_alive():
+            root.after(200, _poll)
+            return
+        loading_win.destroy()
+        root.quit()
+
+    root.after(200, _poll)
+    root.mainloop()
+
+    if "error" in api_result:
+        e = api_result["error"]
         log_exception(LOGGER, "Gemini API request failed", e)
         error_msg = str(e).lower()
         if "403" in error_msg or "401" in error_msg or "invalid api key" in error_msg or "api_key" in error_msg:
@@ -210,6 +254,9 @@ def main() -> None:
         word.StatusBar = "Z7: Erro na verificação de consistência."
         root.destroy()
         return
+
+    analysis = api_result.get("analysis", "")
+    LOGGER.info("Gemini consistency response received")
 
     if not analysis:
         z7_theme.show_warning(
