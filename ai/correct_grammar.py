@@ -1,5 +1,6 @@
 import os
 import sys
+import threading
 import tkinter as tk
 from pathlib import Path
 import z7_theme
@@ -10,7 +11,12 @@ LOGGER = configure_component_logger("correct_grammar")
 
 def main() -> None:
     LOGGER.info("Starting grammar correction flow")
-    
+
+    root = tk.Tk()
+    root.withdraw()
+    root.attributes('-topmost', True)
+    root.update()
+
     try:
         import win32com.client
         try:
@@ -28,10 +34,8 @@ def main() -> None:
         LOGGER.info("Connected to running Word instance")
     except Exception as e:
         log_exception(LOGGER, "Failed to connect to Word", e)
-        root = tk.Tk()
-        root.withdraw()
-        root.attributes('-topmost', True)
         z7_theme.show_error("Z7 StdProposers - Erro", f"Erro ao conectar ao Word:\n{e}", parent=root)
+        root.destroy()
         return
 
     try:
@@ -39,21 +43,20 @@ def main() -> None:
         if selection is None:
             LOGGER.error("word.Selection is None: no active document or selection in Word")
             word.StatusBar = "Z7: Nenhum documento ou seleção disponível."
+            root.destroy()
             return
         text = selection.Text.strip()
     except Exception as e:
         LOGGER.error("Erro ao obter selection: %s", str(e))
         word.StatusBar = "Z7: Nenhum documento ou seleção disponível."
+        root.destroy()
         return
 
     if not text or len(text) < 2:
         LOGGER.info("Selection too short; nothing to process")
         word.StatusBar = "Z7: Selecione um trecho de texto antes de executar."
+        root.destroy()
         return
-
-    root = tk.Tk()
-    root.withdraw()
-    root.attributes('-topmost', True)
 
     if not z7_theme.ask_privacy_warning(
         "Aviso de Privacidade - Z7 StdProposers",
@@ -67,7 +70,7 @@ def main() -> None:
         root.destroy()
         return
 
-    api_key = get_api_key()
+    api_key = get_api_key(parent=root)
     if not api_key:
         LOGGER.warning("Aborting grammar flow because API key is unavailable")
         root.destroy()
@@ -98,12 +101,45 @@ def main() -> None:
     model_name = load_ai_model()
     LOGGER.info("Model loaded via config_prompt: %s", model_name)
 
-    try:
-        response = client.models.generate_content(model=model_name, contents=prompt)
-        corrected_text = response.text.strip()
-        LOGGER.info("Gemini response received with model: %s", model_name)
-    except Exception as e:
-        log_exception(LOGGER, "Gemini API request failed", e)
+    api_result: dict = {}
+
+    def _call_api() -> None:
+        try:
+            response = client.models.generate_content(model=model_name, contents=prompt)
+            api_result["corrected_text"] = response.text.strip()
+            LOGGER.info("Gemini response received with model: %s", model_name)
+        except Exception as exc:
+            api_result["error"] = exc
+            log_exception(LOGGER, "Gemini API request failed", exc)
+
+    loading_win = tk.Toplevel(root)
+    loading_win.title("Z7 StdProposers")
+    loading_win.resizable(False, False)
+    loading_win.attributes('-topmost', True)
+    loading_win.grab_set()
+    tk.Label(
+        loading_win,
+        text="Corrigindo gramática com Gemini AI...\nAguarde...",
+        padx=20,
+        pady=20,
+    ).pack()
+    loading_win.update()
+
+    api_thread = threading.Thread(target=_call_api, daemon=True)
+    api_thread.start()
+
+    def _poll() -> None:
+        if api_thread.is_alive():
+            root.after(200, _poll)
+            return
+        loading_win.destroy()
+        root.quit()
+
+    root.after(200, _poll)
+    root.mainloop()
+
+    if "error" in api_result:
+        e = api_result["error"]
         error_msg = str(e).lower()
         if "403" in error_msg or "401" in error_msg or "invalid api key" in error_msg or "api_key" in error_msg:
             if z7_theme.ask_ok_cancel(
@@ -119,6 +155,8 @@ def main() -> None:
             z7_theme.show_error("Z7 StdProposers - Erro na API", f"Erro ao chamar a API do Gemini:\n{e}", parent=root)
         root.destroy()
         return
+
+    corrected_text = api_result.get("corrected_text", "")
 
     if not corrected_text:
         z7_theme.show_warning("Z7 StdProposers - Aviso", "A API do Gemini retornou um texto vazio.", parent=root)
