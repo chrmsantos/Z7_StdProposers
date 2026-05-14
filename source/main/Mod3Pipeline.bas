@@ -6119,48 +6119,76 @@ Public Function FormatNumberedParagraphsIndent(doc As Document) As Boolean
 
     Dim para As Paragraph
     Dim paraText As String
-    Dim firstChar As String
+    Dim trimmed As String
+    Dim digitLen As Long
+    Dim sepChar As String
     Dim formattedCount As Long
-    Dim defaultIndent As Single
+    Dim prevWasFormatted As Boolean
+    Dim paraCounter As Long
+    Dim prefixLen As Long
+    Dim prefixRange As Range
 
     formattedCount = 0
+    prevWasFormatted = False
+    paraCounter = 0
 
-    ' Recuo padrao de lista numerada (36 pontos = 1.27 cm)
-    defaultIndent = 36
-
-    ' Percorre todos os paragrafos
     For Each para In doc.Paragraphs
-        paraText = Trim(para.Range.text)
+        paraCounter = paraCounter + 1
+        If paraCounter Mod 30 = 0 Then DoEvents
 
-        ' Verifica se o paragrafo nao esta vazio
-        If Len(paraText) > 0 Then
-            ' Pega o primeiro caractere
-            firstChar = Left(paraText, 1)
+        ' Remove o marcador de paragrafo (Chr(13)) do final para analise
+        paraText = Left(para.Range.Text, Len(para.Range.Text) - 1)
+        trimmed = LTrim(paraText)
 
-            ' Verifica se o primeiro caractere e um algarismo (0-9)
-            If IsNumeric(firstChar) Then
-                ' Verifica se o paragrafo nao tem formatacao de lista ja aplicada
-                If para.Range.ListFormat.ListType = 0 Then
-                    ' Aplica o recuo a esquerda igual ao de uma lista numerada
-                    With para.Format
-                        .leftIndent = defaultIndent
-                        .firstLineIndent = 0
-                    End With
+        ' Tamanho minimo: digito + separador + espaco + um char ("1. x")
+        If Len(trimmed) < 4 Or Not IsNumeric(Left(trimmed, 1)) Then
+            prevWasFormatted = False
+        ElseIf para.Range.ListFormat.ListType <> wdListNoNumbering Then
+            ' Ja tem formatacao de lista; mantém continuidade para proximos paragrafos
+            prevWasFormatted = True
+        Else
+            ' Conta os digitos iniciais (suporta numeros multi-digito: "10. ", "123. ")
+            digitLen = 0
+            Do While digitLen < Len(trimmed) And IsNumeric(Mid(trimmed, digitLen + 1, 1))
+                digitLen = digitLen + 1
+            Loop
+
+            ' Verifica padrao: digitos seguidos de "." ou ")" e espaco (ex: "1. ", "10) ")
+            If Len(trimmed) >= digitLen + 2 Then
+                sepChar = Mid(trimmed, digitLen + 1, 1)
+                If (sepChar = "." Or sepChar = ")") And Mid(trimmed, digitLen + 2, 1) = " " Then
+                    ' Calcula o tamanho do prefixo a remover (espacos iniciais + digitos + sep + espaco)
+                    prefixLen = (Len(paraText) - Len(trimmed)) + digitLen + 2
+                    Set prefixRange = para.Range
+                    prefixRange.SetRange prefixRange.Start, prefixRange.Start + prefixLen
+                    prefixRange.Delete
+
+                    ' Aplica lista numerada automatica do Word (galeria 1 = simples)
+                    para.Range.ListFormat.ApplyListTemplate _
+                        ListTemplate:=ListGalleries(wdNumberGallery).ListTemplates(1), _
+                        ContinuePreviousList:=prevWasFormatted, _
+                        ApplyTo:=wdListApplyToThisPointForward
+
+                    prevWasFormatted = True
                     formattedCount = formattedCount + 1
+                Else
+                    prevWasFormatted = False
                 End If
+            Else
+                prevWasFormatted = False
             End If
         End If
     Next para
 
     If formattedCount > 0 Then
-        LogMessage "Paragrafos iniciados com numero formatados com recuo de lista: " & formattedCount, LOG_LEVEL_INFO
+        LogMessage "Paragrafos formatados como lista numerada: " & formattedCount, LOG_LEVEL_INFO
     End If
 
     FormatNumberedParagraphsIndent = True
     Exit Function
 
 ErrorHandler:
-    LogMessage "Erro ao formatar recuos de paragrafos numerados: " & Err.Description, LOG_LEVEL_WARNING
+    LogMessage "Erro ao formatar lista numerada: " & Err.Description, LOG_LEVEL_WARNING
     FormatNumberedParagraphsIndent = False
 End Function
 
