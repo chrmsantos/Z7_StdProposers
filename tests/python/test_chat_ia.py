@@ -171,10 +171,101 @@ class TestChatIaPrivacyAndApiKey(unittest.TestCase):
             app.root.after = mock.MagicMock()
             app.status_lbl = mock.MagicMock()
 
-            with mock.patch("z7_gemini_key.get_api_key", return_value=None):
+            with mock.patch.object(mod, 'get_api_key', return_value=None):
                 mod.ChatApp._init_ai_thread(app)
                 # Verifica que root.after foi chamado com mensagem de erro
                 app.root.after.assert_called()
+
+
+class TestChatIaContextPending(unittest.TestCase):
+    """Testa a injeção diferida do contexto do documento quando o envio inicial falha."""
+
+    def _make_stubs_with_failing_context(self):
+        """Retorna stubs onde o genai falha na primeira chamada (simulando 503) mas funciona na segunda."""
+        chat_stub = mock.MagicMock()
+        # Primeira chamada (contexto inicial) falha; segunda (primeira mensagem do usuário) funciona.
+        chat_stub.send_message.side_effect = [
+            Exception("503 UNAVAILABLE"),
+            mock.MagicMock(text="Resposta normal"),
+        ]
+        genai_stub = mock.MagicMock()
+        genai_stub.Client.return_value.chats.create.return_value = chat_stub
+
+        google_mock = mock.MagicMock()
+        google_mock.genai = genai_stub
+        stubs = {
+            **_STUBS,
+            "google": google_mock,
+            "google.genai": genai_stub,
+        }
+        return stubs, chat_stub
+
+    def test_context_pending_set_when_initial_send_fails(self):
+        stubs, chat_stub = self._make_stubs_with_failing_context()
+        with mock.patch.dict(sys.modules, stubs):
+            mod = _import_chat_ia()
+            app = mock.MagicMock()
+            app.doc_text = "Conteúdo do documento para contexto."
+            app._doc_truncated = False
+            app._context_pending = False
+            app.root = mock.MagicMock()
+
+            with mock.patch.object(mod, 'get_api_key', return_value="fake-key"):
+                mod.ChatApp._init_ai_thread(app)
+
+            # _context_pending deve ser True porque o envio inicial falhou
+            self.assertTrue(app._context_pending)
+
+    def test_send_message_injects_context_when_pending(self):
+        with mock.patch.dict(sys.modules, _STUBS):
+            mod = _import_chat_ia()
+            app = mock.MagicMock()
+            app.doc_text = "Texto do documento."
+            app._context_pending = True
+            app.chat_session = _chat_session_stub
+            _chat_session_stub.reset_mock()
+            _chat_session_stub.send_message.return_value.text = "Entendido, contexto recebido."
+
+            mod.ChatApp._send_message_thread(app, "Qual o tema do documento?")
+
+            # Deve ter enviado a mensagem com o contexto embutido
+            call_args = _chat_session_stub.send_message.call_args[0][0]
+            self.assertIn("Texto do documento.", call_args)
+            self.assertIn("Qual o tema do documento?", call_args)
+            # Após envio, _context_pending deve ser False
+            self.assertFalse(app._context_pending)
+
+    def test_send_message_does_not_inject_context_when_not_pending(self):
+        with mock.patch.dict(sys.modules, _STUBS):
+            mod = _import_chat_ia()
+            app = mock.MagicMock()
+            app.doc_text = "Texto do documento."
+            app._context_pending = False
+            app.chat_session = _chat_session_stub
+            _chat_session_stub.reset_mock()
+            _chat_session_stub.send_message.return_value.text = "Resposta normal"
+
+            mod.ChatApp._send_message_thread(app, "Pergunta simples")
+
+            call_args = _chat_session_stub.send_message.call_args[0][0]
+            # Sem contexto pendente, deve enviar apenas a mensagem do usuário
+            self.assertEqual(call_args, "Pergunta simples")
+
+    def test_send_message_skips_context_injection_when_no_doc(self):
+        with mock.patch.dict(sys.modules, _STUBS):
+            mod = _import_chat_ia()
+            app = mock.MagicMock()
+            app.doc_text = "Nenhum documento ativo ou erro ao obter texto do Word."
+            app._context_pending = True  # pendente mas sem doc real
+            app.chat_session = _chat_session_stub
+            _chat_session_stub.reset_mock()
+            _chat_session_stub.send_message.return_value.text = "Sem contexto"
+
+            mod.ChatApp._send_message_thread(app, "Pergunta sem contexto")
+
+            # Com fallback message, não deve injetar o "documento" na mensagem
+            call_args = _chat_session_stub.send_message.call_args[0][0]
+            self.assertEqual(call_args, "Pergunta sem contexto")
 
 
 if __name__ == "__main__":

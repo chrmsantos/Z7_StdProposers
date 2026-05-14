@@ -46,6 +46,7 @@ class ChatApp:
         self._model = _DEFAULT_MODEL
         self.doc_text = ""
         self._doc_truncated = False
+        self._context_pending = False  # True when initial context send failed; injected on first user message
 
         self.build_ui()
         self.apply_theme()
@@ -348,7 +349,8 @@ class ChatApp:
                     LOGGER.warning("No document context available for AI initialization")
             except Exception as ctx_e:
                 log_exception(LOGGER, "Failed to send document context to AI", ctx_e)
-                self.initial_greeting = "Olá! Não foi possível enviar o contexto do documento. Como posso ajudar?"
+                self.initial_greeting = "Olá! Não foi possível enviar o contexto do documento agora, mas ele será incluído na sua primeira mensagem. Como posso ajudar?"
+                self._context_pending = True
                 _truncation_notice = False
 
             def _on_ready_with_notice(notice: bool) -> None:
@@ -401,7 +403,15 @@ class ChatApp:
     def _send_message_thread(self, user_msg: str) -> None:
         try:
             LOGGER.info("Sending message to Gemini chat")
-            response = self.chat_session.send_message(user_msg)
+            if self._context_pending and self.doc_text and "nenhum documento" not in self.doc_text.lower():
+                self._context_pending = False
+                LOGGER.info("Injecting deferred document context with first user message")
+                combined = (
+                    f"Contexto do documento (Word):\n\n{self.doc_text}\n\n---\n\n{user_msg}"
+                )
+                response = self.chat_session.send_message(combined)
+            else:
+                response = self.chat_session.send_message(user_msg)
             reply = response.text
         except Exception as e:
             log_exception(LOGGER, "Chat message request failed", e)
