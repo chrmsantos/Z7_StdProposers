@@ -516,7 +516,7 @@ Public Function GetProjectRootPath() As String
 End Function
 
 Public Function GetZ7StdProposersBackupsPath() As String
-    GetZ7StdProposersBackupsPath = GetProjectRootPath() & "\props\backups"
+    GetZ7StdProposersBackupsPath = Environ("USERPROFILE") & "\AppData\Local\Temp"
 End Function
 
 Public Function GetZ7StdProposersRecoveryPath() As String
