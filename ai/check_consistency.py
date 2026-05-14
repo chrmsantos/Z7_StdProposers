@@ -161,7 +161,7 @@ def main() -> None:
         root.destroy()
         sys.exit(1)
 
-    client = genai.Client(api_key=api_key, http_options={'timeout': 90})
+    client = genai.Client(api_key=api_key, http_options={'timeout': 120_000})
     LOGGER.info("Gemini client configured")
 
     from config_prompt import load_consistency_prompt, load_ai_model

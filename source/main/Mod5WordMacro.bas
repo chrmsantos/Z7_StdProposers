@@ -1,7 +1,7 @@
-Attribute VB_Name = "WordMacro"
+Attribute VB_Name = "Mod5WordMacro"
 Option Explicit
 
-' WordMacro.bas
+' Mod5WordMacro.bas
 ' Macros para integrar o Word com os apps da suite Z7 StdProposers AI
 ' ============================================================
 ' ResolverComando: monta o comando para um app da suite Z7.
