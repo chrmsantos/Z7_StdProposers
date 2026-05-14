@@ -81,6 +81,10 @@ Write-Host "Compilando chat_ia.py..."
 Invoke-PyInstaller -ScriptName "chat_ia.py"
 Install-Executable -Name "chat_ia"
 
+Write-Host "Compilando check_consistency.py..."
+Invoke-PyInstaller -ScriptName "check_consistency.py"
+Install-Executable -Name "check_consistency"
+
 Write-Host "Limpando arquivos temporarios..."
 # Nao remover build/ - o cache Analysis-00.toc evita bug Python 3.14 na proxima execucao
 Remove-Item -Path (Join-Path $scriptDir "dist") -Recurse -Force -ErrorAction SilentlyContinue

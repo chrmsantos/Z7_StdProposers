@@ -90,6 +90,35 @@ ErrorHandler:
 End Sub
 
 ' ============================================================
+' VerificarConsistencia
+'   Envia a integra da propositura para analise de consistencia
+'   logica e semantica via Gemini (leitura sem alteracoes no documento).
+' ============================================================
+Sub VerificarConsistencia()
+    On Error GoTo ErrorHandler
+
+    Dim objShell As Object
+    Dim comandoExecucao As String
+
+    comandoExecucao = ResolverComando("check_consistency")
+
+    If comandoExecucao = "" Then
+        MsgBox "Executavel 'check_consistency' nao encontrado." & vbCrLf & _
+               "Execute 'Install.ps1' para instalar os executaveis.", _
+               vbExclamation, "Z7 StdProposers"
+        Exit Sub
+    End If
+
+    Set objShell = CreateObject("WScript.Shell")
+    objShell.Run comandoExecucao, 0, False
+
+    Exit Sub
+
+ErrorHandler:
+    MsgBox "Erro ao executar a macro: " & Err.Description, vbCritical, "Erro de Execucao"
+End Sub
+
+' ============================================================
 ' ConfigurarPrompt
 '   Abre a interface de configuracao do prompt Gemini.
 ' ============================================================

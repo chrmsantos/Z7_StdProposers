@@ -65,6 +65,9 @@ Public Const PROMPT_CONFIG_SCRIPT_RELATIVE_PATH As String = "\AppData\Local\Z7\A
 ' Caminho para o execut�vel de chat em tempo real com a IA
 Public Const CHAT_IA_SCRIPT_RELATIVE_PATH As String = "\AppData\Local\Z7\Apps\Z7_StdProposers\ai\chat_ia\chat_ia.exe"
 
+' Caminho para o execut�vel de verifica��o de consist�ncia l�gica da propositura
+Public Const CHECK_CONSISTENCY_SCRIPT_RELATIVE_PATH As String = "\AppData\Local\Z7\Apps\Z7_StdProposers\ai\check_consistency\check_consistency.exe"
+
 '================================================================================
 ' CONSTANTES DE SISTEMA
 '================================================================================

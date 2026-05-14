@@ -823,6 +823,50 @@ ErrorHandler:
 End Sub
 
 '================================================================================
+' SUBROTINA PUBLICA: VERIFICAR CONSISTENCIA LOGICA COM GEMINI
+'================================================================================
+Public Sub VerificarConsistenciaComGemini()
+    ' Macro para enviar a integra da propositura para analise de consistencia
+    ' logica e semantica via script Python usando a API do Gemini.
+
+    Dim objShell As Object
+    Dim comandoExecucao As String
+    Dim caminhoScript As String
+
+    On Error GoTo ErrorHandler
+
+    ' Obtem o caminho do execut�vel usando o caminho relativo configurado em Mod1Infrastructure
+    caminhoScript = Environ("USERPROFILE") & CHECK_CONSISTENCY_SCRIPT_RELATIVE_PATH
+
+    If Dir(caminhoScript) = "" Then
+        MsgBox "Execut�vel do Verificador de Consist�ncia n�o encontrado em:" & vbCrLf & caminhoScript & vbCrLf & vbCrLf & "Por favor, recompile o projeto ou verifique a instala��o.", vbCritical, "Erro de Arquivo"
+        Exit Sub
+    End If
+
+    ' Monta o comando completo com aspas em volta do caminho do execut�vel
+    comandoExecucao = """" & caminhoScript & """"
+
+    ' Cria o objeto WScript.Shell
+    Set objShell = CreateObject("WScript.Shell")
+
+    Application.StatusBar = "Carregando o verificador de consist�ncia... Isso pode levar alguns segundos."
+    DoEvents
+
+    ' Executa o comando de forma ASS�NCRONA para n�o travar o Word
+    objShell.Run comandoExecucao, 0, False
+
+    Application.StatusBar = "Verifica��o de consist�ncia iniciada em segundo plano..."
+    If loggingEnabled Then LogMessage "Verificacao de consistencia iniciada de forma assincrona.", LOG_LEVEL_INFO
+
+    Exit Sub
+
+ErrorHandler:
+    Application.StatusBar = "Erro na verifica��o de consist�ncia"
+    If loggingEnabled Then LogMessage "Erro na verificacao de consistencia: " & Err.Description, LOG_LEVEL_ERROR
+    MsgBox "Erro ao tentar executar a verifica��o de consist�ncia: " & Err.Description, vbCritical, "Z7_StdProposers"
+End Sub
+
+'================================================================================
 ' SUBROTINA PUBLICA: CHAT COM GEMINI
 '================================================================================
 Public Sub ChatComGemini()
