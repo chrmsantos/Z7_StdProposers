@@ -59,10 +59,13 @@ class TestCorrectGrammarWordConnection(unittest.TestCase):
             import importlib
             import correct_grammar
             importlib.reload(correct_grammar)
-            try:
-                correct_grammar.main()
-            except Exception:
-                pass
+            # Cancela no aviso de privacidade para não bloquear o teste;
+            # GetActiveObject já foi chamado antes dessa etapa.
+            with mock.patch("z7_theme.ask_privacy_warning", return_value=False):
+                try:
+                    correct_grammar.main()
+                except Exception:
+                    pass
 
         win32_spy.client.GetActiveObject.assert_called_with("Word.Application")
 
@@ -160,13 +163,94 @@ class TestCorrectGrammarApiKeyMissing(unittest.TestCase):
             import correct_grammar
             importlib.reload(correct_grammar)
             with mock.patch("z7_theme.ask_privacy_warning", return_value=True):
-                with mock.patch("z7_gemini_key.get_api_key", return_value=None):
+                # correct_grammar importa get_api_key via 'from', então o patch
+                # deve ser feito no namespace do módulo, não no de z7_gemini_key.
+                with mock.patch.object(correct_grammar, 'get_api_key', return_value=None):
                     _genai_stub.reset_mock()
                     try:
                         correct_grammar.main()
-                    except SystemExit:
+                    except (SystemExit, Exception):
                         pass
                     _genai_stub.Client.assert_not_called()
+
+
+class TestCorrectGrammarFormattingPreservation(unittest.TestCase):
+    """Testa que a formatação do texto selecionado é salva e reaplicada corretamente."""
+
+    def _run_main_with_fmt(self, font_attrs: dict):
+        """Executa main() com seleção formatada e retorna (sel, mod) para inspeção."""
+        first_char_font = mock.MagicMock()
+        for attr, value in font_attrs.items():
+            setattr(first_char_font, attr, value)
+
+        first_char = mock.MagicMock()
+        first_char.Font = first_char_font
+
+        sel = mock.MagicMock()
+        sel.Text = "Texto com formatação específica."
+        sel.Characters = mock.MagicMock(return_value=first_char)
+
+        word = mock.MagicMock()
+        word.Selection = sel
+
+        win32com_mock = mock.MagicMock()
+        win32com_mock.client.GetActiveObject.return_value = word
+
+        genai_mock = mock.MagicMock()
+        genai_mock.Client.return_value.models.generate_content.return_value.text = (
+            "Texto corrigido gramaticalmente."
+        )
+        google_mock = mock.MagicMock()
+        google_mock.genai = genai_mock
+
+        stubs = {
+            "win32com": win32com_mock,
+            "win32com.client": win32com_mock.client,
+            "google": google_mock,
+            "google.genai": genai_mock,
+            "win32crypt": mock.MagicMock(),
+        }
+
+        import importlib
+        with mock.patch.dict(sys.modules, stubs):
+            import correct_grammar
+            importlib.reload(correct_grammar)
+            with mock.patch("z7_theme.ask_privacy_warning", return_value=True):
+                with mock.patch.object(correct_grammar, 'get_api_key', return_value="fake-key"):
+                    try:
+                        correct_grammar.main()
+                    except Exception:
+                        pass
+        return sel
+
+    def test_font_name_is_read_from_first_character(self):
+        """Deve usar Characters(1).Font em vez do agregado selection.Font."""
+        sel = self._run_main_with_fmt({"Name": "Times New Roman", "Size": 14, "Bold": True})
+        sel.Characters.assert_called_with(1)
+
+    def test_bold_formatting_is_reapplied(self):
+        """Após substituição, Bold=True deve ser reaplicado à seleção."""
+        attrs = {
+            "Name": "Arial", "Size": 12, "Bold": True, "Italic": False,
+            "Underline": 0, "Color": 0, "StrikeThrough": False,
+            "DoubleStrikeThrough": False, "Subscript": False, "Superscript": False,
+            "SmallCaps": False, "AllCaps": False, "HighlightColorIndex": 0,
+        }
+        sel = self._run_main_with_fmt(attrs)
+        self.assertEqual(sel.Font.Bold, True)
+
+    def test_all_font_attrs_are_reapplied(self):
+        """Todos os 13 atributos de fonte devem ser reaplicados após a substituição."""
+        attrs = {
+            "Name": "Calibri", "Size": 11, "Bold": False, "Italic": True,
+            "Underline": 1, "Color": 255, "StrikeThrough": False,
+            "DoubleStrikeThrough": False, "Subscript": False, "Superscript": False,
+            "SmallCaps": False, "AllCaps": False, "HighlightColorIndex": 0,
+        }
+        sel = self._run_main_with_fmt(attrs)
+        for attr, expected in attrs.items():
+            actual = getattr(sel.Font, attr)
+            self.assertEqual(actual, expected, f"Font.{attr} não foi reaplicado")
 
 
 if __name__ == "__main__":

@@ -99,7 +99,7 @@ def main() -> None:
             word = win32com.client.GetActiveObject("Word.Application")
         except Exception:
             word = win32com.client.GetObject(Class="Word.Application")
-        word.StatusBar = "Z7: Verificando consistência da propositura..."
+        word.StatusBar = "Z7: Verificando consistencia da propositura..."
         LOGGER.info("Connected to running Word instance")
     except Exception as e:
         log_exception(LOGGER, "Failed to connect to Word", e)
@@ -122,7 +122,7 @@ def main() -> None:
         return
 
     if not full_text or len(full_text) < 10:
-        word.StatusBar = "Z7: Documento vazio ou muito curto para análise."
+        word.StatusBar = "Z7: Documento vazio ou muito curto para analise."
         LOGGER.info("Document too short; nothing to analyze")
         root.destroy()
         return
@@ -176,7 +176,7 @@ def main() -> None:
         "---FIM DA PROPOSITURA---\n"
     )
 
-    word.StatusBar = "Z7: Analisando consistência com Gemini... Aguarde."
+    word.StatusBar = "Z7: Analisando consistencia com Gemini... Aguarde."
     LOGGER.info("Sending document to Gemini for consistency analysis")
 
     # Exibe janela de progresso enquanto a chamada à API é feita em background
@@ -254,7 +254,7 @@ def main() -> None:
                 f"Erro ao chamar a API do Gemini:\n{e}",
                 parent=root,
             )
-        word.StatusBar = "Z7: Erro na verificação de consistência."
+        word.StatusBar = "Z7: Erro na verificacao de consistencia."
         root.destroy()
         return
 
@@ -267,12 +267,12 @@ def main() -> None:
             "A API do Gemini retornou uma resposta vazia.",
             parent=root,
         )
-        word.StatusBar = "Z7: Verificação concluída (resposta vazia)."
+        word.StatusBar = "Z7: Verificacao concluida (resposta vazia)."
         root.destroy()
         return
 
     has_issues = _NO_ISSUE_MARKER not in analysis.lower()
-    word.StatusBar = "Z7: Verificação de consistência concluída."
+    word.StatusBar = "Z7: Verificacao de consistencia concluida."
     LOGGER.info("Consistency analysis complete. Issues detected: %s", has_issues)
 
     if has_issues:

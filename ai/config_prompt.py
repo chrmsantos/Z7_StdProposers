@@ -30,10 +30,10 @@ Não reporte como problemas:
 - Diferenças na ordem de palavras que não alterem o sentido;
 - Pequenos erros formais ou gramaticais que não criem contradição lógica.
 
-Se encontrar inconsistências graves, liste-as de forma clara e objetiva, indicando os trechos conflitantes e explicando o problema.
+Se encontrar inconsistências graves, liste-as numericamente, uma por linha, de forma sucinta (máximo 2 linhas por item). Para cada item, indique apenas o tipo de inconsistência e os trechos conflitantes — sem introduções, sem conclusões, sem repetições.
 Se NÃO encontrar inconsistências graves, responda APENAS com: "Sem inconsistências graves detectadas."
 
-Responda em Português do Brasil."""
+Seja direto e conciso. Responda em Português do Brasil."""
 
 def get_prompt_file_path() -> Path:
     return get_data_dir() / "gemini_prompt.txt"

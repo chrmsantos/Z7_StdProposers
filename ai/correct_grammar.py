@@ -30,7 +30,7 @@ def main() -> None:
         except Exception as backup_e:
             LOGGER.warning("Could not run CreateDocumentBackup macro: %s", str(backup_e))
             
-        word.StatusBar = "Z7: Corrigindo gramática do trecho selecionado..."
+        word.StatusBar = "Z7: Corrigindo gramatica do trecho selecionado..."
         LOGGER.info("Connected to running Word instance")
     except Exception as e:
         log_exception(LOGGER, "Failed to connect to Word", e)
@@ -42,13 +42,13 @@ def main() -> None:
         selection = word.Selection
         if selection is None:
             LOGGER.error("word.Selection is None: no active document or selection in Word")
-            word.StatusBar = "Z7: Nenhum documento ou seleção disponível."
+            word.StatusBar = "Z7: Nenhum documento ou selecao disponivel."
             root.destroy()
             return
         text = selection.Text.strip()
     except Exception as e:
         LOGGER.error("Erro ao obter selection: %s", str(e))
-        word.StatusBar = "Z7: Nenhum documento ou seleção disponível."
+        word.StatusBar = "Z7: Nenhum documento ou selecao disponivel."
         root.destroy()
         return
 
@@ -101,6 +101,9 @@ def main() -> None:
     model_name = load_ai_model()
     LOGGER.info("Model loaded via config_prompt: %s", model_name)
 
+    word.StatusBar = "Z7: Corrigindo gramatica com Gemini... Aguarde."
+    LOGGER.info("Sending selected text to Gemini for grammar correction")
+
     api_result: dict = {}
 
     def _call_api() -> None:
@@ -112,17 +115,28 @@ def main() -> None:
             api_result["error"] = exc
             log_exception(LOGGER, "Gemini API request failed", exc)
 
+    # Exibe janela de progresso enquanto a chamada à API é feita em background
+    colors = z7_theme.get_theme_colors()
     loading_win = tk.Toplevel(root)
     loading_win.title("Z7 StdProposers")
     loading_win.resizable(False, False)
-    loading_win.attributes('-topmost', True)
-    loading_win.grab_set()
+    loading_win.configure(bg=colors["bg"])
+    loading_win.attributes("-topmost", True)
     tk.Label(
         loading_win,
-        text="Corrigindo gramática com Gemini AI...\nAguarde...",
-        padx=20,
-        pady=20,
+        text="Corrigindo gramática com Gemini AI...\nAguarde, isso pode levar alguns instantes.",
+        font=("Segoe UI", 10),
+        bg=colors["bg"], fg=colors["fg"],
+        justify=tk.CENTER,
+        padx=30, pady=30,
     ).pack()
+    loading_win.update_idletasks()
+    loading_win.geometry(
+        "+%d+%d" % (
+            loading_win.winfo_screenwidth() // 2 - 200,
+            loading_win.winfo_screenheight() // 2 - 60,
+        )
+    )
     loading_win.update()
 
     api_thread = threading.Thread(target=_call_api, daemon=True)
@@ -163,14 +177,26 @@ def main() -> None:
         root.destroy()
         return
 
-    # Tenta salvar os atributos básicos de formatação do texto selecionado
+    # Salva a formatação do primeiro caractere da seleção como referência.
+    # Usar o primeiro caractere evita que propriedades com valor "misto"
+    # (selection.Font.* agrega toda a seleção) sobrescrevam o estilo real.
+    _FONT_ATTRS = [
+        "Name", "Size", "Bold", "Italic", "Underline",
+        "Color", "StrikeThrough", "DoubleStrikeThrough",
+        "Subscript", "Superscript", "SmallCaps", "AllCaps",
+        "HighlightColorIndex",
+    ]
+    saved_fmt = {}
     try:
-        font_name = selection.Font.Name
-        font_size = selection.Font.Size
-        font_bold = selection.Font.Bold
-        font_italic = selection.Font.Italic
-    except Exception:
-        font_name, font_size, font_bold, font_italic = None, None, None, None
+        first_char_font = selection.Characters(1).Font
+        for attr in _FONT_ATTRS:
+            try:
+                saved_fmt[attr] = getattr(first_char_font, attr)
+            except Exception:
+                pass
+        LOGGER.info("Saved %d font attributes from first character", len(saved_fmt))
+    except Exception as fmt_e:
+        LOGGER.warning("Could not save character formatting: %s", fmt_e)
 
     undo_started = False
     try:
@@ -183,18 +209,21 @@ def main() -> None:
 
         selection.Text = corrected_text
 
-        # Reaplica os atributos básicos, se possível
-        if font_name is not None:
+        # Reaplica a formatação salva à seleção inteira
+        if saved_fmt:
             try:
-                selection.Font.Name = font_name
-                selection.Font.Size = font_size
-                selection.Font.Bold = font_bold
-                selection.Font.Italic = font_italic
-            except Exception:
-                pass
+                f = selection.Font
+                for attr, value in saved_fmt.items():
+                    try:
+                        setattr(f, attr, value)
+                    except Exception:
+                        pass
+                LOGGER.info("Reapplied %d font attributes to corrected text", len(saved_fmt))
+            except Exception as reapply_e:
+                LOGGER.warning("Could not reapply font formatting: %s", reapply_e)
 
         LOGGER.info("Text replaced in Word document directly, keeping formatting")
-        word.StatusBar = "Z7: Correção finalizada."
+        word.StatusBar = "Z7: Correcao finalizada."
     except Exception as e:
         log_exception(LOGGER, "Failed to apply text to Word", e)
         z7_theme.show_error("Z7 StdProposers - Erro", f"Não foi possível substituir o texto:\n{e}", parent=root)
