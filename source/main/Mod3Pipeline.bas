@@ -5422,7 +5422,7 @@ End Sub
 
 
 '================================================================================
-' RESTAURAR BACKUP - Descarta documento atual e restaura backup
+' RESTAURAR BACKUP - Descarta documento atual e restaura o backup mais antigo
 '================================================================================
 Public Sub RestaurarBackup()
     On Error GoTo ErrorHandler
@@ -5435,27 +5435,75 @@ Public Sub RestaurarBackup()
         Exit Sub
     End If
 
-    ' Verifica se existe backup para este documento
-    If backupFilePath = "" Or Not CreateObject("Scripting.FileSystemObject").FileExists(backupFilePath) Then
-        MsgBox "Nenhum backup disponivel para este documento." & vbCrLf & vbCrLf & _
+    Dim fso As Object
+    Set fso = CreateObject("Scripting.FileSystemObject")
+
+    ' Localiza todos os backups do documento na pasta de backups
+    Dim backupFolder As String
+    backupFolder = GetZ7StdProposersBackupsPath()
+
+    If Not fso.FolderExists(backupFolder) Then
+        MsgBox "Pasta de backups nao encontrada." & vbCrLf & vbCrLf & _
                "[i] O backup e criado apenas apos a primeira execucao de PadronizarDocumentoMain.", _
                vbExclamation, "Z7_STDPROPOSERS - Restaurar Backup"
         Exit Sub
     End If
 
+    Dim docBaseName As String
+    Dim docExtension As String
+    docBaseName = fso.GetBaseName(doc.Name)
+    docExtension = fso.GetExtensionName(doc.Name)
+
+    ' Coleta nomes de todos os backups do documento (nome = yyyy-mm-dd_HHmmss → ordem cronologica)
+    Dim folder As Object
+    Set folder = fso.GetFolder(backupFolder)
+
+    Dim items As Object
+    Set items = CreateObject("System.Collections.ArrayList")
+
+    Dim prefix As String
+    prefix = LCase(docBaseName & "_backup_")
+
+    Dim fileItem As Object
+    For Each fileItem In folder.Files
+        If Left(LCase(fileItem.Name), Len(prefix)) = prefix Then
+            items.Add fileItem.Name & "|" & fileItem.Path
+        End If
+    Next fileItem
+
+    If items.Count = 0 Then
+        MsgBox "Nenhum backup disponivel para o documento '" & doc.Name & "'." & vbCrLf & vbCrLf & _
+               "[i] O backup e criado apenas apos a primeira execucao de PadronizarDocumentoMain.", _
+               vbExclamation, "Z7_STDPROPOSERS - Restaurar Backup"
+        Exit Sub
+    End If
+
+    ' Ordena alfanumericamente por nome: timestamp ISO → o item[0] e o mais antigo
+    items.Sort
+
+    Dim oldestParts() As String
+    oldestParts = Split(items(0), "|")
+
+    Dim targetBackupPath As String
+    Dim targetBackupName As String
+    targetBackupPath = oldestParts(1)
+    targetBackupName = oldestParts(0)
+
     ' Confirma com usuario
     Dim confirmMsg As String
-    confirmMsg = "[?] Deseja restaurar o backup do documento?" & vbCrLf & vbCrLf & _
+    confirmMsg = "[?] Deseja restaurar o backup mais antigo do documento?" & vbCrLf & vbCrLf & _
                  "[!] ATENCAO: O documento atual sera descartado!" & vbCrLf & vbCrLf & _
                  "[DIR] Documento atual: " & doc.Name & vbCrLf & _
-                 "[DIR] Backup: " & CreateObject("Scripting.FileSystemObject").GetFileName(backupFilePath)
+                 "[DIR] Backup (mais antigo): " & targetBackupName
+
+    If items.Count > 1 Then
+        confirmMsg = confirmMsg & vbCrLf & _
+                     "[i] Total de backups disponiveis: " & items.Count
+    End If
 
     If MsgBox(confirmMsg, vbYesNo + vbQuestion, "Z7_STDPROPOSERS - Confirmar Restauracao") <> vbYes Then
         Exit Sub
     End If
-
-    Dim fso As Object
-    Set fso = CreateObject("Scripting.FileSystemObject")
 
     Dim originalPath As String
     Dim originalName As String
@@ -5494,22 +5542,14 @@ Public Sub RestaurarBackup()
         fso.DeleteFile originalPath, True
     End If
 
-    ' Copia backup para o local original
+    ' Copia o backup mais antigo para o local original
     Application.StatusBar = "Restaurando backup..."
-    fso.CopyFile backupFilePath, originalPath, True
+    fso.CopyFile targetBackupPath, originalPath, True
 
     ' Abre o backup restaurado
     Application.Documents.Open originalPath
 
     Application.StatusBar = "Backup restaurado com sucesso! (z7_stdproposers)"
-
-    ' Mensagem de conclusao desativada - informacoes exibidas apenas na StatusBar
-    ' MsgBox "[OK] Backup restaurado com sucesso!" & vbCrLf & vbCrLf & _
-    '        "[DIR] Documento descartado salvo em:" & vbCrLf & _
-    '        "   " & discardedPath & vbCrLf & vbCrLf & _
-    '        "[DIR] Backup restaurado:" & vbCrLf & _
-    '        "   " & originalPath, _
-    '        vbInformation, "Z7_STDPROPOSERS - Backup Restaurado"
 
     Exit Sub
 

@@ -107,17 +107,32 @@ def main() -> None:
         root.destroy()
         return
 
+    # 'word.ActiveDocument' lança com_error (não retorna None) quando nenhum
+    # documento está aberto — capturar separadamente do erro de leitura de conteúdo
     try:
         doc = word.ActiveDocument
-        if doc is None:
-            LOGGER.error("No active document in Word")
-            word.StatusBar = "Z7: Nenhum documento aberto."
-            root.destroy()
-            return
+    except Exception:
+        doc = None
+    if doc is None:
+        LOGGER.error("No active document in Word")
+        word.StatusBar = "Z7: Erro IA - nenhum documento aberto."
+        z7_theme.show_error(
+            "Z7 StdProposers",
+            "Nenhum documento está aberto no Word.\nAbra um documento e tente novamente.",
+            parent=root,
+        )
+        root.destroy()
+        return
+    try:
         full_text = doc.Range().Text.strip()
     except Exception as e:
         log_exception(LOGGER, "Failed to read document text", e)
-        word.StatusBar = "Z7: Erro ao ler o documento."
+        word.StatusBar = "Z7: Erro IA - falha ao ler o documento."
+        z7_theme.show_error(
+            "Z7 StdProposers - Erro",
+            f"Não foi possível ler o texto do documento:\n{e}",
+            parent=root,
+        )
         root.destroy()
         return
 
@@ -151,6 +166,7 @@ def main() -> None:
         import google.genai as genai
     except ModuleNotFoundError as e:
         LOGGER.error("Missing Python dependency: %s", e.name)
+        word.StatusBar = "Z7: Erro IA - dependencia Python ausente."
         z7_theme.show_error(
             "Z7 StdProposers - Dependência ausente",
             f"Não foi possível iniciar a API porque falta a dependência Python: "
@@ -254,7 +270,7 @@ def main() -> None:
                 f"Erro ao chamar a API do Gemini:\n{e}",
                 parent=root,
             )
-        word.StatusBar = "Z7: Erro na verificacao de consistencia."
+        word.StatusBar = "Z7: Erro IA - falha na verificacao de consistencia."
         root.destroy()
         return
 
@@ -267,7 +283,7 @@ def main() -> None:
             "A API do Gemini retornou uma resposta vazia.",
             parent=root,
         )
-        word.StatusBar = "Z7: Verificacao concluida (resposta vazia)."
+        word.StatusBar = "Z7: Erro IA - resposta vazia do Gemini."
         root.destroy()
         return
 

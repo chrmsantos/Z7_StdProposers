@@ -64,14 +64,15 @@ def _show_result_window(corrected_text: str, parent: tk.Tk) -> "str | None":
     scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
     text_widget.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=1, pady=1)
 
-    text_widget.insert(tk.END, corrected_text)
+    display_text = corrected_text.replace('\r\n', '\n').replace('\r', '\n')
+    text_widget.insert(tk.END, display_text)
     text_widget.focus_set()
 
     btn_frame = tk.Frame(win, bg=bg)
     btn_frame.pack(fill=tk.X, padx=20, pady=(0, 18))
 
     def on_apply() -> None:
-        result["text"] = text_widget.get("1.0", tk.END).rstrip("\n")
+        result["text"] = text_widget.get("1.0", tk.END).rstrip("\n").replace('\n', '\r')
         win.destroy()
 
     def on_cancel() -> None:
@@ -133,17 +134,32 @@ def main() -> None:
         root.destroy()
         return
 
+    # 'word.ActiveDocument' lança com_error (não retorna None) quando nenhum
+    # documento está aberto — capturar separadamente do erro de leitura de conteúdo
     try:
         doc = word.ActiveDocument
-        if doc is None:
-            LOGGER.error("No active document in Word")
-            word.StatusBar = "Z7: Nenhum documento aberto."
-            root.destroy()
-            return
-        full_text = doc.Content.Text.strip()
+    except Exception:
+        doc = None
+    if doc is None:
+        LOGGER.error("No active document in Word")
+        word.StatusBar = "Z7: Erro IA - nenhum documento aberto."
+        z7_theme.show_error(
+            "Z7 StdProposers",
+            "Nenhum documento está aberto no Word.\nAbra um documento e tente novamente.",
+            parent=root,
+        )
+        root.destroy()
+        return
+    try:
+        full_text = doc.Content.Text.strip().replace('\r\n', '\n').replace('\r', '\n')
     except Exception as e:
         LOGGER.error("Erro ao obter texto do documento: %s", str(e))
-        word.StatusBar = "Z7: Erro ao ler o documento."
+        word.StatusBar = "Z7: Erro IA - falha ao ler o documento."
+        z7_theme.show_error(
+            "Z7 StdProposers - Erro",
+            f"Não foi possível ler o texto do documento:\n{e}",
+            parent=root,
+        )
         root.destroy()
         return
 
@@ -168,6 +184,7 @@ def main() -> None:
     api_key = get_api_key(parent=root)
     if not api_key:
         LOGGER.warning("Aborting grammar flow because API key is unavailable")
+        word.StatusBar = "Z7: Erro IA - chave da API indisponivel."
         root.destroy()
         return
 
@@ -175,6 +192,7 @@ def main() -> None:
         import google.genai as genai
     except ModuleNotFoundError as e:
         LOGGER.error("Missing Python dependency: %s", e.name)
+        word.StatusBar = "Z7: Erro IA - dependencia Python ausente."
         z7_theme.show_error(
             "Z7 StdProposers - Dependencia ausente",
             "Nao foi possivel iniciar a API porque falta a dependencia Python: "
@@ -257,10 +275,13 @@ def main() -> None:
                 parent=root
             ):
                 delete_api_key()
+                word.StatusBar = "Z7: Erro IA - chave da API invalida."
                 z7_theme.show_info("Z7 StdProposers", "Chave removida. Tente rodar a macro novamente para inserir uma nova.", parent=root)
             else:
+                word.StatusBar = "Z7: Erro IA - falha na chamada ao Gemini."
                 z7_theme.show_error("Z7 StdProposers - Erro na API", f"Erro ao chamar a API do Gemini:\n{e}", parent=root)
         else:
+            word.StatusBar = "Z7: Erro IA - falha na chamada ao Gemini."
             z7_theme.show_error("Z7 StdProposers - Erro na API", f"Erro ao chamar a API do Gemini:\n{e}", parent=root)
         root.destroy()
         return
@@ -268,6 +289,7 @@ def main() -> None:
     corrected_text = api_result.get("corrected_text", "")
 
     if not corrected_text:
+        word.StatusBar = "Z7: Erro IA - resposta vazia do Gemini."
         z7_theme.show_warning("Z7 StdProposers - Aviso", "A API do Gemini retornou um texto vazio.", parent=root)
         root.destroy()
         return
@@ -294,6 +316,7 @@ def main() -> None:
         word.StatusBar = "Z7: Correcao finalizada."
     except Exception as e:
         log_exception(LOGGER, "Failed to apply text to Word", e)
+        word.StatusBar = "Z7: Erro IA - falha ao aplicar texto corrigido."
         z7_theme.show_error("Z7 StdProposers - Erro", f"Não foi possível substituir o texto:\n{e}", parent=root)
     finally:
         if undo_started:

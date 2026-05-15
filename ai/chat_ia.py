@@ -20,6 +20,7 @@ class ChatApp:
     def __init__(self, root: tk.Tk) -> None:
         LOGGER.info("Initializing ChatApp UI")
         self.root = root
+        self.word_app = None
         self.root.title("Chat com a IA - Z7 StdProposers")
         
         screen_width = self.root.winfo_screenwidth()
@@ -74,6 +75,8 @@ class ChatApp:
                 word = win32com.client.GetActiveObject("Word.Application")
             except Exception:
                 word = win32com.client.GetObject(Class="Word.Application")
+
+            self.word_app = word
                 
             word.WindowState = 1  # wdWindowStateNormal
             word.Left = 0
@@ -101,6 +104,14 @@ class ChatApp:
             LOGGER.info("Word window resized to 3/4 of screen")
         except Exception as e:
             log_exception(LOGGER, "Failed to resize Word window", e)
+
+    def _set_word_status(self, message: str) -> None:
+        """Atualiza StatusBar do Word sem interromper o fluxo do chat."""
+        try:
+            if self.word_app is not None:
+                self.word_app.StatusBar = message
+        except Exception:
+            pass
         
     def apply_theme(self) -> None:
         colors = z7_theme.get_theme_colors(self.mode)
@@ -269,6 +280,8 @@ class ChatApp:
             except Exception:
                 word = win32com.client.GetObject(Class="Word.Application")
 
+            self.word_app = word
+
             try:
                 word.Application.Run("CreateDocumentBackup", word.ActiveDocument)
                 LOGGER.info("Document backup created successfully.")
@@ -288,6 +301,7 @@ class ChatApp:
             LOGGER.info("Loaded Word active document context for chat")
         except Exception as e:
             log_exception(LOGGER, "Failed to load Word document context", e)
+            self._set_word_status("Z7: Erro ao carregar contexto do documento no Chat.")
             self.doc_text = "Nenhum documento ativo ou erro ao obter texto do Word."
 
     def init_ai(self) -> None:
@@ -305,6 +319,7 @@ class ChatApp:
             api_key = get_api_key(self.root)
             if not api_key:
                 LOGGER.error("Chat initialization aborted: missing API key")
+                self._set_word_status("Z7: Erro no Chat - chave da API indisponivel.")
                 self.root.after(0, lambda: self.status_lbl.config(text="Erro: Chave API ausente."))
                 return
 
@@ -349,6 +364,7 @@ class ChatApp:
                     LOGGER.warning("No document context available for AI initialization")
             except Exception as ctx_e:
                 log_exception(LOGGER, "Failed to send document context to AI", ctx_e)
+                self._set_word_status("Z7: Erro ao enviar contexto do documento ao Chat.")
                 self.initial_greeting = "Olá! Não foi possível enviar o contexto do documento agora, mas ele será incluído na sua primeira mensagem. Como posso ajudar?"
                 self._context_pending = True
                 _truncation_notice = False
@@ -366,6 +382,7 @@ class ChatApp:
 
         except Exception as e:
             log_exception(LOGGER, "Failed to initialize chat AI", e)
+            self._set_word_status("Z7: Erro ao inicializar o Chat IA.")
             error_msg = str(e).lower()
             if "403" in error_msg or "401" in error_msg or "invalid api key" in error_msg or "api_key" in error_msg:
                 self.root.after(0, lambda: self.status_lbl.config(text="Erro: Chave Inválida."))
@@ -415,6 +432,7 @@ class ChatApp:
             reply = response.text
         except Exception as e:
             log_exception(LOGGER, "Chat message request failed", e)
+            self._set_word_status("Z7: Erro de comunicacao no Chat IA.")
             reply = f"Erro de comunicação: {str(e)}"
             
         self.root.after(0, self._on_message_received, reply)

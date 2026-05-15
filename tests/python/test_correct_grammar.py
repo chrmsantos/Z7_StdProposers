@@ -105,6 +105,38 @@ class TestCorrectGrammarDocumentGuards(unittest.TestCase):
             except Exception as exc:
                 self.fail(f"main() lançou exceção inesperada: {exc}")
 
+    def test_active_document_com_error_shows_dialog(self):
+        """word.ActiveDocument lançando com_error deve exibir diálogo, não silenciar.
+
+        Regressão: 'Este comando não está disponível porque nenhum documento foi aberto.'
+        é lançado como com_error — não retorna None — quando o Word está aberto mas
+        sem documento ativo. O guard 'if doc is None' não captura este caso; a
+        exceção deve ser convertida em None e resultar em z7_theme.show_error.
+        """
+        word_mock = mock.MagicMock()
+        type(word_mock).ActiveDocument = mock.PropertyMock(
+            side_effect=Exception(
+                "Este comando não está disponível porque nenhum documento foi aberto."
+            )
+        )
+        win32com_mock = mock.MagicMock()
+        win32com_mock.client.GetActiveObject.return_value = word_mock
+
+        stubs = dict(_STUBS)
+        stubs["win32com"] = win32com_mock
+        stubs["win32com.client"] = win32com_mock.client
+
+        with mock.patch.dict(sys.modules, stubs):
+            import importlib
+            import correct_grammar
+            importlib.reload(correct_grammar)
+            with mock.patch("z7_theme.show_error") as mock_err:
+                try:
+                    correct_grammar.main()
+                except SystemExit:
+                    pass
+        mock_err.assert_called_once()
+
     def test_empty_document_exits_early(self):
         """Documento vazio ou muito curto não deve prosseguir para a API."""
         word_empty = mock.MagicMock()
