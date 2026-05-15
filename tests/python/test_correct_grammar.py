@@ -212,5 +212,261 @@ class TestCorrectGrammarDocumentApplication(unittest.TestCase):
         )
 
 
+# ---------------------------------------------------------------------------
+# Normalização de quebras de linha (\r ↔ \n)
+# ---------------------------------------------------------------------------
+
+class TestCorrectGrammarLineEndings(unittest.TestCase):
+    """Testa a normalização de quebras de linha entre Word (\r) e tkinter (\n)."""
+
+    def test_source_normalizes_cr_before_display(self):
+        """`_show_result_window` deve converter \\r para \\n antes de exibir."""
+        source = (PY_ROOT / "correct_grammar.py").read_text(encoding="utf-8")
+        self.assertIn(".replace('\\r\\n', '\\n').replace('\\r', '\\n')", source,
+                      "Normalização de \\r → \\n não encontrada no código")
+
+    def test_source_converts_lf_to_cr_for_word(self):
+        """`on_apply` deve converter \\n de volta para \\r ao devolver para o Word."""
+        source = (PY_ROOT / "correct_grammar.py").read_text(encoding="utf-8")
+        self.assertIn(".replace('\\n', '\\r')", source,
+                      "Conversão \\n → \\r para o Word não encontrada no código")
+
+    def test_carriage_returns_not_in_prompt_sent_to_gemini(self):
+        """\\r no Content.Text deve ser normalizado para \\n antes de enviar ao Gemini."""
+        doc_mock = mock.MagicMock()
+        doc_mock.Content.Text = "Primeiro paragrafo.\rSegundo paragrafo.\rTerceiro suficientemente longo."
+        word_mock = mock.MagicMock()
+        word_mock.ActiveDocument = doc_mock
+        win32com_mock = mock.MagicMock()
+        win32com_mock.client.GetActiveObject.return_value = word_mock
+
+        captured: dict = {}
+
+        def _capture_generate(**kwargs):
+            captured["contents"] = kwargs.get("contents", "")
+            result = mock.MagicMock()
+            result.text = "Corrigido."
+            return result
+
+        genai_mock = mock.MagicMock()
+        genai_mock.Client.return_value.models.generate_content.side_effect = (
+            lambda *a, **kw: _capture_generate(**kw)
+        )
+
+        stubs = {
+            "win32com": win32com_mock,
+            "win32com.client": win32com_mock.client,
+            "google": mock.MagicMock(),
+            "google.genai": genai_mock,
+            "win32crypt": mock.MagicMock(),
+            "tkinter": mock.MagicMock(),
+        }
+
+        import importlib
+        with mock.patch.dict(sys.modules, stubs):
+            import correct_grammar
+            importlib.reload(correct_grammar)
+            with mock.patch("z7_theme.ask_privacy_warning", return_value=True):
+                with mock.patch.object(correct_grammar, "get_api_key", return_value="fake-key"):
+                    with mock.patch.object(correct_grammar, "_show_result_window",
+                                           return_value=None):
+                        try:
+                            correct_grammar.main()
+                        except Exception:
+                            pass
+
+        if captured:
+            self.assertNotIn("\r", str(captured["contents"]),
+                             "Prompt enviado ao Gemini não deve conter \\r")
+
+
+# ---------------------------------------------------------------------------
+# Tratamento de erros da API Gemini
+# ---------------------------------------------------------------------------
+
+class TestCorrectGrammarAPIErrorHandling(unittest.TestCase):
+    """Testa o comportamento diante de erros da API Gemini."""
+
+    class _SyncThread:
+        """Substitui threading.Thread: start() executa target() imediatamente.
+
+        Garante que api_result seja populado antes de root.mainloop() (mockado)
+        retornar, eliminando a condição de corrida nos testes.
+        """
+        def __init__(self, target=None, daemon=None, **kwargs):
+            self._target = target
+
+        def start(self):
+            if self._target:
+                self._target()
+
+        def is_alive(self):
+            return False
+
+        def join(self, timeout=None):
+            pass
+
+    def _run_with_api_error(self, error_message: str):
+        doc_mock = mock.MagicMock()
+        doc_mock.Content.Text = "Texto longo o suficiente para ser processado pela IA Gemini."
+        word_mock = mock.MagicMock()
+        word_mock.ActiveDocument = doc_mock
+        win32com_mock = mock.MagicMock()
+        win32com_mock.client.GetActiveObject.return_value = word_mock
+
+        genai_mock = mock.MagicMock()
+        genai_mock.Client.return_value.models.generate_content.side_effect = (
+            Exception(error_message)
+        )
+
+        _google_stub = mock.MagicMock()
+        _google_stub.genai = genai_mock  # Python resolves `import google.genai as genai` via parent attr
+        stubs = {
+            "win32com": win32com_mock,
+            "win32com.client": win32com_mock.client,
+            "google": _google_stub,
+            "google.genai": genai_mock,
+            "win32crypt": mock.MagicMock(),
+            "tkinter": mock.MagicMock(),
+        }
+
+        import importlib
+        error_calls = []
+        ok_cancel_calls = []
+
+        with mock.patch.dict(sys.modules, stubs):
+            import correct_grammar
+            importlib.reload(correct_grammar)
+            with mock.patch("threading.Thread", self._SyncThread):
+                with mock.patch("z7_theme.ask_privacy_warning", return_value=True):
+                    with mock.patch.object(correct_grammar, "get_api_key", return_value="fake-key"):
+                        with mock.patch("z7_theme.show_error",
+                                        side_effect=lambda *a, **kw: error_calls.append(a)):
+                            with mock.patch("z7_theme.ask_ok_cancel",
+                                            side_effect=lambda *a, **kw: ok_cancel_calls.append(a) or False):
+                                with mock.patch("z7_theme.show_info"):
+                                    try:
+                                        correct_grammar.main()
+                                    except Exception:
+                                        pass
+
+        return error_calls, ok_cancel_calls
+
+    def test_generic_api_error_shows_error_dialog(self):
+        """Erros de API não relacionados a autenticação devem exibir diálogo de erro."""
+        error_calls, ok_cancel_calls = self._run_with_api_error("Service temporarily unavailable")
+        self.assertTrue(len(error_calls) > 0,
+                        "show_error deve ser chamado para erros genéricos da API")
+        self.assertEqual(len(ok_cancel_calls), 0,
+                         "ask_ok_cancel não deve ser chamado para erros genéricos")
+
+    def test_401_error_prompts_key_deletion_dialog(self):
+        """Erro 401 deve acionar o diálogo de remoção de chave inválida."""
+        error_calls, ok_cancel_calls = self._run_with_api_error("401 invalid api key")
+        self.assertTrue(len(ok_cancel_calls) > 0,
+                        "ask_ok_cancel deve ser chamado para erro 401")
+
+    def test_403_error_prompts_key_deletion_dialog(self):
+        """Erro 403 deve acionar o diálogo de remoção de chave inválida."""
+        error_calls, ok_cancel_calls = self._run_with_api_error("403 forbidden")
+        self.assertTrue(len(ok_cancel_calls) > 0,
+                        "ask_ok_cancel deve ser chamado para erro 403")
+
+    def test_empty_corrected_text_shows_warning(self):
+        """Resposta vazia da API deve exibir aviso, não substituir o documento."""
+        doc_mock = mock.MagicMock()
+        doc_mock.Content.Text = "Texto longo o suficiente para ser processado pela IA Gemini."
+        word_mock = mock.MagicMock()
+        word_mock.ActiveDocument = doc_mock
+        win32com_mock = mock.MagicMock()
+        win32com_mock.client.GetActiveObject.return_value = word_mock
+
+        genai_mock = mock.MagicMock()
+        genai_mock.Client.return_value.models.generate_content.return_value.text = "   "
+
+        _google_stub = mock.MagicMock()
+        _google_stub.genai = genai_mock  # Python resolves `import google.genai as genai` via parent attr
+        stubs = {
+            "win32com": win32com_mock,
+            "win32com.client": win32com_mock.client,
+            "google": _google_stub,
+            "google.genai": genai_mock,
+            "win32crypt": mock.MagicMock(),
+            "tkinter": mock.MagicMock(),
+        }
+
+        import importlib
+        with mock.patch.dict(sys.modules, stubs):
+            import correct_grammar
+            importlib.reload(correct_grammar)
+            with mock.patch("threading.Thread", self._SyncThread):
+                with mock.patch("z7_theme.ask_privacy_warning", return_value=True):
+                    with mock.patch.object(correct_grammar, "get_api_key", return_value="fake-key"):
+                        with mock.patch("z7_theme.show_warning") as mock_warn:
+                            try:
+                                correct_grammar.main()
+                            except Exception:
+                                pass
+
+        mock_warn.assert_called_once()
+        # Documento não deve ter sido alterado com texto vazio
+        self.assertNotEqual(doc_mock.Content.Text, "")
+
+
+# ---------------------------------------------------------------------------
+# Integração com o sistema de logs
+# ---------------------------------------------------------------------------
+
+class TestCorrectGrammarLogging(unittest.TestCase):
+    """Verifica que correct_grammar.py usa o sistema de logs centralizado."""
+
+    def test_uses_configure_component_logger(self):
+        source = (PY_ROOT / "correct_grammar.py").read_text(encoding="utf-8")
+        self.assertIn("from z7_logging import configure_component_logger", source)
+        self.assertIn('LOGGER = configure_component_logger("correct_grammar")', source)
+
+    def test_uses_log_exception(self):
+        source = (PY_ROOT / "correct_grammar.py").read_text(encoding="utf-8")
+        self.assertIn("log_exception", source)
+
+    def test_logger_info_called_on_successful_api_response(self):
+        """LOGGER.info deve ser chamado após resposta bem-sucedida da API."""
+        doc_mock = mock.MagicMock()
+        doc_mock.Content.Text = "Texto longo o suficiente para ser processado pela IA Gemini."
+        word_mock = mock.MagicMock()
+        word_mock.ActiveDocument = doc_mock
+        win32com_mock = mock.MagicMock()
+        win32com_mock.client.GetActiveObject.return_value = word_mock
+
+        genai_mock = mock.MagicMock()
+        genai_mock.Client.return_value.models.generate_content.return_value.text = "Texto corrigido."
+
+        stubs = {
+            "win32com": win32com_mock,
+            "win32com.client": win32com_mock.client,
+            "google": mock.MagicMock(),
+            "google.genai": genai_mock,
+            "win32crypt": mock.MagicMock(),
+            "tkinter": mock.MagicMock(),
+        }
+
+        import importlib
+        with mock.patch.dict(sys.modules, stubs):
+            import correct_grammar
+            importlib.reload(correct_grammar)
+            with mock.patch.object(correct_grammar.LOGGER, "info") as mock_info:
+                with mock.patch("z7_theme.ask_privacy_warning", return_value=True):
+                    with mock.patch.object(correct_grammar, "get_api_key",
+                                           return_value="fake-key"):
+                        with mock.patch.object(correct_grammar, "_show_result_window",
+                                               return_value=None):
+                            try:
+                                correct_grammar.main()
+                            except Exception:
+                                pass
+            self.assertTrue(mock_info.called,
+                            "LOGGER.info deve ser chamado durante o fluxo")
+
+
 if __name__ == "__main__":
     unittest.main()

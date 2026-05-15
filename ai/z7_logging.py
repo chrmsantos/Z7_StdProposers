@@ -1,7 +1,10 @@
+import contextlib
+import datetime
 import logging
-import sys
-from logging.handlers import RotatingFileHandler
 import os
+import sys
+import time
+from logging.handlers import RotatingFileHandler
 from pathlib import Path
 from typing import Optional
 
@@ -12,7 +15,9 @@ __all__ = [
     "get_logs_dir",
     "build_log_path",
     "get_component_log_path",
+    "get_session_id",
     "configure_component_logger",
+    "log_context",
     "log_exception",
 ]
 
@@ -66,17 +71,60 @@ def get_component_log_path(component: str) -> Path:
     return build_log_path(component)
 
 
-def configure_component_logger(component: str, level: int = logging.INFO) -> logging.Logger:
+def get_session_id() -> str:
+    """Retorna um ID de sessão único baseado no timestamp atual (formato YYYYMMDD_HHMMSS).
+
+    Útil para correlacionar entradas de log de múltiplos componentes na mesma sessão.
+    """
+    return datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+
+
+@contextlib.contextmanager
+def log_context(logger: logging.Logger, label: str, level: int = logging.INFO):
+    """Context manager que registra início, fim e duração de um bloco nomeado.
+
+    Em caso de exceção, registra em nível ERROR e relança a exceção.
+
+    Exemplo::
+
+        with log_context(LOGGER, "Chamada à API Gemini"):
+            response = client.models.generate_content(...)
+    """
+    logger.log(level, "[START] %s", label)
+    t0 = time.monotonic()
+    try:
+        yield
+    except Exception as exc:
+        elapsed = time.monotonic() - t0
+        logger.error("[FAIL]  %s | %.3fs | %s: %s", label, elapsed, type(exc).__name__, exc)
+        raise
+    else:
+        elapsed = time.monotonic() - t0
+        logger.log(level, "[END]   %s | %.3fs", label, elapsed)
+
+
+def configure_component_logger(
+    component: str,
+    level: int = logging.INFO,
+    *,
+    debug: bool = False,
+) -> logging.Logger:
     """Configura e retorna o logger para o componente especificado.
 
     Idempotente: se o logger já possuir handlers configurados, é retornado sem
     modificação.
+
+    Args:
+        component: Nome do componente (ex: ``"correct_grammar"``).
+        level:     Nível mínimo de log (padrão: ``logging.INFO``).
+        debug:     Se True, adiciona também um ``StreamHandler`` para ``stderr``
+                   com nível ``DEBUG`` — útil durante desenvolvimento.
     """
     logger = logging.getLogger(f"z7.{component}")
     if logger.handlers:
         return logger
 
-    logger.setLevel(level)
+    logger.setLevel(logging.DEBUG if debug else level)
     logger.propagate = False
 
     formatter = logging.Formatter(
@@ -86,10 +134,17 @@ def configure_component_logger(component: str, level: int = logging.INFO) -> log
 
     log_path = build_log_path(component)
     file_handler = RotatingFileHandler(
-        log_path, maxBytes=2 * 1024 * 1024, backupCount=3, encoding="utf-8"
+        log_path, maxBytes=2 * 1024 * 1024, backupCount=5, encoding="utf-8"
     )
     file_handler.setFormatter(formatter)
+    file_handler.setLevel(level)
     logger.addHandler(file_handler)
+
+    if debug:
+        stream_handler = logging.StreamHandler(sys.stderr)
+        stream_handler.setFormatter(formatter)
+        stream_handler.setLevel(logging.DEBUG)
+        logger.addHandler(stream_handler)
 
     return logger
 
