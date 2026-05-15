@@ -5,7 +5,7 @@ Option Explicit
 ' =============================================================================
 ' Z7_STDPROPOSERS - Sistema de Padronizacao de Proposituras Legislativas
 ' =============================================================================
-' Versao: 7.0-rc1
+' Versao: 7.0-rc2
 ' Data: 2026-05-15
 ' Licenca: GNU GPLv3 (https://www.gnu.org/licenses/gpl-3.0.html)
 ' Autor: Christian Martin dos Santos (chrmsantos@protonmail.com)
