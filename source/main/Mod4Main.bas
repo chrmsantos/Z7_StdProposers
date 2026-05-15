@@ -750,15 +750,15 @@ Public Sub CorrigirGramaticaComGemini()
     
     On Error GoTo ErrorHandler
     
-    ' Obtem o caminho do execut�vel usando o caminho relativo configurado em Mod1Config
+    ' Obtem o caminho do executavel usando o caminho relativo configurado em Mod1Config
     caminhoScript = Environ("USERPROFILE") & GRAMMAR_SCRIPT_RELATIVE_PATH
     
     If Dir(caminhoScript) = "" Then
-        MsgBox "Execut�vel do Corretor Gramatical n�o encontrado em:" & vbCrLf & caminhoScript & vbCrLf & vbCrLf & "Por favor, recompile o projeto ou verifique a instala��o.", vbCritical, "Erro de Arquivo"
+        MsgBox "Executavel do Corretor Gramatical nao encontrado em:" & vbCrLf & caminhoScript & vbCrLf & vbCrLf & "Por favor, recompile o projeto ou verifique a instalacao.", vbCritical, "Erro de Arquivo"
         Exit Sub
     End If
     
-    ' Monta o comando completo com aspas em volta do caminho do execut�vel
+    ' Monta o comando completo com aspas em volta do caminho do executavel
     comandoExecucao = """" & caminhoScript & """"
     
     ' Cria o objeto WScript.Shell
@@ -767,7 +767,7 @@ Public Sub CorrigirGramaticaComGemini()
     Application.StatusBar = "Carregando o assistente de IA... Isso pode levar alguns segundos."
     DoEvents
     
-    ' Executa o comando de forma ASS�NCRONA para n�o travar o Word
+    ' Executa o comando de forma ASSINCRONA para nao travar o Word
     objShell.Run comandoExecucao, 0, False
     
     ' Opcionalmente exibe na status bar ou no log
@@ -795,10 +795,10 @@ Public Sub ConfigurarPromptGemini()
     
     On Error GoTo ErrorHandler
     
-    ' Obtem o caminho do execut�vel usando o caminho relativo configurado em Mod1Infrastructure
+    ' Obtem o caminho do executavel usando o caminho relativo configurado em Mod1Infrastructure
     caminhoScript = Environ("USERPROFILE") & PROMPT_CONFIG_SCRIPT_RELATIVE_PATH
     
-    ' Monta o comando completo com aspas em volta do caminho do execut�vel
+    ' Monta o comando completo com aspas em volta do caminho do executavel
     comandoExecucao = """" & caminhoScript & """"
     
     ' Cria o objeto WScript.Shell
@@ -835,35 +835,35 @@ Public Sub VerificarConsistenciaComGemini()
 
     On Error GoTo ErrorHandler
 
-    ' Obtem o caminho do execut�vel usando o caminho relativo configurado em Mod1Infrastructure
+    ' Obtem o caminho do executavel usando o caminho relativo configurado em Mod1Infrastructure
     caminhoScript = Environ("USERPROFILE") & CHECK_CONSISTENCY_SCRIPT_RELATIVE_PATH
 
     If Dir(caminhoScript) = "" Then
-        MsgBox "Execut�vel do Verificador de Consist�ncia n�o encontrado em:" & vbCrLf & caminhoScript & vbCrLf & vbCrLf & "Por favor, recompile o projeto ou verifique a instala��o.", vbCritical, "Erro de Arquivo"
+        MsgBox "Executavel do Verificador de consistencia nao encontrado em:" & vbCrLf & caminhoScript & vbCrLf & vbCrLf & "Por favor, recompile o projeto ou verifique a instalacao.", vbCritical, "Erro de Arquivo"
         Exit Sub
     End If
 
-    ' Monta o comando completo com aspas em volta do caminho do execut�vel
+    ' Monta o comando completo com aspas em volta do caminho do executavel
     comandoExecucao = """" & caminhoScript & """"
 
     ' Cria o objeto WScript.Shell
     Set objShell = CreateObject("WScript.Shell")
 
-    Application.StatusBar = "Carregando o verificador de consist�ncia... Isso pode levar alguns segundos."
+    Application.StatusBar = "Carregando o verificador de consistencia... Isso pode levar alguns segundos."
     DoEvents
 
-    ' Executa o comando de forma ASS�NCRONA para n�o travar o Word
+    ' Executa o comando de forma ASSINCRONA para nao travar o Word
     objShell.Run comandoExecucao, 0, False
 
-    Application.StatusBar = "Verifica��o de consist�ncia iniciada em segundo plano..."
+    Application.StatusBar = "Verificacao de consistencia iniciada em segundo plano..."
     If loggingEnabled Then LogMessage "Verificacao de consistencia iniciada de forma assincrona.", LOG_LEVEL_INFO
 
     Exit Sub
 
 ErrorHandler:
-    Application.StatusBar = "Erro na verifica��o de consist�ncia"
+    Application.StatusBar = "Erro na Verificacao de consistencia"
     If loggingEnabled Then LogMessage "Erro na verificacao de consistencia: " & Err.Description, LOG_LEVEL_ERROR
-    MsgBox "Erro ao tentar executar a verifica��o de consist�ncia: " & Err.Description, vbCritical, "Z7_StdProposers"
+    MsgBox "Erro ao tentar executar a Verificacao de consistencia: " & Err.Description, vbCritical, "Z7_StdProposers"
 End Sub
 
 '================================================================================
@@ -877,15 +877,15 @@ Public Sub ChatComGemini()
     
     On Error GoTo ErrorHandler
     
-    ' Obtem o caminho do execut�vel usando o caminho relativo configurado em Mod1Infrastructure
+    ' Obtem o caminho do executavel usando o caminho relativo configurado em Mod1Infrastructure
     caminhoScript = Environ("USERPROFILE") & CHAT_IA_SCRIPT_RELATIVE_PATH
     
     If Dir(caminhoScript) = "" Then
-        MsgBox "Execut�vel do Chat IA n�o encontrado em:" & vbCrLf & caminhoScript & vbCrLf & vbCrLf & "Por favor, recompile o projeto ou verifique a instala��o.", vbCritical, "Erro de Arquivo"
+        MsgBox "Executavel do Chat IA nao encontrado em:" & vbCrLf & caminhoScript & vbCrLf & vbCrLf & "Por favor, recompile o projeto ou verifique a instalacao.", vbCritical, "Erro de Arquivo"
         Exit Sub
     End If
     
-    ' Monta o comando completo com aspas em volta do caminho do execut�vel
+    ' Monta o comando completo com aspas em volta do caminho do executavel
     comandoExecucao = """" & caminhoScript & """"
     
     ' Cria o objeto WScript.Shell

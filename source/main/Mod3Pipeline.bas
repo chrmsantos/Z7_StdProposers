@@ -2681,7 +2681,7 @@ Public Function InsertFooterStamp(doc As Document) As Boolean
             rngInitials.ParagraphFormat.alignment = wdAlignParagraphLeft
             rngInitials.InsertParagraphAfter
 
-            ' Insere "P�g. X de Y" centralizado (numero da pagina e total de paginas)
+            ' Insere "Pag. X de Y" centralizado (numero da pagina e total de paginas)
             Set rngPage = footer.Range.Paragraphs.Last.Range
             rngPage.Collapse Direction:=wdCollapseStart
             rngPage.text = "P" & Chr(225) & "g. "
