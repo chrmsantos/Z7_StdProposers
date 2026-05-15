@@ -13,14 +13,7 @@ if str(PY_ROOT) not in sys.path:
 # ---------------------------------------------------------------------------
 _win32com_stub = mock.MagicMock()
 _word_stub = mock.MagicMock()
-_selection_stub = mock.MagicMock()
-_selection_stub.Text = "Texto selecionado para teste."
-_selection_stub.Font.Name = "Arial"
-_selection_stub.Font.Size = 12
-_selection_stub.Font.Bold = False
-_selection_stub.Font.Italic = False
-_word_stub.Selection = _selection_stub
-_word_stub.ActiveDocument = mock.MagicMock()
+_word_stub.ActiveDocument.Content.Text = "Texto completo do documento para teste em producao."
 _win32com_stub.client.GetActiveObject.return_value = _word_stub
 
 _genai_stub = mock.MagicMock()
@@ -34,6 +27,7 @@ _STUBS = {
     "google": mock.MagicMock(),
     "google.genai": _genai_stub,
     "win32crypt": mock.MagicMock(),
+    "tkinter": mock.MagicMock(),
 }
 
 
@@ -87,24 +81,23 @@ class TestCorrectGrammarWordConnection(unittest.TestCase):
         )
 
 
-class TestCorrectGrammarSelectionGuards(unittest.TestCase):
-    def test_none_selection_is_handled(self):
-        """word.Selection retornando None não deve causar AttributeError."""
-        word_none_sel = mock.MagicMock()
-        word_none_sel.Selection = None
+class TestCorrectGrammarDocumentGuards(unittest.TestCase):
+    def test_no_active_document_is_handled(self):
+        """ActiveDocument None não deve causar AttributeError."""
+        word_no_doc = mock.MagicMock()
+        word_no_doc.ActiveDocument = None
 
-        win32com_none = mock.MagicMock()
-        win32com_none.client.GetActiveObject.return_value = word_none_sel
+        win32com_no_doc = mock.MagicMock()
+        win32com_no_doc.client.GetActiveObject.return_value = word_no_doc
 
         stubs = dict(_STUBS)
-        stubs["win32com"] = win32com_none
-        stubs["win32com.client"] = win32com_none.client
+        stubs["win32com"] = win32com_no_doc
+        stubs["win32com.client"] = win32com_no_doc.client
 
         with mock.patch.dict(sys.modules, stubs):
             import importlib
             import correct_grammar
             importlib.reload(correct_grammar)
-            # Não deve lançar exceção
             try:
                 correct_grammar.main()
             except SystemExit:
@@ -112,29 +105,27 @@ class TestCorrectGrammarSelectionGuards(unittest.TestCase):
             except Exception as exc:
                 self.fail(f"main() lançou exceção inesperada: {exc}")
 
-    def test_short_selection_exits_early(self):
-        """Seleção com menos de 2 caracteres não deve prosseguir para a API."""
-        short_sel = mock.MagicMock()
-        short_sel.Text = "a"
-        word_short = mock.MagicMock()
-        word_short.Selection = short_sel
+    def test_empty_document_exits_early(self):
+        """Documento vazio ou muito curto não deve prosseguir para a API."""
+        word_empty = mock.MagicMock()
+        word_empty.ActiveDocument.Content.Text = "curto"
 
-        win32com_short = mock.MagicMock()
-        win32com_short.client.GetActiveObject.return_value = word_short
+        win32com_empty = mock.MagicMock()
+        win32com_empty.client.GetActiveObject.return_value = word_empty
 
         stubs = dict(_STUBS)
-        stubs["win32com"] = win32com_short
-        stubs["win32com.client"] = win32com_short.client
+        stubs["win32com"] = win32com_empty
+        stubs["win32com.client"] = win32com_empty.client
 
         with mock.patch.dict(sys.modules, stubs):
             import importlib
             import correct_grammar
             importlib.reload(correct_grammar)
+            _genai_stub.reset_mock()
             try:
                 correct_grammar.main()
             except SystemExit:
                 pass
-            # API Gemini não deve ter sido chamada
             _genai_stub.Client.return_value.models.generate_content.assert_not_called()
 
 
@@ -174,31 +165,21 @@ class TestCorrectGrammarApiKeyMissing(unittest.TestCase):
                     _genai_stub.Client.assert_not_called()
 
 
-class TestCorrectGrammarFormattingPreservation(unittest.TestCase):
-    """Testa que a formatação do texto selecionado é salva e reaplicada corretamente."""
+class TestCorrectGrammarDocumentApplication(unittest.TestCase):
+    def test_corrected_text_replaces_document_content(self):
+        """Quando o usuário confirma, doc.Content.Text deve receber o texto corrigido."""
+        doc_mock = mock.MagicMock()
+        doc_mock.Content.Text = "Texto completo do documento para ser corrigido pela IA."
 
-    def _run_main_with_fmt(self, font_attrs: dict):
-        """Executa main() com seleção formatada e retorna (sel, mod) para inspeção."""
-        first_char_font = mock.MagicMock()
-        for attr, value in font_attrs.items():
-            setattr(first_char_font, attr, value)
-
-        first_char = mock.MagicMock()
-        first_char.Font = first_char_font
-
-        sel = mock.MagicMock()
-        sel.Text = "Texto com formatação específica."
-        sel.Characters = mock.MagicMock(return_value=first_char)
-
-        word = mock.MagicMock()
-        word.Selection = sel
+        word_mock = mock.MagicMock()
+        word_mock.ActiveDocument = doc_mock
 
         win32com_mock = mock.MagicMock()
-        win32com_mock.client.GetActiveObject.return_value = word
+        win32com_mock.client.GetActiveObject.return_value = word_mock
 
         genai_mock = mock.MagicMock()
         genai_mock.Client.return_value.models.generate_content.return_value.text = (
-            "Texto corrigido gramaticalmente."
+            "Texto completo do documento corrigido pela IA."
         )
         google_mock = mock.MagicMock()
         google_mock.genai = genai_mock
@@ -209,6 +190,7 @@ class TestCorrectGrammarFormattingPreservation(unittest.TestCase):
             "google": google_mock,
             "google.genai": genai_mock,
             "win32crypt": mock.MagicMock(),
+            "tkinter": mock.MagicMock(),
         }
 
         import importlib
@@ -217,40 +199,17 @@ class TestCorrectGrammarFormattingPreservation(unittest.TestCase):
             importlib.reload(correct_grammar)
             with mock.patch("z7_theme.ask_privacy_warning", return_value=True):
                 with mock.patch.object(correct_grammar, 'get_api_key', return_value="fake-key"):
-                    try:
-                        correct_grammar.main()
-                    except Exception:
-                        pass
-        return sel
+                    with mock.patch.object(correct_grammar, '_show_result_window',
+                                           side_effect=lambda text, **kw: text):
+                        try:
+                            correct_grammar.main()
+                        except Exception:
+                            pass
 
-    def test_font_name_is_read_from_first_character(self):
-        """Deve usar Characters(1).Font em vez do agregado selection.Font."""
-        sel = self._run_main_with_fmt({"Name": "Times New Roman", "Size": 14, "Bold": True})
-        sel.Characters.assert_called_with(1)
-
-    def test_bold_formatting_is_reapplied(self):
-        """Após substituição, Bold=True deve ser reaplicado à seleção."""
-        attrs = {
-            "Name": "Arial", "Size": 12, "Bold": True, "Italic": False,
-            "Underline": 0, "Color": 0, "StrikeThrough": False,
-            "DoubleStrikeThrough": False, "Subscript": False, "Superscript": False,
-            "SmallCaps": False, "AllCaps": False, "HighlightColorIndex": 0,
-        }
-        sel = self._run_main_with_fmt(attrs)
-        self.assertEqual(sel.Font.Bold, True)
-
-    def test_all_font_attrs_are_reapplied(self):
-        """Todos os 13 atributos de fonte devem ser reaplicados após a substituição."""
-        attrs = {
-            "Name": "Calibri", "Size": 11, "Bold": False, "Italic": True,
-            "Underline": 1, "Color": 255, "StrikeThrough": False,
-            "DoubleStrikeThrough": False, "Subscript": False, "Superscript": False,
-            "SmallCaps": False, "AllCaps": False, "HighlightColorIndex": 0,
-        }
-        sel = self._run_main_with_fmt(attrs)
-        for attr, expected in attrs.items():
-            actual = getattr(sel.Font, attr)
-            self.assertEqual(actual, expected, f"Font.{attr} não foi reaplicado")
+        self.assertEqual(
+            doc_mock.Content.Text,
+            "Texto completo do documento corrigido pela IA."
+        )
 
 
 if __name__ == "__main__":

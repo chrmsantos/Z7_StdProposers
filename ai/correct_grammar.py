@@ -9,6 +9,101 @@ from z7_gemini_key import get_api_key, delete_api_key
 
 LOGGER = configure_component_logger("correct_grammar")
 
+
+def _show_result_window(corrected_text: str, parent: tk.Tk) -> "str | None":
+    """Exibe o texto corrigido para revisão antes de substituir no Word.
+
+    Retorna o texto final (possivelmente editado pelo usuário) ou None se cancelado.
+    """
+    colors = z7_theme.get_theme_colors()
+    bg = colors["bg"]
+    fg = colors["fg"]
+    text_bg = colors["text_bg"]
+    border = colors["border"]
+    btn_primary_bg = colors["btn_primary_bg"]
+    btn_primary_fg = colors["btn_primary_fg"]
+    btn_primary_hover = colors["btn_primary_hover"]
+
+    result: dict = {}
+
+    win = tk.Toplevel(parent)
+    win.title("Z7 StdProposers - Correção Gramatical")
+    win.geometry("680x440")
+    win.minsize(500, 320)
+    win.configure(bg=bg)
+    win.attributes("-topmost", True)
+    if parent and parent.winfo_viewable():
+        win.transient(parent)
+    win.grab_set()
+    win.after(100, lambda: (win.lift(), win.focus_force()))
+
+    tk.Label(
+        win,
+        text="\u2713  Texto corrigido \u2014 revise e confirme",
+        font=("Segoe UI", 13, "bold"),
+        bg=bg, fg=fg,
+        anchor="w",
+    ).pack(fill=tk.X, padx=20, pady=(18, 6))
+
+    tk.Frame(win, bg=border, height=1).pack(fill=tk.X, padx=20, pady=(0, 10))
+
+    frame = tk.Frame(win, bg=border, bd=0)
+    frame.pack(fill=tk.BOTH, expand=True, padx=20, pady=(0, 10))
+
+    text_widget = tk.Text(
+        frame,
+        wrap=tk.WORD,
+        font=("Segoe UI", 10),
+        bg=text_bg, fg=fg,
+        insertbackground=fg,
+        relief=tk.FLAT,
+        padx=10, pady=10,
+    )
+    scrollbar = tk.Scrollbar(frame, command=text_widget.yview)
+    text_widget.config(yscrollcommand=scrollbar.set)
+    scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+    text_widget.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=1, pady=1)
+
+    text_widget.insert(tk.END, corrected_text)
+    text_widget.focus_set()
+
+    btn_frame = tk.Frame(win, bg=bg)
+    btn_frame.pack(fill=tk.X, padx=20, pady=(0, 18))
+
+    def on_apply() -> None:
+        result["text"] = text_widget.get("1.0", tk.END).rstrip("\n")
+        win.destroy()
+
+    def on_cancel() -> None:
+        win.destroy()
+
+    tk.Button(
+        btn_frame,
+        text="Cancelar",
+        font=("Segoe UI", 10),
+        bg=border, fg=fg,
+        activebackground=border, activeforeground=fg,
+        relief=tk.FLAT, cursor="hand2",
+        command=on_cancel, width=12,
+    ).pack(side=tk.RIGHT, padx=(6, 0))
+
+    tk.Button(
+        btn_frame,
+        text="Substituir no Word",
+        font=("Segoe UI", 10, "bold"),
+        bg=btn_primary_bg, fg=btn_primary_fg,
+        activebackground=btn_primary_hover, activeforeground=btn_primary_fg,
+        relief=tk.FLAT, cursor="hand2",
+        command=on_apply, width=18,
+    ).pack(side=tk.RIGHT)
+
+    win.protocol("WM_DELETE_WINDOW", on_cancel)
+    win.bind("<Escape>", lambda e: on_cancel())
+
+    parent.wait_window(win)
+    return result.get("text")
+
+
 def main() -> None:
     LOGGER.info("Starting grammar correction flow")
 
@@ -30,7 +125,7 @@ def main() -> None:
         except Exception as backup_e:
             LOGGER.warning("Could not run CreateDocumentBackup macro: %s", str(backup_e))
             
-        word.StatusBar = "Z7: Corrigindo gramatica do trecho selecionado..."
+        word.StatusBar = "Z7: Corrigindo gramatica do documento..."
         LOGGER.info("Connected to running Word instance")
     except Exception as e:
         log_exception(LOGGER, "Failed to connect to Word", e)
@@ -39,28 +134,28 @@ def main() -> None:
         return
 
     try:
-        selection = word.Selection
-        if selection is None:
-            LOGGER.error("word.Selection is None: no active document or selection in Word")
-            word.StatusBar = "Z7: Nenhum documento ou selecao disponivel."
+        doc = word.ActiveDocument
+        if doc is None:
+            LOGGER.error("No active document in Word")
+            word.StatusBar = "Z7: Nenhum documento aberto."
             root.destroy()
             return
-        text = selection.Text.strip()
+        full_text = doc.Content.Text.strip()
     except Exception as e:
-        LOGGER.error("Erro ao obter selection: %s", str(e))
-        word.StatusBar = "Z7: Nenhum documento ou selecao disponivel."
+        LOGGER.error("Erro ao obter texto do documento: %s", str(e))
+        word.StatusBar = "Z7: Erro ao ler o documento."
         root.destroy()
         return
 
-    if not text or len(text) < 2:
-        LOGGER.info("Selection too short; nothing to process")
-        word.StatusBar = "Z7: Selecione um trecho de texto antes de executar."
+    if not full_text or len(full_text) < 10:
+        LOGGER.info("Document too short; nothing to process")
+        word.StatusBar = "Z7: Documento vazio ou muito curto para correcao."
         root.destroy()
         return
 
     if not z7_theme.ask_privacy_warning(
         "Aviso de Privacidade - Z7 StdProposers",
-        "O trecho selecionado será enviado para a API do Google Gemini para correção gramatical.\n\n"
+        "O texto completo do documento será enviado para a API do Google Gemini para correção gramatical.\n\n"
         "Certifique-se de que não há dados sigilosos e que o uso está de acordo com as diretrizes do seu órgão.\n\n"
         "Deseja continuar?",
         key="correct_grammar",
@@ -91,18 +186,18 @@ def main() -> None:
         root.destroy()
         sys.exit(1)
 
-    client = genai.Client(api_key=api_key, http_options={'timeout': 60_000})
+    client = genai.Client(api_key=api_key, http_options={'timeout': 120_000})
     LOGGER.info("Gemini client configured")
 
     from config_prompt import load_prompt, load_ai_model
     base_prompt = load_prompt()
     LOGGER.info("Prompt loaded via config_prompt")
-    prompt = f"{base_prompt}\n\n---INICIO DO TEXTO SELECIONADO---\n{text}\n---FIM DO TEXTO SELECIONADO---\n"
+    prompt = f"{base_prompt}\n\n---INICIO DO DOCUMENTO---\n{full_text}\n---FIM DO DOCUMENTO---\n"
     model_name = load_ai_model()
     LOGGER.info("Model loaded via config_prompt: %s", model_name)
 
     word.StatusBar = "Z7: Corrigindo gramatica com Gemini... Aguarde."
-    LOGGER.info("Sending selected text to Gemini for grammar correction")
+    LOGGER.info("Sending full document text to Gemini for grammar correction")
 
     api_result: dict = {}
 
@@ -177,26 +272,12 @@ def main() -> None:
         root.destroy()
         return
 
-    # Salva a formatação do primeiro caractere da seleção como referência.
-    # Usar o primeiro caractere evita que propriedades com valor "misto"
-    # (selection.Font.* agrega toda a seleção) sobrescrevam o estilo real.
-    _FONT_ATTRS = [
-        "Name", "Size", "Bold", "Italic", "Underline",
-        "Color", "StrikeThrough", "DoubleStrikeThrough",
-        "Subscript", "Superscript", "SmallCaps", "AllCaps",
-        "HighlightColorIndex",
-    ]
-    saved_fmt = {}
-    try:
-        first_char_font = selection.Characters(1).Font
-        for attr in _FONT_ATTRS:
-            try:
-                saved_fmt[attr] = getattr(first_char_font, attr)
-            except Exception:
-                pass
-        LOGGER.info("Saved %d font attributes from first character", len(saved_fmt))
-    except Exception as fmt_e:
-        LOGGER.warning("Could not save character formatting: %s", fmt_e)
+    final_text = _show_result_window(corrected_text, parent=root)
+    if not final_text:
+        LOGGER.info("User cancelled grammar correction at review window")
+        word.StatusBar = "Z7: Correcao cancelada."
+        root.destroy()
+        return
 
     undo_started = False
     try:
@@ -207,22 +288,9 @@ def main() -> None:
         except Exception:
             pass
 
-        selection.Text = corrected_text
+        doc.Content.Text = final_text
 
-        # Reaplica a formatação salva à seleção inteira
-        if saved_fmt:
-            try:
-                f = selection.Font
-                for attr, value in saved_fmt.items():
-                    try:
-                        setattr(f, attr, value)
-                    except Exception:
-                        pass
-                LOGGER.info("Reapplied %d font attributes to corrected text", len(saved_fmt))
-            except Exception as reapply_e:
-                LOGGER.warning("Could not reapply font formatting: %s", reapply_e)
-
-        LOGGER.info("Text replaced in Word document directly, keeping formatting")
+        LOGGER.info("Document text replaced with corrected version")
         word.StatusBar = "Z7: Correcao finalizada."
     except Exception as e:
         log_exception(LOGGER, "Failed to apply text to Word", e)

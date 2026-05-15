@@ -2,7 +2,7 @@
 
 > Note to AI Agents: read this document before modifying the VBA pipeline or Python integration.
 >
-> Last updated: 2026-05-06 (v6.5.0-beta1 — lazy loading, footer format, RotatingFileHandler, signature heuristics).
+> Last updated: 2026-05-15 (v6.5.2 — correct_grammar analyses full document instead of selection; review window before applying; font preservation removed; tkinter mocked in tests).
 
 ## 1. Project Overview
 
@@ -28,9 +28,10 @@ The active VBA architecture is consolidated into four modules:
 
 Main files in `ai/`:
 
-- `correct_grammar.py`: corrects selected text in Word. Heavy imports (`google.genai`, `win32com`, `win32crypt`) are deferred via lazy loading.
-- `config_prompt.py`: UI for prompt editing.
-- `chat_ia.py`: chat UI with Word document context. Heavy imports are deferred via lazy loading (opens UI instantly, ~2.5 s savings).
+- `correct_grammar.py`: corrects grammar in the **full active Word document** (not just the selection). Reads `doc.Content.Text`, sends to Gemini, displays corrected text in a review window (`_show_result_window`) for user confirmation before replacing `doc.Content.Text`. Shows themed, centered status window during processing. Heavy imports deferred via lazy loading.
+- `check_consistency.py`: analyses the full document for logical/semantic inconsistencies. Shows a themed loading window and, on findings, a scrollable results window. Consistency prompt configured for concise output (max 2 lines per item, no introductions).
+- `chat_ia.py`: chat UI with Word document context. `_context_pending` flag: if the initial Gemini call fails (e.g. 503), the full document text is prepended to the user's first message instead. Heavy imports deferred via lazy loading (opens UI instantly, ~2.5 s savings).
+- `config_prompt.py`: UI for prompt editing. Hosts `DEFAULT_CONSISTENCY_PROMPT` (controls `check_consistency.py` output verbosity).
 - `z7_logging.py`: shared structured logger; uses `RotatingFileHandler` (2 MB / 3 backups).
 - `build_exe.ps1`: PyInstaller build workflow for `.exe` artifacts.
 
@@ -83,6 +84,14 @@ Example:
 pRange.MoveEnd wdCharacter, -1
 pRange.Delete
 ```
+
+### F. Word StatusBar encoding rule
+
+`word.StatusBar` is set via COM (ANSI/CP1252 on Windows). Do **not** use accented or non-ASCII characters in StatusBar strings — they render as garbage in the Word status bar. Use unaccented ASCII equivalents (e.g. `"verificacao"` not `"verificação"`).
+
+### G. Tkinter in tests rule
+
+Never use real `tkinter.Tk()` in unit tests — multiple `Tk()` instances in the same process cause `_tkinter.TclError`. Always add `"tkinter": mock.MagicMock()` to the `sys.modules` stubs dict before calling any code that imports tkinter.
 
 ## 4. Logging and Observability
 
@@ -140,11 +149,14 @@ Log coverage includes:
 - `tests/VBA-Logging.Tests.ps1`: observability assertions (session/op IDs, snapshots, logging primitives).
 - `tests/Python.Tests.ps1`: Python integration checks and unittest invocation.
 - `tests/python/test_z7_logging.py`: unit tests for `z7_logging.py`.
+- `tests/python/test_correct_grammar.py`: 7 tests covering Word connection, document guards (no active doc, too-short doc), privacy check, API key handling, and document content replacement.
+- `tests/python/test_chat_ia.py`: 11 tests covering AI init, API key abort, `_context_pending` injection logic, and edge cases.
+- `tests/python/test_check_consistency.py`: 45 tests.
 - `tests/Encoding.Tests.ps1`: encoding/line-ending policy checks (UTF-8 safe, CRLF warnings, no UTF-16).
 
 ### 5.3 Current baseline
 
-As of v6.5.0-beta1 (2026-05-06), `Run-Tests.ps1 -TestSuite All -NoProgress` passes.
+As of v6.5.2 (2026-05-15), `Run-Tests.ps1 -TestSuite All -NoProgress` passes. Python unit tests: 63 total (45 check_consistency + 11 chat_ia + 7 correct_grammar) via `pytest`.
 
 ## 6. Immediate Development Guidelines
 
