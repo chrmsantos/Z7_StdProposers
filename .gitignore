@@ -8,6 +8,7 @@ ai/build/
 ai/correct_grammar/
 ai/config_prompt/
 ai/chat_ia/
+ai/check_consistency/
 
 # Python cache
 __pycache__/
@@ -18,6 +19,8 @@ __pycache__/
 # Logs de execucao
 source/logs/
 *.log
+ai/build_log.txt
+ai/test_results.txt
 
 # Backups e arquivos temporarios de recuperacao
 props/backups/
@@ -25,6 +28,10 @@ props/recovery_tmp/
 
 # Chave API e dados sensiveis
 *.key
+
+# Python virtual environment
+.venv/
+venv/
 
 # Temporarios do Windows
 Thumbs.db

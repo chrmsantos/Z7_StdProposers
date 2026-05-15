@@ -176,4 +176,3 @@ As of v6.5.2 (2026-05-15), `Run-Tests.ps1 -TestSuite All -NoProgress` passes. Py
 - Footer page numbering format: `Pág. X de Y` (changed from `X-Y` in v6.2.1). Font size and color are applied to the full footer paragraph.
 
 When changing runtime paths, update both VBA constants/macros and relevant docs together.
-
