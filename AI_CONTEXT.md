@@ -2,7 +2,7 @@
 
 > Note to AI Agents: read this document before modifying the VBA pipeline or Python integration.
 >
-> Last updated: 2026-05-15 (v6.5.2 — correct_grammar analyses full document instead of selection; review window before applying; font preservation removed; tkinter mocked in tests).
+> Last updated: 2026-05-15 (v7.0-rc1 — all AI tools consolidated into chat_ia; legacy standalone grammar and consistency modules removed).
 
 ## 1. Project Overview
 
@@ -152,7 +152,7 @@ Log coverage includes:
 
 ### 5.3 Current baseline
 
-As of v6.5.2 (2026-05-15), `Run-Tests.ps1 -TestSuite All -NoProgress` passes. Python unit tests: 11 total (chat_ia) via `pytest`.
+As of v7.0-rc1 (2026-05-15), `Run-Tests.ps1 -TestSuite All -NoProgress` passes. Python unit tests: 11 total (chat_ia) via `pytest`.
 
 ## 6. Immediate Development Guidelines
 
