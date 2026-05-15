@@ -10,9 +10,10 @@ if str(PY_ROOT) not in sys.path:
     sys.path.insert(0, str(PY_ROOT))
 
 
+import config_prompt
+
 def _reload_config():
     import importlib
-    import config_prompt
     importlib.reload(config_prompt)
     return config_prompt
 

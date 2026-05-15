@@ -5,6 +5,7 @@ Import-Module Pester -ErrorAction Stop
 # ---------------------------------------------------------------------------
 # Módulos Python esperados
 # ---------------------------------------------------------------------------
+$ExpectedModules = @(
     'z7_logging.py',
     'z7_gemini_key.py',
     'z7_theme.py',
