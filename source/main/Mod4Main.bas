@@ -2,6 +2,14 @@ Attribute VB_Name = "Mod4Main"
 Option Explicit
 
 ' Mod4Main.bas
+' =============================================================================
+' Z7_STDPROPOSERS - Sistema de Padronizacao de Proposituras Legislativas
+' =============================================================================
+' Versao: 6.8.2-rc1
+' Data: 2026-05-15
+' Licenca: GNU GPLv3 (https://www.gnu.org/licenses/gpl-3.0.html)
+' Autor: Christian Martin dos Santos (chrmsantos@protonmail.com)
+' =============================================================================
 '================================================================================
 ' PONTO DE ENTRADA PRINCIPAL
 '================================================================================

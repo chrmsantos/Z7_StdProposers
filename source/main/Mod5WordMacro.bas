@@ -2,6 +2,14 @@ Attribute VB_Name = "Mod5WordMacro"
 Option Explicit
 
 ' Mod5WordMacro.bas
+' =============================================================================
+' Z7_STDPROPOSERS - Sistema de Padronizacao de Proposituras Legislativas
+' =============================================================================
+' Versao: 6.8.2-rc1
+' Data: 2026-05-15
+' Licenca: GNU GPLv3 (https://www.gnu.org/licenses/gpl-3.0.html)
+' Autor: Christian Martin dos Santos (chrmsantos@protonmail.com)
+' =============================================================================
 ' Macros para integrar o Word com os apps da suite Z7 StdProposers AI
 ' ============================================================
 ' ResolverComando: monta o comando para um app da suite Z7.
