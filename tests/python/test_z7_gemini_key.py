@@ -36,13 +36,12 @@ _win32crypt_patcher = mock.patch.dict(
 
 class TestGetKeyFile(unittest.TestCase):
     def test_key_file_uses_data_dir(self):
+        import z7_gemini_key
         with tempfile.TemporaryDirectory() as tmp:
             tmp_path = Path(tmp)
-            with mock.patch("z7_logging.get_data_dir", return_value=tmp_path):
-                # Re-importa para obter get_data_dir atualizado
-                import importlib
-                import z7_gemini_key
-                importlib.reload(z7_gemini_key)
+            # Patch the get_data_dir reference in z7_gemini_key's namespace directly
+            # (avoids reload, which would create a log FileHandler locking the temp dir on Windows)
+            with mock.patch.object(z7_gemini_key, "get_data_dir", return_value=tmp_path):
                 key_file = z7_gemini_key._get_key_file()
                 self.assertEqual(key_file.parent, tmp_path)
                 self.assertEqual(key_file.name, "gemini.key")
@@ -62,7 +61,7 @@ class TestValidateApiKey(unittest.TestCase):
         self.assertFalse(self.mod._validate_api_key("abc"))
 
     def test_valid_length_key(self):
-        self.assertTrue(self.mod._validate_api_key("A" * 39))
+        self.assertTrue(self.mod._validate_api_key("AIza" + "A" * 35))
 
 
 class TestEncryptDecryptRoundtrip(unittest.TestCase):
@@ -110,9 +109,10 @@ class TestEncryptDecryptRoundtrip(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             key_file = Path(tmp) / "gemini.key"
             with mock.patch.object(self.mod, "_get_key_file", return_value=key_file):
-                self.mod.write_api_key("stored-key-abcdefghijklmnop")
+                valid_key = "AIza" + "B" * 35
+                self.mod.write_api_key(valid_key)
                 loaded = self.mod.get_api_key(parent=None)
-                self.assertEqual(loaded, "stored-key-abcdefghijklmnop")
+                self.assertEqual(loaded, valid_key)
 
     def test_get_api_key_prompts_when_missing(self):
         with tempfile.TemporaryDirectory() as tmp:
