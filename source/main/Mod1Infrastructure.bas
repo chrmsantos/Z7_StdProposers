@@ -64,8 +64,7 @@ Public Const HEADER_IMAGE_MAX_WIDTH_CM As Double = 21
 Public Const HEADER_IMAGE_TOP_MARGIN_CM As Double = 0.7
 Public Const HEADER_IMAGE_HEIGHT_RATIO As Double = 0.19
 
-' Caminho para o executavel de correcao gramatical Gemini
-Public Const GRAMMAR_SCRIPT_RELATIVE_PATH As String = "\AppData\Local\Z7\Apps\Z7_StdProposers\ai\correct_grammar\correct_grammar.exe"
+
 
 ' Caminho para o executavel de configuracao do prompt do Gemini
 Public Const PROMPT_CONFIG_SCRIPT_RELATIVE_PATH As String = "\AppData\Local\Z7\Apps\Z7_StdProposers\ai\config_prompt\config_prompt.exe"
@@ -73,8 +72,7 @@ Public Const PROMPT_CONFIG_SCRIPT_RELATIVE_PATH As String = "\AppData\Local\Z7\A
 ' Caminho para o executavel de chat em tempo real com a IA
 Public Const CHAT_IA_SCRIPT_RELATIVE_PATH As String = "\AppData\Local\Z7\Apps\Z7_StdProposers\ai\chat_ia\chat_ia.exe"
 
-' Caminho para o executavel de verificacao de consistencia logica da propositura
-Public Const CHECK_CONSISTENCY_SCRIPT_RELATIVE_PATH As String = "\AppData\Local\Z7\Apps\Z7_StdProposers\ai\check_consistency\check_consistency.exe"
+
 
 '================================================================================
 ' CONSTANTES DE SISTEMA

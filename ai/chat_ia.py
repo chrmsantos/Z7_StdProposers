@@ -136,7 +136,8 @@ class ChatApp:
 
         if hasattr(self, 'action_frame'):
             self.action_frame.configure(bg=bg)
-        for btn in [getattr(self, 'new_conv_btn', None), getattr(self, 'copy_btn', None)]:
+        for btn in [getattr(self, 'new_conv_btn', None), getattr(self, 'copy_btn', None),
+                    getattr(self, 'grammar_btn', None), getattr(self, 'consistency_btn', None)]:
             if btn:
                 btn.configure(bg=bg, fg=fg_muted, activebackground=btn_sec_hover, activeforeground=fg)
 
@@ -171,7 +172,21 @@ class ChatApp:
             font=("Segoe UI", 9), relief=tk.FLAT, cursor="hand2",
             command=self.copy_last_reply
         )
-        self.copy_btn.pack(side=tk.LEFT)
+        self.copy_btn.pack(side=tk.LEFT, padx=(0, 8))
+
+        self.grammar_btn = tk.Button(
+            self.action_frame, text="📝 Corrigir Gramática",
+            font=("Segoe UI", 9), relief=tk.FLAT, cursor="hand2",
+            command=self.run_grammar_check
+        )
+        self.grammar_btn.pack(side=tk.LEFT, padx=(0, 8))
+
+        self.consistency_btn = tk.Button(
+            self.action_frame, text="🔍 Verificar Consistência",
+            font=("Segoe UI", 9), relief=tk.FLAT, cursor="hand2",
+            command=self.run_consistency_check
+        )
+        self.consistency_btn.pack(side=tk.LEFT)
 
         # Input Area (packed before Chat Area to stay visible at the bottom)
         self.input_frame = tk.Frame(self.root)
@@ -220,6 +235,87 @@ class ChatApp:
         old_status = self.status_lbl.cget("text")
         self.status_lbl.config(text="Resposta copiada!")
         self.root.after(2000, lambda: self.status_lbl.config(text=old_status))
+
+    def _reload_doc_text(self) -> bool:
+        """Tenta atualizar self.doc_text com o conteúdo atual do Word na thread principal."""
+        try:
+            if not self.word_app:
+                return False
+            raw_text = self.word_app.ActiveDocument.Content.Text
+            if len(raw_text) > _MAX_CONTEXT_CHARS:
+                cut = raw_text.rfind(' ', 0, _MAX_CONTEXT_CHARS)
+                if cut == -1:
+                    cut = _MAX_CONTEXT_CHARS
+                self.doc_text = raw_text[:cut]
+                self._doc_truncated = True
+            else:
+                self.doc_text = raw_text
+                self._doc_truncated = False
+            return True
+        except Exception as e:
+            LOGGER.warning(f"Failed to reload document text: {e}")
+            return False
+
+    def run_grammar_check(self) -> None:
+        if self.is_generating or not self.chat_session:
+            return
+        
+        self._reload_doc_text()
+        
+        self.input_text.delete("1.0", tk.END)
+        display_msg = "Por favor, corrija a gramática do documento."
+        self.append_message("User", display_msg)
+
+        self.is_generating = True
+        self._cancel_requested = False
+        self.status_lbl.config(text="IA corrigindo gramática...")
+        self.send_btn.config(text="Cancelar")
+
+        threading.Thread(target=self._run_task_thread, args=("grammar",), daemon=True).start()
+
+    def run_consistency_check(self) -> None:
+        if self.is_generating or not self.chat_session:
+            return
+
+        self._reload_doc_text()
+
+        self.input_text.delete("1.0", tk.END)
+        display_msg = "Por favor, verifique a consistência do documento."
+        self.append_message("User", display_msg)
+
+        self.is_generating = True
+        self._cancel_requested = False
+        self.status_lbl.config(text="IA verificando consistência...")
+        self.send_btn.config(text="Cancelar")
+
+        threading.Thread(target=self._run_task_thread, args=("consistency",), daemon=True).start()
+
+    def _run_task_thread(self, task_type: str) -> None:
+        try:
+            from config_prompt import load_prompt, load_consistency_prompt
+            
+            if not self.doc_text or "nenhum documento" in self.doc_text.lower():
+                reply = "Não há contexto de documento carregado para realizar esta tarefa."
+                self.root.after(0, self._on_message_received, reply)
+                return
+
+            if task_type == "grammar":
+                base_prompt = load_prompt()
+            else:
+                base_prompt = load_consistency_prompt()
+                
+            prompt = f"{base_prompt}\n\n---INICIO DO DOCUMENTO---\n{self.doc_text}\n---FIM DO DOCUMENTO---\n"
+            
+            LOGGER.info(f"Sending {task_type} task to Gemini chat")
+            
+            response = self.chat_session.send_message(prompt)
+            reply = response.text
+        except Exception as e:
+            log_exception(LOGGER, f"{task_type} task failed", e)
+            self._set_word_status(f"Z7: Erro na tarefa {task_type}.")
+            reply = f"Erro ao processar a solicitação: {str(e)}"
+            
+        self.root.after(0, self._on_message_received, reply)
 
     def new_conversation(self) -> None:
         if self.is_generating or not self.client:

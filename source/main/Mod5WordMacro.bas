@@ -40,35 +40,6 @@ Private Function ResolverComando(appName As String) As String
 End Function
 
 ' ============================================================
-' CorrigirGramaticaComGemini
-'   Envia o texto selecionado no Word para correcao gramatical
-'   via Gemini, usando o executavel compilado (ou .py em dev).
-' ============================================================
-Sub CorrigirGramaticaComGemini()
-    On Error GoTo ErrorHandler
-
-    Dim objShell As Object
-    Dim comandoExecucao As String
-
-    comandoExecucao = ResolverComando("correct_grammar")
-
-    If comandoExecucao = "" Then
-        MsgBox "Executavel 'correct_grammar' nao encontrado." & vbCrLf & _
-               "Execute 'Install.ps1' para instalar os executaveis.", _
-               vbExclamation, "Z7 StdProposers"
-        Exit Sub
-    End If
-
-    Set objShell = CreateObject("WScript.Shell")
-    objShell.Run comandoExecucao, 0, False
-
-    Exit Sub
-
-ErrorHandler:
-    MsgBox "Erro ao executar a macro: " & Err.Description, vbCritical, "Erro de Execucao"
-End Sub
-
-' ============================================================
 ' AbrirChatIA
 '   Abre a interface de chat com contexto do documento ativo.
 ' ============================================================
@@ -95,35 +66,6 @@ Sub AbrirChatIA()
 
 ErrorHandler:
     MsgBox "Erro ao abrir Chat IA: " & Err.Description, vbCritical, "Erro de Execucao"
-End Sub
-
-' ============================================================
-' VerificarConsistencia
-'   Envia a integra da propositura para analise de consistencia
-'   logica e semantica via Gemini (leitura sem alteracoes no documento).
-' ============================================================
-Sub VerificarConsistencia()
-    On Error GoTo ErrorHandler
-
-    Dim objShell As Object
-    Dim comandoExecucao As String
-
-    comandoExecucao = ResolverComando("check_consistency")
-
-    If comandoExecucao = "" Then
-        MsgBox "Executavel 'check_consistency' nao encontrado." & vbCrLf & _
-               "Execute 'Install.ps1' para instalar os executaveis.", _
-               vbExclamation, "Z7 StdProposers"
-        Exit Sub
-    End If
-
-    Set objShell = CreateObject("WScript.Shell")
-    objShell.Run comandoExecucao, 0, False
-
-    Exit Sub
-
-ErrorHandler:
-    MsgBox "Erro ao executar a macro: " & Err.Description, vbCritical, "Erro de Execucao"
 End Sub
 
 ' ============================================================

@@ -1,4 +1,4 @@
-﻿# Z7_STDPROPOSERS - AI Assistant Developer Context
+# Z7_STDPROPOSERS - AI Assistant Developer Context
 
 > Note to AI Agents: read this document before modifying the VBA pipeline or Python integration.
 >
@@ -28,10 +28,8 @@ The active VBA architecture is consolidated into four modules:
 
 Main files in `ai/`:
 
-- `correct_grammar.py`: corrects grammar in the **full active Word document** (not just the selection). Reads `doc.Content.Text`, sends to Gemini, displays corrected text in a review window (`_show_result_window`) for user confirmation before replacing `doc.Content.Text`. Shows themed, centered status window during processing. Heavy imports deferred via lazy loading.
-- `check_consistency.py`: analyses the full document for logical/semantic inconsistencies. Shows a themed loading window and, on findings, a scrollable results window. Consistency prompt configured for concise output (max 2 lines per item, no introductions).
-- `chat_ia.py`: chat UI with Word document context. `_context_pending` flag: if the initial Gemini call fails (e.g. 503), the full document text is prepended to the user's first message instead. Heavy imports deferred via lazy loading (opens UI instantly, ~2.5 s savings).
-- `config_prompt.py`: UI for prompt editing. Hosts `DEFAULT_CONSISTENCY_PROMPT` (controls `check_consistency.py` output verbosity).
+- `chat_ia.py`: chat UI with Word document context. `_context_pending` flag: if the initial Gemini call fails (e.g. 503), the full document text is prepended to the user's first message instead. Heavy imports deferred via lazy loading (opens UI instantly, ~2.5 s savings). Now includes grammar correction and consistency verification directly in the UI.
+- `config_prompt.py`: UI for prompt editing. Hosts `DEFAULT_CONSISTENCY_PROMPT` (controls consistency check output verbosity).
 - `z7_logging.py`: shared structured logger; uses `RotatingFileHandler` (2 MB / 3 backups).
 - `build_exe.ps1`: PyInstaller build workflow for `.exe` artifacts.
 
@@ -149,14 +147,12 @@ Log coverage includes:
 - `tests/VBA-Logging.Tests.ps1`: observability assertions (session/op IDs, snapshots, logging primitives).
 - `tests/Python.Tests.ps1`: Python integration checks and unittest invocation.
 - `tests/python/test_z7_logging.py`: unit tests for `z7_logging.py`.
-- `tests/python/test_correct_grammar.py`: 7 tests covering Word connection, document guards (no active doc, too-short doc), privacy check, API key handling, and document content replacement.
 - `tests/python/test_chat_ia.py`: 11 tests covering AI init, API key abort, `_context_pending` injection logic, and edge cases.
-- `tests/python/test_check_consistency.py`: 45 tests.
 - `tests/Encoding.Tests.ps1`: encoding/line-ending policy checks (UTF-8 safe, CRLF warnings, no UTF-16).
 
 ### 5.3 Current baseline
 
-As of v6.5.2 (2026-05-15), `Run-Tests.ps1 -TestSuite All -NoProgress` passes. Python unit tests: 63 total (45 check_consistency + 11 chat_ia + 7 correct_grammar) via `pytest`.
+As of v6.5.2 (2026-05-15), `Run-Tests.ps1 -TestSuite All -NoProgress` passes. Python unit tests: 11 total (chat_ia) via `pytest`.
 
 ## 6. Immediate Development Guidelines
 

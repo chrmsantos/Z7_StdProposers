@@ -69,9 +69,7 @@ function Install-Executable {
 	Write-Host "[$Name] instalado."
 }
 
-Write-Host "Compilando correct_grammar.py..."
-Invoke-PyInstaller -ScriptName "correct_grammar.py"
-Install-Executable -Name "correct_grammar"
+
 
 Write-Host "Compilando config_prompt.py..."
 Invoke-PyInstaller -ScriptName "config_prompt.py"
@@ -81,9 +79,7 @@ Write-Host "Compilando chat_ia.py..."
 Invoke-PyInstaller -ScriptName "chat_ia.py"
 Install-Executable -Name "chat_ia"
 
-Write-Host "Compilando check_consistency.py..."
-Invoke-PyInstaller -ScriptName "check_consistency.py"
-Install-Executable -Name "check_consistency"
+
 
 Write-Host "Limpando arquivos temporarios..."
 # Nao remover build/ - o cache Analysis-00.toc evita bug Python 3.14 na proxima execucao

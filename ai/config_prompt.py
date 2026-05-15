@@ -97,9 +97,7 @@ def save_ai_model(model_name: str) -> None:
         log_exception(LOGGER, "Failed to save model", e)
 
 def save_prompt(grammar_text: str, consistency_text: str, root: tk.Tk, model_var: tk.StringVar,
-               privacy_chat_var: tk.BooleanVar | None = None,
-               privacy_grammar_var: tk.BooleanVar | None = None,
-               privacy_consistency_var: tk.BooleanVar | None = None) -> None:
+               privacy_chat_var: tk.BooleanVar | None = None) -> None:
     if not grammar_text.strip():
         LOGGER.warning("Grammar prompt save blocked because text is empty")
         z7_theme.show_warning("Aviso", "O prompt do Corretor Gramatical não pode estar vazio.", parent=root)
@@ -132,23 +130,12 @@ def save_prompt(grammar_text: str, consistency_text: str, root: tk.Tk, model_var
     save_ai_model(model_var.get())
 
     # Save privacy prefs (True = aviso desativado; ausente/False = aviso ativo)
-    if privacy_chat_var is not None or privacy_grammar_var is not None or privacy_consistency_var is not None:
+    if privacy_chat_var is not None:
         prefs = z7_theme.load_privacy_prefs()
-        if privacy_chat_var is not None:
-            if privacy_chat_var.get():
-                prefs.pop('chat_ia', None)       # reativar aviso
-            else:
-                prefs['chat_ia'] = True          # suprimir aviso
-        if privacy_grammar_var is not None:
-            if privacy_grammar_var.get():
-                prefs.pop('correct_grammar', None)
-            else:
-                prefs['correct_grammar'] = True
-        if privacy_consistency_var is not None:
-            if privacy_consistency_var.get():
-                prefs.pop('check_consistency', None)
-            else:
-                prefs['check_consistency'] = True
+        if privacy_chat_var.get():
+            prefs.pop('chat_ia', None)       # reativar aviso
+        else:
+            prefs['chat_ia'] = True          # suprimir aviso
         z7_theme.save_privacy_prefs(prefs)
         LOGGER.info("Privacy prefs saved")
 
@@ -390,25 +377,13 @@ def main() -> None:
 
     # Checked = exibir aviso (pref ausente); Unchecked = não exibir (pref True)
     privacy_chat_var = tk.BooleanVar(value=not privacy_prefs.get('chat_ia', False))
-    privacy_grammar_var = tk.BooleanVar(value=not privacy_prefs.get('correct_grammar', False))
-    privacy_consistency_var = tk.BooleanVar(value=not privacy_prefs.get('check_consistency', False))
 
     cb_chat = tk.Checkbutton(privacy_frame, text="Chat IA",
                              variable=privacy_chat_var, font=("Segoe UI", 10),
                              relief=tk.FLAT, cursor="hand2")
     cb_chat.pack(side=tk.LEFT, padx=(15, 0))
 
-    cb_grammar = tk.Checkbutton(privacy_frame, text="Corretor Gramatical",
-                                variable=privacy_grammar_var, font=("Segoe UI", 10),
-                                relief=tk.FLAT, cursor="hand2")
-    cb_grammar.pack(side=tk.LEFT, padx=(10, 0))
-
-    cb_consistency = tk.Checkbutton(privacy_frame, text="Verificador de Consistência",
-                                    variable=privacy_consistency_var, font=("Segoe UI", 10),
-                                    relief=tk.FLAT, cursor="hand2")
-    cb_consistency.pack(side=tk.LEFT, padx=(10, 0))
-
-    theme.widgets['privacy_checks'] = [cb_chat, cb_grammar, cb_consistency]
+    theme.widgets['privacy_checks'] = [cb_chat]
 
     # Seletor de abas de prompt
     prompt_buffers = {
@@ -473,8 +448,6 @@ def main() -> None:
             root=root,
             model_var=model_var,
             privacy_chat_var=privacy_chat_var,
-            privacy_grammar_var=privacy_grammar_var,
-            privacy_consistency_var=privacy_consistency_var,
         )
 
     def do_restore_default() -> None:

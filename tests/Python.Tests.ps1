@@ -5,14 +5,11 @@ Import-Module Pester -ErrorAction Stop
 # ---------------------------------------------------------------------------
 # Módulos Python esperados
 # ---------------------------------------------------------------------------
-$ExpectedModules = @(
     'z7_logging.py',
     'z7_gemini_key.py',
     'z7_theme.py',
     'config_prompt.py',
-    'correct_grammar.py',
-    'chat_ia.py',
-    'check_consistency.py'
+    'chat_ia.py'
 )
 
 # Arquivos de teste Python esperados
@@ -21,9 +18,7 @@ $ExpectedTestFiles = @(
     'test_z7_gemini_key.py',
     'test_z7_theme.py',
     'test_config_prompt.py',
-    'test_correct_grammar.py',
-    'test_chat_ia.py',
-    'test_check_consistency.py'
+    'test_chat_ia.py'
 )
 
 Describe 'Z7_STDPROPOSERS - Python Logging and Test Harness' {
@@ -46,7 +41,7 @@ Describe 'Z7_STDPROPOSERS - Python Logging and Test Harness' {
     Context 'Convencoes de codigo' {
         It 'Scripts Python principais usam o logger compartilhado' {
             $repoRoot = Get-RepoRoot
-            foreach ($script in @('correct_grammar.py', 'config_prompt.py', 'chat_ia.py', 'check_consistency.py')) {
+            foreach ($script in @('config_prompt.py', 'chat_ia.py')) {
                 $content = Get-Content "$repoRoot\ai\$script" -Raw -Encoding UTF8
                 $content | Should Match 'from z7_logging import configure_component_logger'
                 $content | Should Match 'LOGGER = configure_component_logger'
@@ -55,7 +50,7 @@ Describe 'Z7_STDPROPOSERS - Python Logging and Test Harness' {
 
         It 'Scripts que usam API Gemini importam de z7_gemini_key' {
             $repoRoot = Get-RepoRoot
-            foreach ($script in @('correct_grammar.py', 'chat_ia.py', 'check_consistency.py')) {
+            foreach ($script in @('chat_ia.py')) {
                 $content = Get-Content "$repoRoot\ai\$script" -Raw -Encoding UTF8
                 $content | Should Match 'from z7_gemini_key import'
             }
@@ -63,7 +58,7 @@ Describe 'Z7_STDPROPOSERS - Python Logging and Test Harness' {
 
         It 'Scripts que acessam Word usam GetActiveObject como conexao primaria' {
             $repoRoot = Get-RepoRoot
-            foreach ($script in @('correct_grammar.py', 'config_prompt.py', 'chat_ia.py', 'check_consistency.py')) {
+            foreach ($script in @('config_prompt.py', 'chat_ia.py')) {
                 $content = Get-Content "$repoRoot\ai\$script" -Raw -Encoding UTF8
                 $content | Should Match 'GetActiveObject'
             }

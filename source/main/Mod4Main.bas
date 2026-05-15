@@ -745,53 +745,6 @@ Public Sub NotificarDesfazerPadronizacao()
 End Sub
 
 '================================================================================
-' SUBROTINA PUBLICA: CORRIGIR GRAMATICA COM GEMINI
-'================================================================================
-Public Sub CorrigirGramaticaComGemini()
-    ' Macro para enviar o texto selecionado para correcao via script Python
-    ' usando a API do Gemini.
-    
-    Dim objShell As Object
-    Dim comandoExecucao As String
-    Dim caminhoScript As String
-    Dim caminhoPython As String
-    
-    On Error GoTo ErrorHandler
-    
-    ' Obtem o caminho do executavel usando o caminho relativo configurado em Mod1Config
-    caminhoScript = Environ("USERPROFILE") & GRAMMAR_SCRIPT_RELATIVE_PATH
-    
-    If Dir(caminhoScript) = "" Then
-        MsgBox "Executavel do Corretor Gramatical nao encontrado em:" & vbCrLf & caminhoScript & vbCrLf & vbCrLf & "Por favor, recompile o projeto ou verifique a instalacao.", vbCritical, "Erro de Arquivo"
-        Exit Sub
-    End If
-    
-    ' Monta o comando completo com aspas em volta do caminho do executavel
-    comandoExecucao = """" & caminhoScript & """"
-    
-    ' Cria o objeto WScript.Shell
-    Set objShell = CreateObject("WScript.Shell")
-    
-    Application.StatusBar = "Carregando o assistente de IA... Isso pode levar alguns segundos."
-    DoEvents
-    
-    ' Executa o comando de forma ASSINCRONA para nao travar o Word
-    objShell.Run comandoExecucao, 0, False
-    
-    ' Opcionalmente exibe na status bar ou no log
-    Application.StatusBar = "Revisao Gemini iniciada em segundo plano..."
-    If loggingEnabled Then LogMessage "Revisao Gemini iniciada de forma assincrona.", LOG_LEVEL_INFO
-    
-    Exit Sub
-    
-ErrorHandler:
-    System.Cursor = wdCursorNormal
-    Application.StatusBar = "Erro na revisao Gemini"
-    If loggingEnabled Then LogMessage "Erro na revisao Gemini: " & Err.Description, LOG_LEVEL_ERROR
-    MsgBox "Erro ao tentar executar a revisao pelo Gemini: " & Err.Description, vbCritical, "Z7_StdProposers"
-End Sub
-
-'================================================================================
 ' SUBROTINA PUBLICA: CONFIGURAR PROMPT GEMINI
 '================================================================================
 Public Sub ConfigurarPromptGemini()
@@ -830,49 +783,6 @@ ErrorHandler:
     MsgBox "Erro ao tentar abrir configuracoes do prompt Gemini: " & Err.Description, vbCritical, "Z7_StdProposers"
 End Sub
 
-'================================================================================
-' SUBROTINA PUBLICA: VERIFICAR CONSISTENCIA LOGICA COM GEMINI
-'================================================================================
-Public Sub VerificarConsistenciaComGemini()
-    ' Macro para enviar a integra da propositura para analise de consistencia
-    ' logica e semantica via script Python usando a API do Gemini.
-
-    Dim objShell As Object
-    Dim comandoExecucao As String
-    Dim caminhoScript As String
-
-    On Error GoTo ErrorHandler
-
-    ' Obtem o caminho do executavel usando o caminho relativo configurado em Mod1Infrastructure
-    caminhoScript = Environ("USERPROFILE") & CHECK_CONSISTENCY_SCRIPT_RELATIVE_PATH
-
-    If Dir(caminhoScript) = "" Then
-        MsgBox "Executavel do Verificador de consistencia nao encontrado em:" & vbCrLf & caminhoScript & vbCrLf & vbCrLf & "Por favor, recompile o projeto ou verifique a instalacao.", vbCritical, "Erro de Arquivo"
-        Exit Sub
-    End If
-
-    ' Monta o comando completo com aspas em volta do caminho do executavel
-    comandoExecucao = """" & caminhoScript & """"
-
-    ' Cria o objeto WScript.Shell
-    Set objShell = CreateObject("WScript.Shell")
-
-    Application.StatusBar = "Carregando o verificador de consistencia... Isso pode levar alguns segundos."
-    DoEvents
-
-    ' Executa o comando de forma ASSINCRONA para nao travar o Word
-    objShell.Run comandoExecucao, 0, False
-
-    Application.StatusBar = "Verificacao de consistencia iniciada em segundo plano..."
-    If loggingEnabled Then LogMessage "Verificacao de consistencia iniciada de forma assincrona.", LOG_LEVEL_INFO
-
-    Exit Sub
-
-ErrorHandler:
-    Application.StatusBar = "Erro na Verificacao de consistencia"
-    If loggingEnabled Then LogMessage "Erro na verificacao de consistencia: " & Err.Description, LOG_LEVEL_ERROR
-    MsgBox "Erro ao tentar executar a Verificacao de consistencia: " & Err.Description, vbCritical, "Z7_StdProposers"
-End Sub
 
 '================================================================================
 ' SUBROTINA PUBLICA: CHAT COM GEMINI
