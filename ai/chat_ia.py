@@ -338,10 +338,16 @@ class ChatApp:
             )
             try:
                 if self.doc_text and "nenhum documento" not in self.doc_text.lower():
+                    from config_prompt import load_prompt, load_consistency_prompt
+                    grammar_prompt = load_prompt()
+                    consistency_prompt = load_consistency_prompt()
                     ctx = (
                         f"Abaixo está o texto do documento no Word (contexto desta conversa):\n\n"
                         f"{self.doc_text}\n\n"
-                        "Esta é uma nova conversa. Confirme brevemente que está pronto."
+                        f"Como sua primeira resposta, apresente o resultado das duas tarefas abaixo, separando-as com títulos claros (ex: '## 📝 Revisão Gramatical' e '## 🔍 Verificação de Consistência'):\n\n"
+                        f"TAREFA 1 (Revisão Gramatical):\n{grammar_prompt}\n"
+                        f"(Aviso: ignore a restrição de retornar 'APENAS' o texto, pois a resposta conterá mais partes).\n\n"
+                        f"TAREFA 2 (Verificação de Consistência):\n{consistency_prompt}"
                     )
                     greeting = self.chat_session.send_message(ctx).text
                 else:
@@ -446,10 +452,17 @@ class ChatApp:
             try:
                 doc_context = self.doc_text
                 if doc_context and "nenhum documento" not in doc_context.lower():
+                    from config_prompt import load_prompt, load_consistency_prompt
+                    grammar_prompt = load_prompt()
+                    consistency_prompt = load_consistency_prompt()
                     context_msg = (
                         f"Abaixo está o texto atual do meu documento no Word para ser usado como base e contexto dessa conversa:\n\n"
                         f"{doc_context}\n\n"
-                        "Apresente-se brevemente, confirme que leu o documento e aguarde meu primeiro pedido."
+                        f"Como sua primeira resposta de apresentação, realize as duas tarefas abaixo e separe os resultados claramente com títulos (ex: '## 📝 Revisão Gramatical' e '## 🔍 Verificação de Consistência'):\n\n"
+                        f"TAREFA 1 (Revisão Gramatical):\n{grammar_prompt}\n"
+                        f"(Aviso: ignore a restrição de retornar 'APENAS' o texto, pois a resposta deve conter ambas as partes).\n\n"
+                        f"TAREFA 2 (Verificação de Consistência):\n{consistency_prompt}\n\n"
+                        f"Ao final, coloque uma breve saudação se colocando à disposição."
                     )
                     context_response = self.chat_session.send_message(context_msg)
                     self.initial_greeting = context_response.text
