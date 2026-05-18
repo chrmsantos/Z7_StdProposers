@@ -115,95 +115,170 @@ class ChatApp:
         
     def apply_theme(self) -> None:
         colors = z7_theme.get_theme_colors(self.mode)
-        bg = colors["bg"]
-        fg = colors["fg"]
-        fg_muted = colors["fg_muted"]
-        text_bg = colors["text_bg"]
-        btn_sec_hover = colors["btn_sec_hover"]
-        btn_primary_bg = colors["btn_primary_bg"]
-        user_tag_color = colors["user_tag"]
-        ai_tag_color = colors["ai_tag"]
-            
+        bg        = colors["bg"]
+        fg        = colors["fg"]
+        fg_muted  = colors["fg_muted"]
+        text_bg   = colors["text_bg"]
+        border    = colors["border"]
+        btn_sec_hover    = colors["btn_sec_hover"]
+        btn_sec_bg       = colors["btn_sec_bg"]
+        btn_primary_bg   = colors["btn_primary_bg"]
+        user_tag_color   = colors["user_tag"]
+        ai_tag_color     = colors["ai_tag"]
+
         self.root.configure(bg=bg)
+
+        # Header
         self.top_frame.configure(bg=bg)
         self.title_lbl.configure(bg=bg, fg=fg)
         self.status_lbl.configure(bg=bg, fg=fg_muted)
-        
+        self.action_frame.configure(bg=bg)
+        self.header_sep.configure(bg=border)
+
+        # Action buttons (top)
+        for btn in [self.new_conv_btn, self.copy_btn]:
+            btn.configure(bg=btn_sec_bg, fg=fg, activebackground=btn_sec_hover, activeforeground=fg)
+
+        # Analysis buttons (bottom bar)
+        self.analysis_frame.configure(bg=bg)
+        self.analysis_sep.configure(bg=border)
+        for btn in [self.grammar_btn, self.consistency_btn]:
+            btn.configure(bg=btn_sec_bg, fg=fg, activebackground=btn_sec_hover, activeforeground=fg)
+
+        # Chat area
+        self.chat_border.configure(bg=border)
         self.chat_area.configure(bg=text_bg, fg=fg, insertbackground=fg)
-        self.input_frame.configure(bg=bg)
+
+        # Input area
+        self.input_outer.configure(bg=bg)
+        self.input_sep.configure(bg=border)
+        self.input_border.configure(bg=border)
         self.input_text.configure(bg=text_bg, fg=fg, insertbackground=fg)
-        self.send_btn.configure(bg=btn_primary_bg, fg="white", activebackground=btn_sec_hover, activeforeground="white")
+        self.send_btn.configure(
+            bg=btn_primary_bg, fg="white",
+            activebackground=colors["btn_primary_hover"], activeforeground="white"
+        )
 
-        if hasattr(self, 'action_frame'):
-            self.action_frame.configure(bg=bg)
-        for btn in [getattr(self, 'new_conv_btn', None), getattr(self, 'copy_btn', None),
-                    getattr(self, 'grammar_btn', None), getattr(self, 'consistency_btn', None)]:
-            if btn:
-                btn.configure(bg=bg, fg=fg_muted, activebackground=btn_sec_hover, activeforeground=fg)
-
-        self.chat_area.tag_config("user_tag", font=("Segoe UI", 11, "bold"), foreground=user_tag_color)
-        self.chat_area.tag_config("ai_tag", font=("Segoe UI", 11, "bold"), foreground=ai_tag_color)
-        self.chat_area.tag_config("sys_tag", font=("Segoe UI", 10, "italic"), foreground=fg_muted)
+        # Chat message tags
+        self.chat_area.tag_config("user_tag", font=("Segoe UI", 10, "bold"), foreground=user_tag_color)
+        self.chat_area.tag_config("user_msg", font=("Segoe UI", 11), foreground=fg)
+        self.chat_area.tag_config("ai_tag",   font=("Segoe UI", 10, "bold"), foreground=ai_tag_color)
+        self.chat_area.tag_config("ai_msg",   font=("Segoe UI", 11), foreground=fg)
+        self.chat_area.tag_config("sys_tag",  font=("Segoe UI", 10, "italic"), foreground=fg_muted)
 
     def build_ui(self) -> None:
-        # Top Frame
+        # ── Cabeçalho ────────────────────────────────────────────────────────
         self.top_frame = tk.Frame(self.root)
-        self.top_frame.pack(side=tk.TOP, fill=tk.X, pady=(15, 10), padx=20)
+        self.top_frame.pack(side=tk.TOP, fill=tk.X, pady=(18, 0), padx=24)
 
-        self.title_lbl = tk.Label(self.top_frame, text="Assistente de IA", font=("Segoe UI", 16, "bold"))
+        self.title_lbl = tk.Label(
+            self.top_frame, text="✦ Assistente de IA",
+            font=("Segoe UI", 15, "bold")
+        )
         self.title_lbl.pack(side=tk.TOP, anchor="w")
 
-        self.status_lbl = tk.Label(self.top_frame, text="Carregando contexto...", font=("Segoe UI", 10, "italic"))
-        self.status_lbl.pack(side=tk.TOP, anchor="w", pady=(2, 0))
+        self.status_lbl = tk.Label(
+            self.top_frame, text="Carregando contexto...",
+            font=("Segoe UI", 9, "italic")
+        )
+        self.status_lbl.pack(side=tk.TOP, anchor="w", pady=(2, 10))
 
-        # Botões de ação rápida
         self.action_frame = tk.Frame(self.top_frame)
-        self.action_frame.pack(side=tk.TOP, anchor="w", pady=(6, 0))
+        self.action_frame.pack(side=tk.TOP, anchor="w", pady=(0, 14))
 
         self.new_conv_btn = tk.Button(
-            self.action_frame, text="↺ Nova Conversa",
+            self.action_frame, text="↺  Nova Conversa",
             font=("Segoe UI", 9), relief=tk.FLAT, cursor="hand2",
-            command=self.new_conversation
+            padx=10, pady=5, command=self.new_conversation
         )
-        self.new_conv_btn.pack(side=tk.LEFT, padx=(0, 8))
+        self.new_conv_btn.pack(side=tk.LEFT, padx=(0, 6))
 
         self.copy_btn = tk.Button(
-            self.action_frame, text="⎘ Copiar Última Resposta",
+            self.action_frame, text="⎘  Copiar Resposta",
             font=("Segoe UI", 9), relief=tk.FLAT, cursor="hand2",
-            command=self.copy_last_reply
+            padx=10, pady=5, command=self.copy_last_reply
         )
-        self.copy_btn.pack(side=tk.LEFT, padx=(0, 8))
+        self.copy_btn.pack(side=tk.LEFT)
+
+        # Linha separadora sob o cabeçalho
+        self.header_sep = tk.Frame(self.root, height=1)
+        self.header_sep.pack(fill=tk.X)
+
+        # ── Área de entrada (empacotada BOTTOM primeiro para ancorar na base) ─
+        self.input_outer = tk.Frame(self.root)
+        self.input_outer.pack(side=tk.BOTTOM, fill=tk.X, padx=24, pady=(8, 20))
+
+        # Wrapper com borda visual para o campo de texto
+        self.input_border = tk.Frame(self.input_outer, bd=1, relief=tk.SOLID)
+        self.input_border.pack(side=tk.LEFT, expand=True, fill=tk.BOTH)
+
+        self.input_text = tk.Text(
+            self.input_border, wrap=tk.WORD, height=3,
+            font=("Segoe UI", 11), relief=tk.FLAT,
+            padx=12, pady=10, bd=0
+        )
+        self.input_text.pack(expand=True, fill=tk.BOTH)
+        self.input_text.bind("<Return>", self.on_enter)
+        self.input_text.bind("<Shift-Return>", self.on_shift_enter)
+
+        self.send_btn = tk.Button(
+            self.input_outer, text="Enviar", width=10,
+            font=("Segoe UI", 11, "bold"), relief=tk.FLAT,
+            cursor="hand2", padx=0, pady=0,
+            command=self.send_or_cancel
+        )
+        self.send_btn.pack(side=tk.RIGHT, fill=tk.Y, padx=(12, 0))
+
+        # Linha separadora acima da área de entrada
+        self.input_sep = tk.Frame(self.root, height=1)
+        self.input_sep.pack(side=tk.BOTTOM, fill=tk.X)
+
+        # ── Botões de análise rápida (acima do input, abaixo do chat) ────────
+        self.analysis_frame = tk.Frame(self.root)
+        self.analysis_frame.pack(side=tk.BOTTOM, fill=tk.X, padx=24, pady=(6, 6))
 
         self.grammar_btn = tk.Button(
-            self.action_frame, text="📝 Corrigir Gramática",
+            self.analysis_frame, text="📝  Corrigir Gramática",
             font=("Segoe UI", 9), relief=tk.FLAT, cursor="hand2",
-            command=self.run_grammar_check
+            padx=10, pady=5, command=self.run_grammar_check
         )
         self.grammar_btn.pack(side=tk.LEFT, padx=(0, 8))
 
         self.consistency_btn = tk.Button(
-            self.action_frame, text="🔍 Verificar Consistência",
+            self.analysis_frame, text="🔍  Verificar Consistência",
             font=("Segoe UI", 9), relief=tk.FLAT, cursor="hand2",
-            command=self.run_consistency_check
+            padx=10, pady=5, command=self.run_consistency_check
         )
         self.consistency_btn.pack(side=tk.LEFT)
 
-        # Input Area (packed before Chat Area to stay visible at the bottom)
-        self.input_frame = tk.Frame(self.root)
-        self.input_frame.pack(side=tk.BOTTOM, fill=tk.X, padx=20, pady=(10, 20))
+        # Linha separadora acima dos botões de análise
+        self.analysis_sep = tk.Frame(self.root, height=1)
+        self.analysis_sep.pack(side=tk.BOTTOM, fill=tk.X)
 
-        self.input_text = tk.Text(self.input_frame, wrap=tk.WORD, height=3, font=("Segoe UI", 11), relief=tk.FLAT, padx=12, pady=12)
-        self.input_text.pack(side=tk.LEFT, expand=True, fill=tk.BOTH)
-        self.input_text.bind("<Return>", self.on_enter)
-        self.input_text.bind("<Shift-Return>", self.on_shift_enter)
+        # ── Área de chat ──────────────────────────────────────────────────────
+        self.chat_border = tk.Frame(self.root, bd=1, relief=tk.SOLID)
+        self.chat_border.pack(expand=True, fill=tk.BOTH, padx=24, pady=(8, 0))
 
-        # Botão único: "Enviar" em repouso, "Cancelar" enquanto gera
-        self.send_btn = tk.Button(self.input_frame, text="Enviar", width=12, font=("Segoe UI", 11, "bold"), relief=tk.FLAT, cursor="hand2", command=self.send_or_cancel)
-        self.send_btn.pack(side=tk.RIGHT, fill=tk.Y, padx=(15, 0))
+        self.chat_area = scrolledtext.ScrolledText(
+            self.chat_border, wrap=tk.WORD,
+            font=("Segoe UI", 11), relief=tk.FLAT,
+            padx=15, pady=12, state=tk.DISABLED, bd=0
+        )
+        self.chat_area.pack(expand=True, fill=tk.BOTH)
 
-        # Chat Area
-        self.chat_area = scrolledtext.ScrolledText(self.root, wrap=tk.WORD, font=("Segoe UI", 11), relief=tk.FLAT, padx=15, pady=15, state=tk.DISABLED)
-        self.chat_area.pack(expand=True, fill=tk.BOTH, padx=20, pady=5)
+        # Ajusta a largura da janela para acomodar os botões lado a lado
+        self.root.update_idletasks()
+        btn_row_w = (
+            self.grammar_btn.winfo_reqwidth()
+            + 8
+            + self.consistency_btn.winfo_reqwidth()
+            + 48  # padx da janela
+            + 20  # margem de conforto
+        )
+        if self.root.winfo_width() < btn_row_w:
+            h = self.root.winfo_height()
+            self.chat_width_px = btn_row_w
+            self.root.geometry(f"{btn_row_w}x{h}+0+{self.root.winfo_y()}")
 
     def append_message(self, role: str, message: str) -> None:
         self.chat_area.config(state=tk.NORMAL)
@@ -338,18 +413,13 @@ class ChatApp:
             )
             try:
                 if self.doc_text and "nenhum documento" not in self.doc_text.lower():
-                    from config_prompt import load_prompt, load_consistency_prompt
-                    grammar_prompt = load_prompt()
-                    consistency_prompt = load_consistency_prompt()
                     ctx = (
                         f"Abaixo está o texto do documento no Word (contexto desta conversa):\n\n"
                         f"{self.doc_text}\n\n"
-                        f"Como sua primeira resposta, apresente o resultado das duas tarefas abaixo, separando-as com títulos claros (ex: '## 📝 Revisão Gramatical' e '## 🔍 Verificação de Consistência'):\n\n"
-                        f"TAREFA 1 (Revisão Gramatical):\n{grammar_prompt}\n"
-                        f"(Aviso: ignore a restrição de retornar 'APENAS' o texto, pois a resposta conterá mais partes).\n\n"
-                        f"TAREFA 2 (Verificação de Consistência):\n{consistency_prompt}"
+                        f"Aguarde as instruções do usuário antes de realizar qualquer análise."
                     )
-                    greeting = self.chat_session.send_message(ctx).text
+                    self.chat_session.send_message(ctx)
+                    greeting = "Documento carregado. Como posso ajudar?"
                 else:
                     greeting = "Nova conversa iniciada. Como posso ajudar?"
             except Exception as ctx_e:
