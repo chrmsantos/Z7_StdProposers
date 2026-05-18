@@ -595,7 +595,6 @@ Public Sub EnforceLogRetention(logFolder As String, logPrefix As String, Optiona
 
 CleanExit:
     On Error Resume Next
-    Set sortedList = Nothing
     Set folder = Nothing
     Set fso = Nothing
 End Sub
@@ -5735,7 +5734,7 @@ Public Sub CleanOldBackups(backupFolder As String, docBaseName As String)
 
 CleanExit:
     On Error Resume Next
-    Set items = Nothing
+    Erase items
     Set folder = Nothing
     Set fso = Nothing
 End Sub
