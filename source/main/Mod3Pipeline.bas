@@ -1117,6 +1117,10 @@ Public Function PreviousFormatting(doc As Document) As Boolean
     RemoveEmentaTrailingMunicipioSuffix doc
     LogStepComplete "Limpeza de sufixo da ementa"
 
+    LogStepStart "Remocao de aspas da ementa"
+    RemoveEmentaQuotes doc
+    LogStepComplete "Remocao de aspas da ementa"
+
     LogStepStart "Formatacao de titulo"
     FormatDocumentTitle doc
     LogStepComplete "Formatacao de titulo"
@@ -1455,6 +1459,86 @@ Public Sub RemoveEmentaTrailingMunicipioSuffix(doc As Document)
 
 ErrorHandler:
     LogMessage "Erro ao remover sufixo da ementa: " & Err.Description, LOG_LEVEL_WARNING
+End Sub
+
+'================================================================================
+' EMENTA - Remove aspas envolventes ("...", “...”, ‘...’, '...')
+' Regras:
+' - Remove aspas duplas ou simples do inicio e fim do paragrafo da ementa
+' - Trata aspas ASCII (" ') e tipograficas (“ ” ‘ ’)
+' - So remove se ambos os lados tiverem aspas correspondentes
+'================================================================================
+Public Sub RemoveEmentaQuotes(doc As Document)
+    On Error GoTo ErrorHandler
+
+    Dim rng As Range
+    Set rng = GetEmentaRange(doc)
+    If rng Is Nothing Then Exit Sub
+
+    ' Range de conteudo: sem marca de paragrafo final
+    Dim contentRng As Range
+    Set contentRng = rng.Duplicate
+    If contentRng.End > contentRng.Start Then
+        If Right$(contentRng.text, 1) = vbCr Then
+            contentRng.End = contentRng.End - 1
+        End If
+    End If
+    If contentRng.End <= contentRng.Start Then Exit Sub
+
+    Dim txt As String
+    txt = contentRng.text
+    If Len(txt) < 2 Then Exit Sub
+
+    Dim firstCh    As String
+    Dim lastCh     As String
+    Dim prevLastCh As String
+    firstCh    = Left$(txt, 1)
+    lastCh     = Right$(txt, 1)
+    prevLastCh = ""
+    If Len(txt) >= 2 Then prevLastCh = Mid$(txt, Len(txt) - 1, 1)
+
+    ' closeOffset: posicao da aspa de fechamento contada a partir do fim do contentRng
+    '   1 = ultimo caractere e a aspa
+    '   2 = penultimo e a aspa; ultimo e ponto final
+    Dim isMatch     As Boolean
+    Dim closeOffset As Long
+    isMatch     = False
+    closeOffset = 1
+
+    If firstCh = Chr(34) And lastCh = Chr(34) Then isMatch = True          ' " ... "
+    If firstCh = ChrW(8220) And lastCh = ChrW(8221) Then isMatch = True   ' “ ... ”
+    If firstCh = Chr(39) And lastCh = Chr(39) Then isMatch = True          ' ' ... '
+    If firstCh = ChrW(8216) And lastCh = ChrW(8217) Then isMatch = True   ' ‘ ... ’
+
+    ' Caso 2: ponto final apos aspa de fechamento ("texto".)
+    If Not isMatch And lastCh = "." And Len(txt) >= 3 Then
+        If firstCh = Chr(34)    And prevLastCh = Chr(34)    Then isMatch = True: closeOffset = 2
+        If firstCh = ChrW(8220) And prevLastCh = ChrW(8221) Then isMatch = True: closeOffset = 2
+        If firstCh = Chr(39)    And prevLastCh = Chr(39)    Then isMatch = True: closeOffset = 2
+        If firstCh = ChrW(8216) And prevLastCh = ChrW(8217) Then isMatch = True: closeOffset = 2
+    End If
+
+    If Not isMatch Then Exit Sub
+
+    ' Remove aspa de fechamento primeiro (nao desloca o inicio do Range)
+    Dim closeRng As Range
+    Set closeRng = contentRng.Duplicate
+    closeRng.Start = contentRng.End - closeOffset
+    closeRng.End   = contentRng.End - closeOffset + 1
+    closeRng.Delete
+
+    ' Remove aspa de abertura
+    Dim openRng As Range
+    Set openRng = rng.Duplicate
+    openRng.Start = rng.Start
+    openRng.End   = rng.Start + 1
+    openRng.Delete
+
+    documentDirty = True
+    Exit Sub
+
+ErrorHandler:
+    LogMessage "Erro ao remover aspas da ementa: " & Err.Description, LOG_LEVEL_WARNING
 End Sub
 
 Public Function GetEmentaLeadingLabelDeleteLen(ByVal txt As String) As Long

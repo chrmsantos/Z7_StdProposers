@@ -26,8 +26,8 @@ class ChatApp:
         screen_width = self.root.winfo_screenwidth()
         screen_height = self.root.winfo_screenheight()
         
-        chat_width = int((screen_width // 3) * 0.9)
-        chat_height = int(screen_height * 0.90)
+        chat_width = int((screen_width // 3) * 1.3)
+        chat_height = int(screen_height * 0.99)
         chat_left = 0
         chat_top = (screen_height - chat_height) // 2 + int(screen_height * 0.05)  # Centraliza e desloca 5% para baixo
         
