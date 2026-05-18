@@ -369,7 +369,7 @@ class ChatApp:
         try:
             from config_prompt import load_prompt, load_consistency_prompt
             
-            if not self.doc_text or "nenhum documento" in self.doc_text.lower():
+            if not self.doc_text or not self.doc_text.strip() or "nenhum documento" in self.doc_text.lower():
                 reply = "Não há contexto de documento carregado para realizar esta tarefa."
                 self.root.after(0, self._on_message_received, reply)
                 return
@@ -412,7 +412,7 @@ class ChatApp:
                 config=types.GenerateContentConfig(system_instruction=system_instruction)
             )
             try:
-                if self.doc_text and "nenhum documento" not in self.doc_text.lower():
+                if self.doc_text and self.doc_text.strip() and "nenhum documento" not in self.doc_text.lower():
                     ctx = (
                         f"Abaixo está o texto do documento no Word (contexto desta conversa):\n\n"
                         f"{self.doc_text}\n\n"
@@ -521,7 +521,7 @@ class ChatApp:
             _truncation_notice = _doc_truncated
             try:
                 doc_context = self.doc_text
-                if doc_context and "nenhum documento" not in doc_context.lower():
+                if doc_context and doc_context.strip() and "nenhum documento" not in doc_context.lower():
                     from config_prompt import load_prompt, load_consistency_prompt
                     grammar_prompt = load_prompt()
                     consistency_prompt = load_consistency_prompt()
@@ -599,7 +599,7 @@ class ChatApp:
     def _send_message_thread(self, user_msg: str) -> None:
         try:
             LOGGER.info("Sending message to Gemini chat")
-            if self._context_pending and self.doc_text and "nenhum documento" not in self.doc_text.lower():
+            if self._context_pending and self.doc_text and self.doc_text.strip() and "nenhum documento" not in self.doc_text.lower():
                 self._context_pending = False
                 LOGGER.info("Injecting deferred document context with first user message")
                 combined = (

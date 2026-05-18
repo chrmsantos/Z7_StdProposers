@@ -555,28 +555,39 @@ Public Sub EnforceLogRetention(logFolder As String, logPrefix As String, Optiona
     Dim folder As Object
     Set folder = fso.GetFolder(logFolder)
 
-    Dim sortedList As Object
-    Set sortedList = CreateObject("System.Collections.ArrayList")
-
     Dim fileItem As Object
     Dim prefixLower As String
     prefixLower = LCase(logPrefix)
 
+    Dim items() As String
+    Dim itemCount As Long
+    itemCount = 0
+
     For Each fileItem In folder.Files
         If LCase(fileItem.Name) Like prefixLower & "*.log" Then
-            sortedList.Add Format(fileItem.DateLastModified, "yyyymmddHHMMSS") & "|" & fileItem.Path
+            ReDim Preserve items(itemCount)
+            items(itemCount) = Format(fileItem.DateLastModified, "yyyymmddHHMMSS") & "|" & fileItem.Path
+            itemCount = itemCount + 1
         End If
     Next fileItem
 
-    If sortedList.count <= maxFiles Then GoTo CleanExit
+    If itemCount <= maxFiles Then GoTo CleanExit
 
-    sortedList.Sort
-    sortedList.Reverse
+    Dim i As Long, j As Long, temp As String
+    For i = 0 To itemCount - 2
+        For j = i + 1 To itemCount - 1
+            If items(i) < items(j) Then
+                temp = items(i)
+                items(i) = items(j)
+                items(j) = temp
+            End If
+        Next j
+    Next i
 
     Dim idx As Long
-    For idx = maxFiles To sortedList.count - 1
+    For idx = maxFiles To itemCount - 1
         Dim parts() As String
-        parts = Split(sortedList(idx), "|")
+        parts = Split(items(idx), "|")
         On Error Resume Next
         fso.DeleteFile parts(1), True
         On Error GoTo CleanExit
@@ -5542,28 +5553,40 @@ Public Sub RestaurarBackup()
     Dim folder As Object
     Set folder = fso.GetFolder(backupFolder)
 
-    Dim items As Object
-    Set items = CreateObject("System.Collections.ArrayList")
-
     Dim prefix As String
     prefix = LCase(docBaseName & "_backup_")
 
     Dim fileItem As Object
+    Dim items() As String
+    Dim itemCount As Long
+    itemCount = 0
+
     For Each fileItem In folder.Files
         If Left(LCase(fileItem.Name), Len(prefix)) = prefix Then
-            items.Add fileItem.Name & "|" & fileItem.Path
+            ReDim Preserve items(itemCount)
+            items(itemCount) = fileItem.Name & "|" & fileItem.Path
+            itemCount = itemCount + 1
         End If
     Next fileItem
 
-    If items.Count = 0 Then
+    If itemCount = 0 Then
         MsgBox "Nenhum backup disponivel para o documento '" & doc.Name & "'." & vbCrLf & vbCrLf & _
                "[i] O backup e criado apenas apos a primeira execucao de PadronizarDocumentoMain.", _
                vbExclamation, "Z7_STDPROPOSERS - Restaurar Backup"
         Exit Sub
     End If
 
-    ' Ordena alfanumericamente por nome: timestamp ISO → o item[0] e o mais antigo
-    items.Sort
+    ' Ordena alfanumericamente por nome: timestamp ISO -> o item[0] e o mais antigo
+    Dim i As Long, j As Long, temp As String
+    For i = 0 To itemCount - 2
+        For j = i + 1 To itemCount - 1
+            If items(i) > items(j) Then
+                temp = items(i)
+                items(i) = items(j)
+                items(j) = temp
+            End If
+        Next j
+    Next i
 
     Dim oldestParts() As String
     oldestParts = Split(items(0), "|")
@@ -5580,9 +5603,9 @@ Public Sub RestaurarBackup()
                  "[DIR] Documento atual: " & doc.Name & vbCrLf & _
                  "[DIR] Backup (mais antigo): " & targetBackupName
 
-    If items.Count > 1 Then
+    If itemCount > 1 Then
         confirmMsg = confirmMsg & vbCrLf & _
-                     "[i] Total de backups disponiveis: " & items.Count
+                     "[i] Total de backups disponiveis: " & itemCount
     End If
 
     If MsgBox(confirmMsg, vbYesNo + vbQuestion, "Z7_STDPROPOSERS - Confirmar Restauracao") <> vbYes Then
@@ -5662,26 +5685,37 @@ Public Sub CleanOldBackups(backupFolder As String, docBaseName As String)
     Dim folder As Object
     Set folder = fso.GetFolder(backupFolder)
 
-    Dim items As Object
-    Set items = CreateObject("System.Collections.ArrayList")
-
     Dim fileItem As Object
     Dim prefix As String
     prefix = LCase(docBaseName & "_backup_")
 
+    Dim items() As String
+    Dim itemCount As Long
+    itemCount = 0
+
     For Each fileItem In folder.Files
         If Left(LCase(fileItem.Name), Len(prefix)) = prefix Then
-            items.Add Format(fileItem.DateLastModified, "yyyymmddHHMMSS") & "|" & fileItem.Path
+            ReDim Preserve items(itemCount)
+            items(itemCount) = Format(fileItem.DateLastModified, "yyyymmddHHMMSS") & "|" & fileItem.Path
+            itemCount = itemCount + 1
         End If
     Next fileItem
 
-    If items.count <= MAX_BACKUP_FILES Then GoTo CleanExit
+    If itemCount <= MAX_BACKUP_FILES Then GoTo CleanExit
 
-    items.Sort
-    items.Reverse
+    Dim i As Long, j As Long, temp As String
+    For i = 0 To itemCount - 2
+        For j = i + 1 To itemCount - 1
+            If items(i) < items(j) Then
+                temp = items(i)
+                items(i) = items(j)
+                items(j) = temp
+            End If
+        Next j
+    Next i
 
     Dim idx As Long
-    For idx = MAX_BACKUP_FILES To items.count - 1
+    For idx = MAX_BACKUP_FILES To itemCount - 1
         Dim parts() As String
         parts = Split(items(idx), "|")
         On Error Resume Next
