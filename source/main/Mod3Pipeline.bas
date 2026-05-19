@@ -401,6 +401,12 @@ End Function
 Public Function DetectSpecialParagraph(cleanText As String, ByRef specialType As String) As Boolean
     specialType = ""
 
+    ' Excecao: "Vereadora," (vocativo) nao deve ser classificada como paragrafo especial de vereador
+    If cleanText = "vereadora," Then
+        DetectSpecialParagraph = False
+        Exit Function
+    End If
+
     ' Remove pontuacao final para analise
     Dim textForAnalysis As String
     textForAnalysis = cleanText
@@ -1213,6 +1219,7 @@ Public Function PreviousFormatting(doc As Document) As Boolean
 
     LogStepStart "Ajustes finais de negrito e formatacao"
     ApplyBoldToSpecialParagraphs doc
+    SubstituiVereadoraPorSenhoraVereadora doc
     FormatVereadorParagraphs doc
     LogStepComplete "Ajustes finais de negrito e formatacao"
 
@@ -4900,6 +4907,56 @@ ErrorHandler:
 End Sub
 
 '================================================================================
+' SUBSTITUICAO DE "Vereadora," POR "Senhora Vereadora,"
+' Regra: se um paragrafo contem unicamente "Vereadora," e o paragrafo imediatamente
+' acima contem unicamente "Senhores Vereadores,", substitui o texto por "Senhora Vereadora,".
+'================================================================================
+Public Sub SubstituiVereadoraPorSenhoraVereadora(doc As Document)
+    On Error GoTo ErrorHandler
+
+    If Not ValidateDocument(doc) Then Exit Sub
+
+    Dim i As Long
+    Dim para As Paragraph
+    Dim prevPara As Paragraph
+    Dim paraText As String
+    Dim prevText As String
+    Dim rng As Range
+    Dim substitutedCount As Long
+
+    substitutedCount = 0
+
+    For i = 2 To doc.Paragraphs.count
+        Set para = doc.Paragraphs(i)
+        paraText = LCase$(Trim$(Replace(Replace(para.Range.text, vbCr, ""), vbLf, "")))
+
+        If paraText = "vereadora," Then
+            Set prevPara = doc.Paragraphs(i - 1)
+            prevText = LCase$(Trim$(Replace(Replace(prevPara.Range.text, vbCr, ""), vbLf, "")))
+
+            If prevText = "senhores vereadores," Then
+                ' Substitui o conteudo sem remover a marca de paragrafo
+                Set rng = para.Range
+                rng.MoveEnd wdCharacter, -1
+                rng.text = "Senhora Vereadora,"
+
+                substitutedCount = substitutedCount + 1
+                LogMessage "Substituicao: 'Vereadora,' -> 'Senhora Vereadora,' (posicao: " & i & ")", LOG_LEVEL_INFO
+            End If
+        End If
+    Next i
+
+    If substitutedCount > 0 Then
+        LogMessage "SubstituiVereadoraPorSenhoraVereadora: " & substitutedCount & " substituicao(oes) realizada(s)", LOG_LEVEL_INFO
+    End If
+
+    Exit Sub
+
+ErrorHandler:
+    LogMessage "Erro ao substituir Vereadora por Senhora Vereadora: " & Err.Description, LOG_LEVEL_ERROR
+End Sub
+
+'================================================================================
 ' VEREADOR - FORMATACAO DEDICADA
 ' Regras:
 ' - Paragrafo contendo unicamente a palavra "vereador" (case-insensitive), mesmo cercada por hifens/travessoes,
@@ -5244,6 +5301,13 @@ End Sub
 ' FUNCOES AUXILIARES PARA DETECCAO DE PADROES
 '================================================================================
 Public Function IsVereadorPattern(text As String) As Boolean
+    ' Excecao: "Vereadora," (vocativo) nao deve receber formatacao de vereador
+    Dim rawClean As String
+    rawClean = LCase$(Trim$(Replace(Replace(text, vbCr, ""), vbLf, "")))
+    If rawClean = "vereadora," Then
+        IsVereadorPattern = False
+        Exit Function
+    End If
     IsVereadorPattern = (GetVereadorNormalizedWord(text) <> "")
 End Function
 
