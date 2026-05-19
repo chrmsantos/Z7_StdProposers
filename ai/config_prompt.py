@@ -8,6 +8,12 @@ LOGGER = configure_component_logger("config_prompt")
 
 GITHUB_REPO_URL = "https://github.com/chrmsantos/Z7_StdProposers"
 
+_APP_VERSION = "7.7.7-rc2"
+_APP_AUTHOR  = "Christian Martin dos Santos"
+_ORG         = "Câmara Municipal de Santa Bárbara d'Oeste"
+_LICENSE     = "GPL-3.0"
+_MOTTO       = "Dharma, virtude e gratidão."
+
 DEFAULT_PROMPT = """Você é um especialista em revisão de textos legislativos no idioma Português do Brasil.
 Abaixo está um trecho de uma propositura legislativa.
 Sua tarefa é corrigir gramaticalmente o texto, realizando O MÍNIMO POSSÍVEL de alterações em relação ao original.
@@ -229,6 +235,9 @@ class AppTheme:
             icon = "🌙 Modo Escuro" if self.mode == 'light' else "☀️ Modo Claro"
             self.widgets['toggle_btn'].configure(text=icon, bg=bg, fg=fg, activebackground=bg, activeforeground=fg)
 
+        if 'footer_lbl' in self.widgets:
+            self.widgets['footer_lbl'].configure(bg=bg, fg=fg_muted)
+
 
 def open_api_key_dialog(parent: tk.Tk, theme_mode: str) -> None:
     colors = z7_theme.get_theme_colors(theme_mode)
@@ -311,7 +320,7 @@ def main() -> None:
         LOGGER.warning("Could not connect to Word to update status bar: %s", str(e))
         
     root = tk.Tk()
-    root.title("Configurar Prompt do Gemini")
+    root.title(f"Configurar Prompts — Z7 StdProposers v{_APP_VERSION}")
     root.geometry("700x600")
     root.minsize(600, 500)
     
@@ -473,11 +482,17 @@ def main() -> None:
 
     theme.widgets['sec_btns'] = [cancel_btn, restore_btn]
     
+    # Rodapé
+    _footer_text = f"{_ORG}  ·  {_APP_AUTHOR}  ·  {_LICENSE}  ·  {_MOTTO}"
+    footer_lbl = tk.Label(root, text=_footer_text, font=("Segoe UI", 8), anchor="center")
+    theme.widgets['footer_lbl'] = footer_lbl
+
     # Aplica o tema inicial
     theme.apply()
 
     # Pack in order so btn_frame is fixed at the bottom
-    btn_frame.pack(side=tk.BOTTOM, fill=tk.X, pady=25)
+    footer_lbl.pack(side=tk.BOTTOM, fill=tk.X, pady=(0, 5))
+    btn_frame.pack(side=tk.BOTTOM, fill=tk.X, pady=(20, 5))
     frame.pack(side=tk.TOP, expand=True, fill=tk.BOTH, padx=25, pady=(0, 10))
 
     root.mainloop()

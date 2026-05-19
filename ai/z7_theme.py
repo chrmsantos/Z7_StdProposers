@@ -60,35 +60,39 @@ def get_theme_colors(mode=None):
         mode = load_theme()
     if mode == 'dark':
         return {
-            "bg": "#1e1e1e",
-            "fg": "#e4e4e4",
-            "fg_muted": "#a0a0a0",
-            "text_bg": "#252526",
-            "border": "#333333",
-            "btn_sec_bg": "#333333",
-            "btn_sec_fg": "#cccccc",
-            "btn_sec_hover": "#444444",
-            "btn_primary_bg": "#005a9e",
+            "bg": "#0f172a",
+            "fg": "#e2e8f0",
+            "fg_muted": "#94a3b8",
+            "text_bg": "#1e293b",
+            "border": "#334155",
+            "btn_sec_bg": "#1e293b",
+            "btn_sec_fg": "#cbd5e1",
+            "btn_sec_hover": "#334155",
+            "btn_primary_bg": "#6366f1",
             "btn_primary_fg": "#ffffff",
-            "btn_primary_hover": "#004578",
-            "user_tag": "#60a5fa",
-            "ai_tag": "#34d399"
+            "btn_primary_hover": "#4f46e5",
+            "user_tag": "#818cf8",
+            "ai_tag": "#2dd4bf",
+            "user_bubble_bg": "#1e1b4b",
+            "ai_bubble_bg": "#052e16",
         }
     else:
         return {
-            "bg": "#f3f4f6",
-            "fg": "#111827",
-            "fg_muted": "#4b5563",
+            "bg": "#f5f3ff",
+            "fg": "#1e1b4b",
+            "fg_muted": "#6b7280",
             "text_bg": "#ffffff",
-            "border": "#d1d5db",
-            "btn_sec_bg": "#e5e7eb",
-            "btn_sec_fg": "#374151",
-            "btn_sec_hover": "#d1d5db",
-            "btn_primary_bg": "#2563eb",
+            "border": "#c4b5fd",
+            "btn_sec_bg": "#ede9fe",
+            "btn_sec_fg": "#4c1d95",
+            "btn_sec_hover": "#ddd6fe",
+            "btn_primary_bg": "#6366f1",
             "btn_primary_fg": "#ffffff",
-            "btn_primary_hover": "#1d4ed8",
-            "user_tag": "#2563eb",
-            "ai_tag": "#10b981"
+            "btn_primary_hover": "#4f46e5",
+            "user_tag": "#6366f1",
+            "ai_tag": "#0d9488",
+            "user_bubble_bg": "#ede9fe",
+            "ai_bubble_bg": "#ecfdf5",
         }
 
 def _center_window(win, parent=None):

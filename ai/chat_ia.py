@@ -13,6 +13,12 @@ LOGGER = configure_component_logger("chat_ia")
 _DEFAULT_MODEL = 'gemini-2.5-flash'
 _MAX_CONTEXT_CHARS = 150_000
 
+_APP_VERSION = "7.7.7-rc2"
+_APP_AUTHOR  = "Christian Martin dos Santos"
+_ORG         = "Câmara Municipal de Santa Bárbara d'Oeste"
+_LICENSE     = "GPL-3.0"
+_MOTTO       = "Dharma, virtude e gratidão."
+
 # ==========================================
 # Classe Principal do Chat
 # ==========================================
@@ -21,7 +27,7 @@ class ChatApp:
         LOGGER.info("Initializing ChatApp UI")
         self.root = root
         self.word_app = None
-        self.root.title("Chat com a IA - Z7 StdProposers")
+        self.root.title(f"Chat com a IA — Z7 StdProposers v{_APP_VERSION}")
         
         screen_width = self.root.winfo_screenwidth()
         screen_height = self.root.winfo_screenheight()
@@ -159,11 +165,18 @@ class ChatApp:
             activebackground=colors["btn_primary_hover"], activeforeground="white"
         )
 
+        # Rodapé
+        self.footer_lbl.configure(bg=bg, fg=fg_muted)
+
         # Chat message tags
         self.chat_area.tag_config("user_tag", font=("Segoe UI", 10, "bold"), foreground=user_tag_color)
-        self.chat_area.tag_config("user_msg", font=("Segoe UI", 11), foreground=fg)
+        self.chat_area.tag_config("user_msg", font=("Segoe UI", 11), foreground=fg,
+            background=colors["user_bubble_bg"], lmargin1=10, lmargin2=10, rmargin=10,
+            spacing1=4, spacing3=4)
         self.chat_area.tag_config("ai_tag",   font=("Segoe UI", 10, "bold"), foreground=ai_tag_color)
-        self.chat_area.tag_config("ai_msg",   font=("Segoe UI", 11), foreground=fg)
+        self.chat_area.tag_config("ai_msg",   font=("Segoe UI", 11), foreground=fg,
+            background=colors["ai_bubble_bg"], lmargin1=10, lmargin2=10, rmargin=10,
+            spacing1=4, spacing3=4)
         self.chat_area.tag_config("sys_tag",  font=("Segoe UI", 10, "italic"), foreground=fg_muted)
 
     def build_ui(self) -> None:
@@ -172,7 +185,7 @@ class ChatApp:
         self.top_frame.pack(side=tk.TOP, fill=tk.X, pady=(18, 0), padx=24)
 
         self.title_lbl = tk.Label(
-            self.top_frame, text="✦ Assistente de IA",
+            self.top_frame, text="✨ Assistente de IA",
             font=("Segoe UI", 15, "bold")
         )
         self.title_lbl.pack(side=tk.TOP, anchor="w")
@@ -204,9 +217,17 @@ class ChatApp:
         self.header_sep = tk.Frame(self.root, height=1)
         self.header_sep.pack(fill=tk.X)
 
-        # ── Área de entrada (empacotada BOTTOM primeiro para ancorar na base) ─
+        # ── Rod apé (empacotado BOTTOM primeiro: fica na base absoluta) ────────────────
+        _footer_text = f"{_ORG}  ·  {_APP_AUTHOR}  ·  {_LICENSE}  ·  {_MOTTO}"
+        self.footer_lbl = tk.Label(
+            self.root, text=_footer_text,
+            font=("Segoe UI", 8), anchor="center"
+        )
+        self.footer_lbl.pack(side=tk.BOTTOM, fill=tk.X, pady=(0, 4))
+
+        # ── Área de entrada (empacotada BOTTOM após o rod apé) ─────────────────
         self.input_outer = tk.Frame(self.root)
-        self.input_outer.pack(side=tk.BOTTOM, fill=tk.X, padx=24, pady=(8, 20))
+        self.input_outer.pack(side=tk.BOTTOM, fill=tk.X, padx=24, pady=(8, 12))
 
         # Wrapper com borda visual para o campo de texto
         self.input_border = tk.Frame(self.input_outer, bd=1, relief=tk.SOLID)
@@ -222,7 +243,7 @@ class ChatApp:
         self.input_text.bind("<Shift-Return>", self.on_shift_enter)
 
         self.send_btn = tk.Button(
-            self.input_outer, text="Enviar", width=10,
+            self.input_outer, text="Enviar ➤", width=10,
             font=("Segoe UI", 11, "bold"), relief=tk.FLAT,
             cursor="hand2", padx=0, pady=0,
             command=self.send_or_cancel
@@ -284,12 +305,14 @@ class ChatApp:
         self.chat_area.config(state=tk.NORMAL)
         if role == "User":
             self.chat_area.insert(tk.END, "Você:\n", "user_tag")
-            self.chat_area.insert(tk.END, f"{message}\n\n", "user_msg")
+            self.chat_area.insert(tk.END, f"{message}\n", "user_msg")
+            self.chat_area.insert(tk.END, "\n")
         elif role == "Sistema":
             self.chat_area.insert(tk.END, f"⚠ {message}\n\n", "sys_tag")
         else:
             self.chat_area.insert(tk.END, "Gemini:\n", "ai_tag")
-            self.chat_area.insert(tk.END, f"{message}\n\n", "ai_msg")
+            self.chat_area.insert(tk.END, f"{message}\n", "ai_msg")
+            self.chat_area.insert(tk.END, "\n")
 
         self.chat_area.see(tk.END)
         self.chat_area.config(state=tk.DISABLED)
@@ -297,7 +320,7 @@ class ChatApp:
     def send_or_cancel(self) -> None:
         if self.is_generating:
             self._cancel_requested = True
-            self.send_btn.config(text="Enviar")
+            self.send_btn.config(text="Enviar ➤")
             self.status_lbl.config(text="Cancelando...")
         else:
             self.send_message()
@@ -419,9 +442,9 @@ class ChatApp:
                         f"Aguarde as instruções do usuário antes de realizar qualquer análise."
                     )
                     self.chat_session.send_message(ctx)
-                    greeting = "Documento carregado. Como posso ajudar?"
+                    greeting = "✅ Contexto atualizado! Como posso ajudar?"
                 else:
-                    greeting = "Nova conversa iniciada. Como posso ajudar?"
+                    greeting = "💬 Nova conversa reiniciada! Como posso ajudar?"
             except Exception as ctx_e:
                 log_exception(LOGGER, "Failed to send context in new conversation", ctx_e)
                 greeting = "Nova conversa iniciada. Como posso ajudar?"
@@ -618,7 +641,7 @@ class ChatApp:
 
     def _on_message_received(self, reply: str) -> None:
         self.is_generating = False
-        self.send_btn.config(text="Enviar")
+        self.send_btn.config(text="Enviar ➤")
         self.input_text.focus_set()
         if self._cancel_requested:
             self._cancel_requested = False
