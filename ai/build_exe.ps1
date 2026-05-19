@@ -1,7 +1,10 @@
 $ErrorActionPreference = "Stop"
 $PSNativeCommandUseErrorActionPreference = $false
 # Garante que o script roda a partir do proprio diretorio (ai/), independente do cwd do chamador.
-$scriptDir = $PSScriptRoot
+$scriptDir   = $PSScriptRoot
+$projectRoot = Split-Path $scriptDir -Parent
+$distDir     = Join-Path $projectRoot "dist"
+$version     = (Get-Content (Join-Path $projectRoot "VERSION") -Raw).Trim()
 Push-Location $scriptDir
 
 try {
@@ -69,15 +72,29 @@ function Install-Executable {
 	Write-Host "[$Name] instalado."
 }
 
+function Package-Artifact {
+	param([Parameter(Mandatory = $true)][string]$Name)
+	$src  = Join-Path $scriptDir $Name
+	$dest = Join-Path $distDir "$Name-v$version.zip"
+	if (-not (Test-Path $src)) { throw "Pasta $Name nao encontrada para empacotar." }
+	New-Item -ItemType Directory -Force -Path $distDir | Out-Null
+	Remove-Item $dest -ErrorAction SilentlyContinue
+	Compress-Archive -Path $src -DestinationPath $dest -Force
+	$sizeMB = [math]::Round((Get-Item $dest).Length / 1MB, 2)
+	Write-Host "[$Name] empacotado -> dist\$Name-v$version.zip ($sizeMB MB)"
+}
+
 
 
 Write-Host "Compilando config_prompt.py..."
 Invoke-PyInstaller -ScriptName "config_prompt.py"
 Install-Executable -Name "config_prompt"
+Package-Artifact   -Name "config_prompt"
 
 Write-Host "Compilando chat_ia.py..."
 Invoke-PyInstaller -ScriptName "chat_ia.py"
 Install-Executable -Name "chat_ia"
+Package-Artifact   -Name "chat_ia"
 
 
 
