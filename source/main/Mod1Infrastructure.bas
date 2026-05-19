@@ -5,8 +5,8 @@ Option Explicit
 ' =============================================================================
 ' Z7_STDPROPOSERS - Sistema de Padronizacao de Proposituras Legislativas
 ' =============================================================================
-' Versao: 7.7.7-rc1
-' Data: 2026-05-15
+' Versao: 7.7.7-rc2
+' Data: 2026-05-19
 ' Licenca: GNU GPLv3 (https://www.gnu.org/licenses/gpl-3.0.html)
 ' Autor: Christian Martin dos Santos (chrmsantos@protonmail.com)
 ' =============================================================================
@@ -77,7 +77,7 @@ Public Const CHAT_IA_SCRIPT_RELATIVE_PATH As String = "\AppData\Local\Z7\Apps\Z7
 '================================================================================
 ' CONSTANTES DE SISTEMA
 '================================================================================
-Public Const Z7_STDPROPOSERS_VERSION As String = "7.7.7-rc1"
+Public Const Z7_STDPROPOSERS_VERSION As String = "7.7.7-rc2"
 Public Const MIN_SUPPORTED_VERSION As Long = 14
 Public Const REQUIRED_STRING As String = "$NUMERO$/$ANO$"
 Public Const MAX_BACKUP_FILES As Long = 10
