@@ -750,9 +750,8 @@ Public Function GetRemoteVersion() As String
     ' Alguns MSXML podem falhar no header User-Agent; nao e critico
     On Error Resume Next
     http.setRequestHeader "User-Agent", "Z7_STDPROPOSERS/" & Z7_STDPROPOSERS_VERSION
-    If usedServerHttp Then
-        http.setTimeouts 5000, 5000, 10000, 10000
-    End If
+    ' Aplica timeouts independentemente da implementacao MSXML disponivel
+    http.setTimeouts 5000, 5000, 10000, 10000
     On Error GoTo ErrorHandler
 
     http.send

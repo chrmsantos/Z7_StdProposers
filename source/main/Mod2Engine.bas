@@ -448,12 +448,10 @@ Public Sub IdentifyDocumentStructure(doc As Document)
                 Dim j As Long
                 Dim assinaturaCount As Long
                 assinaturaCount = 0
-                For j = i To doc.Paragraphs.count
-                    If j > doc.Paragraphs.count Then Exit For
-                    Dim tempPara As Paragraph
-                    Set tempPara = doc.Paragraphs(j)
+                For j = i To cacheSize
+                    If j > cacheSize Then Exit For
                     Dim tempText As String
-                    tempText = Trim(tempPara.Range.text)
+                    tempText = Trim(paragraphCache(j).text)
 
                     ' Para em linha vazia
                     If Len(tempText) = 0 Then Exit For
@@ -466,9 +464,8 @@ Public Sub IdentifyDocumentStructure(doc As Document)
                     ' Se ja contou 3 paragrafos, verifica se ha imagens nos proximos
                     If assinaturaCount >= ASSINATURA_PARAGRAPH_COUNT Then
                         ' Verifica se proximo paragrafo tem imagem (sem linha vazia)
-                        If j + 1 <= doc.Paragraphs.count Then
-                            Set tempPara = doc.Paragraphs(j + 1)
-                            If HasVisualContent(tempPara) Then
+                        If j + 1 <= cacheSize Then
+                            If paragraphCache(j + 1).hasImages Then
                                 ' Inclui imagem na assinatura
                                 paragraphCache(j + 1).isAssinatura = True
                                 assinaturaEndIndex = j + 1

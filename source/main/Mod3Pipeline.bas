@@ -387,7 +387,7 @@ Public Function NormalizarTexto(text As String) As String
 
     ' Remove espacos multiplos com protecao contra loop infinito
     loopGuard = 0
-    Do While InStr(result, "  ") > 0 And loopGuard < 500
+    Do While InStr(result, "  ") > 0 And loopGuard < 10
         result = Replace(result, "  ", " ")
         loopGuard = loopGuard + 1
     Loop
@@ -411,11 +411,8 @@ Public Function DetectSpecialParagraph(cleanText As String, ByRef specialType As
     Dim textForAnalysis As String
     textForAnalysis = cleanText
 
-    Dim safetyCounter As Long
-    safetyCounter = 0
-    Do While Len(textForAnalysis) > 0 And InStr(".,;:", Right(textForAnalysis, 1)) > 0 And safetyCounter < 50
+    Do While Len(textForAnalysis) > 0 And InStr(".,;:", Right(textForAnalysis, 1)) > 0
         textForAnalysis = Left(textForAnalysis, Len(textForAnalysis) - 1)
-        safetyCounter = safetyCounter + 1
     Loop
     textForAnalysis = Trim(textForAnalysis)
 
@@ -519,24 +516,38 @@ Public Sub WriteTextUTF8(filePath As String, textContent As String, Optional app
 
     Dim stream As Object
     Set stream = CreateObject("ADODB.Stream")
-
     stream.Type = 2 ' adTypeText
     stream.Charset = "UTF-8"
     stream.Open
-
-    ' Se modo append, le conteudo existente primeiro
-    If appendMode And Dir(filePath) <> "" Then
-        stream.LoadFromFile filePath
-        stream.Position = stream.size
-    End If
-
-    ' Escreve o novo conteudo
     stream.WriteText textContent, 1 ' adWriteLine
 
-    ' Salva com UTF-8
-    stream.SaveToFile filePath, 2 ' adSaveCreateOverWrite
-    stream.Close
-    Set stream = Nothing
+    If appendMode And Dir(filePath) <> "" Then
+        ' Converte apenas o novo conteudo para bytes, pulando o BOM UTF-8 (3 bytes),
+        ' e faz append binario no arquivo existente sem re-ler o conteudo como texto.
+        stream.Position = 0
+        stream.Type = 1 ' adTypeBinary
+        stream.Position = 3 ' salta BOM UTF-8
+
+        Dim newBytes() As Byte
+        newBytes = stream.Read
+        stream.Close
+        Set stream = Nothing
+
+        Dim binStream As Object
+        Set binStream = CreateObject("ADODB.Stream")
+        binStream.Type = 1 ' adTypeBinary
+        binStream.Open
+        binStream.LoadFromFile filePath
+        binStream.Position = binStream.Size
+        binStream.Write newBytes
+        binStream.SaveToFile filePath, 2 ' adSaveCreateOverWrite
+        binStream.Close
+        Set binStream = Nothing
+    Else
+        stream.SaveToFile filePath, 2 ' adSaveCreateOverWrite
+        stream.Close
+        Set stream = Nothing
+    End If
 
     Exit Sub
 
@@ -546,6 +557,7 @@ ErrorHandler:
         stream.Close
         Set stream = Nothing
     End If
+    On Error GoTo 0
 End Sub
 
 Public Sub EnforceLogRetention(logFolder As String, logPrefix As String, Optional maxFiles As Long = 5)
@@ -747,7 +759,7 @@ Public Sub LogMessage(message As String, Optional level As Long = LOG_LEVEL_INFO
     End Select
 
     ' Formata mensagem com timestamp, tempo decorrido e nivel
-    timeStamp = Format(Now, "HH:mm:ss.") & Format((Timer * 1000) Mod 1000, "000")
+    timeStamp = Format(Now, "HH:mm:ss.") & Format(CLng(Timer * 1000) Mod 1000, "000")
     operationId = currentOperationId
     If Len(operationId) = 0 Then operationId = "N/A"
     formattedMessage = timeStamp & " [" & elapsedTime & "] [op=" & operationId & "] " & levelText & " " & levelPrefix & " " & message
