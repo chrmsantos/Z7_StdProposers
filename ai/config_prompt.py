@@ -8,7 +8,7 @@ LOGGER = configure_component_logger("config_prompt")
 
 GITHUB_REPO_URL = "https://github.com/chrmsantos/Z7_StdProposers"
 
-_APP_VERSION = "7.7.7-rc2"
+_APP_VERSION = "7.7.7-rc3"
 _APP_AUTHOR  = "Christian Martin dos Santos"
 _ORG         = "Câmara Municipal de Santa Bárbara d'Oeste"
 _LICENSE     = "GPL-3.0"
