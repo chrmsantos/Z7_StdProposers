@@ -79,7 +79,10 @@ function Package-Artifact {
 	if (-not (Test-Path $src)) { throw "Pasta $Name nao encontrada para empacotar." }
 	New-Item -ItemType Directory -Force -Path $distDir | Out-Null
 	Remove-Item $dest -ErrorAction SilentlyContinue
-	Compress-Archive -Path $src -DestinationPath $dest -Force
+	# Compress-Archive falha com arquivos .zip aninhados (ex: base_library.zip) no PS 5.1.
+	# Usar a API .NET diretamente contorna esse problema.
+	Add-Type -AssemblyName System.IO.Compression.FileSystem
+	[System.IO.Compression.ZipFile]::CreateFromDirectory($src, $dest)
 	$sizeMB = [math]::Round((Get-Item $dest).Length / 1MB, 2)
 	Write-Host "[$Name] empacotado -> dist\$Name-v$version.zip ($sizeMB MB)"
 }
