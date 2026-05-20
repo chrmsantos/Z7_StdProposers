@@ -346,7 +346,11 @@ class ChatApp:
         """Tenta atualizar self.doc_text com o conteúdo atual do Word na thread principal."""
         try:
             if not self.word_app:
-                return False
+                import win32com.client
+                try:
+                    self.word_app = win32com.client.GetActiveObject("Word.Application")
+                except Exception:
+                    self.word_app = win32com.client.GetObject(Class="Word.Application")
             raw_text = self.word_app.ActiveDocument.Content.Text
             if len(raw_text) > _MAX_CONTEXT_CHARS:
                 cut = raw_text.rfind(' ', 0, _MAX_CONTEXT_CHARS)
@@ -369,8 +373,12 @@ class ChatApp:
 
         success = self._reload_doc_text()
 
-        if not success or not self.doc_text or not self.doc_text.strip():
-            self.append_message("Sistema", "Não foi possível carregar o contexto do documento.")
+        if not success:
+            self.append_message("Sistema", "Não foi possível conectar ao Word. Certifique-se de que há um documento aberto e tente novamente.")
+            return
+
+        if not self.doc_text or not self.doc_text.strip() or "nenhum documento" in self.doc_text.lower():
+            self.append_message("Sistema", "Nenhum documento ativo encontrado no Word.")
             return
 
         self.append_message("Sistema", "📄 Enviando contexto do documento para a IA...")
