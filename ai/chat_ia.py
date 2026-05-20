@@ -53,7 +53,6 @@ class ChatApp:
         self._model = _DEFAULT_MODEL
         self.doc_text = ""
         self._doc_truncated = False
-        self._context_pending = False  # True when initial context send failed; injected on first user message
 
         self.build_ui()
         self.apply_theme()
@@ -430,24 +429,29 @@ class ChatApp:
         try:
             from google.genai import types
             system_instruction = "Você é um assistente especialista em legislação prestativo e polido. Auxilie o usuário alterando, revisando ou tirando dúvidas."
+
+            # Pré-popula histórico com contexto do documento sem chamada de API
+            self._reload_doc_text()
+            history = []
+            if self.doc_text and self.doc_text.strip() and "nenhum documento" not in self.doc_text.lower():
+                ctx_user_msg = (
+                    f"Abaixo está o texto do documento no Word (contexto desta conversa):\n\n"
+                    f"{self.doc_text}"
+                )
+                history = [
+                    types.Content(role="user",  parts=[types.Part(text=ctx_user_msg)]),
+                    types.Content(role="model", parts=[types.Part(text="Entendido! Contexto atualizado.")]),
+                ]
+                greeting = "✅ Contexto atualizado! Como posso ajudar?"
+                LOGGER.info("New conversation: document context pre-seeded in history")
+            else:
+                greeting = "💬 Nova conversa reiniciada! Como posso ajudar?"
+
             self.chat_session = self.client.chats.create(
                 model=self._model,
-                config=types.GenerateContentConfig(system_instruction=system_instruction)
+                config=types.GenerateContentConfig(system_instruction=system_instruction),
+                history=history,
             )
-            try:
-                if self.doc_text and self.doc_text.strip() and "nenhum documento" not in self.doc_text.lower():
-                    ctx = (
-                        f"Abaixo está o texto do documento no Word (contexto desta conversa):\n\n"
-                        f"{self.doc_text}\n\n"
-                        f"Aguarde as instruções do usuário antes de realizar qualquer análise."
-                    )
-                    self.chat_session.send_message(ctx)
-                    greeting = "✅ Contexto atualizado! Como posso ajudar?"
-                else:
-                    greeting = "💬 Nova conversa reiniciada! Como posso ajudar?"
-            except Exception as ctx_e:
-                log_exception(LOGGER, "Failed to send context in new conversation", ctx_e)
-                greeting = "Nova conversa iniciada. Como posso ajudar?"
             self.root.after(0, lambda g=greeting: self._on_new_conversation_ready(g))
         except Exception as e:
             log_exception(LOGGER, "Failed to start new conversation", e)
@@ -533,36 +537,35 @@ class ChatApp:
                 self._model = _DEFAULT_MODEL
 
             system_instruction = "Você é um assistente especialista em legislação prestativo e polido. Auxilie o usuário alterando, revisando ou tirando dúvidas."
+
+            # --- Pré-popula o histórico com o contexto do documento (sem chamada de API) ---
+            # Usar history=[] evita um round-trip de rede no início, eliminando a principal
+            # causa de falha: timeout/erro de rede ao enviar um payload grande na inicialização.
+            _truncation_notice = _doc_truncated
+            doc_context = self.doc_text
+            history = []
+            if doc_context and doc_context.strip() and "nenhum documento" not in doc_context.lower():
+                ctx_user_msg = (
+                    f"Abaixo está o texto atual do meu documento no Word para ser usado como base e contexto dessa conversa:\n\n"
+                    f"{doc_context}"
+                )
+                history = [
+                    types.Content(role="user",  parts=[types.Part(text=ctx_user_msg)]),
+                    types.Content(role="model", parts=[types.Part(text="Entendido! Recebi o contexto do documento e estou pronto para ajudar.")]),
+                ]
+                self.initial_greeting = "✅ Contexto do documento carregado! Como posso ajudar?"
+                LOGGER.info("Document context pre-seeded in chat history (no API call required)")
+            else:
+                self.initial_greeting = "Olá! Não consegui acessar o documento atual. Como posso ajudar?"
+                _truncation_notice = False
+                LOGGER.warning("No document context available for AI initialization")
+
             self.chat_session = self.client.chats.create(
                 model=self._model,
-                config=types.GenerateContentConfig(system_instruction=system_instruction)
+                config=types.GenerateContentConfig(system_instruction=system_instruction),
+                history=history,
             )
             LOGGER.info("Chat session started with model: %s", self._model)
-
-            # --- Envia contexto do documento ---
-            # Isolado em try/except próprio: falha aqui não deve travar o chat (#3)
-            _truncation_notice = _doc_truncated
-            try:
-                doc_context = self.doc_text
-                if doc_context and doc_context.strip() and "nenhum documento" not in doc_context.lower():
-                    context_msg = (
-                        f"Abaixo está o texto atual do meu documento no Word para ser usado como base e contexto dessa conversa:\n\n"
-                        f"{doc_context}\n\n"
-                        f"Por favor, confirme brevemente que recebeu o contexto e se coloque à disposição para ajudar."
-                    )
-                    context_response = self.chat_session.send_message(context_msg)
-                    self.initial_greeting = context_response.text
-                    LOGGER.info("Document context sent to AI during initialization")
-                else:
-                    self.initial_greeting = "Olá! Não consegui acessar o documento atual. Como posso ajudar?"
-                    _truncation_notice = False
-                    LOGGER.warning("No document context available for AI initialization")
-            except Exception as ctx_e:
-                log_exception(LOGGER, "Failed to send document context to AI", ctx_e)
-                self._set_word_status("Z7: Erro ao enviar contexto do documento ao Chat.")
-                self.initial_greeting = "Olá! Não foi possível enviar o contexto do documento agora, mas ele será incluído na sua primeira mensagem. Como posso ajudar?"
-                self._context_pending = True
-                _truncation_notice = False
 
             def _on_ready_with_notice(notice: bool) -> None:
                 self._on_ai_ready()
@@ -615,15 +618,7 @@ class ChatApp:
     def _send_message_thread(self, user_msg: str) -> None:
         try:
             LOGGER.info("Sending message to Gemini chat")
-            if self._context_pending and self.doc_text and self.doc_text.strip() and "nenhum documento" not in self.doc_text.lower():
-                self._context_pending = False
-                LOGGER.info("Injecting deferred document context with first user message")
-                combined = (
-                    f"Contexto do documento (Word):\n\n{self.doc_text}\n\n---\n\n{user_msg}"
-                )
-                response = self.chat_session.send_message(combined)
-            else:
-                response = self.chat_session.send_message(user_msg)
+            response = self.chat_session.send_message(user_msg)
             reply = response.text
         except Exception as e:
             log_exception(LOGGER, "Chat message request failed", e)

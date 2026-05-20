@@ -14,17 +14,10 @@ _ORG         = "Câmara Municipal de Santa Bárbara d'Oeste"
 _LICENSE     = "GPL-3.0"
 _MOTTO       = "Dharma, virtude e gratidão."
 
-DEFAULT_PROMPT = """Você é um especialista em revisão de textos legislativos no idioma Português do Brasil.
-Abaixo está um trecho de uma propositura legislativa.
-Sua tarefa é corrigir gramaticalmente o texto, realizando O MÍNIMO POSSÍVEL de alterações em relação ao original.
-Mantenha o tom formal, o jargão jurídico/legislativo e a estrutura da frase intactos, corrigindo apenas erros de ortografia, concordância, regência, pontuação ou crase evidentes.
-Não adicione ponto final se o texto original não possuir um.
-Retorne APENAS o texto corrigido, sem adicionar nenhum comentário, explicação, formatação markdown ou aspas extras."""
+DEFAULT_PROMPT = """Você é um especialista em análise jurídica e legislativa no idioma Português do Brasil.
+Analise criteriosamente a propositura legislativa abaixo em busca de inconsistências.
 
-DEFAULT_CONSISTENCY_PROMPT = """Você é um especialista em análise jurídica e legislativa no idioma Português do Brasil.
-Analise criteriosamente a propositura legislativa abaixo em busca de inconsistências graves.
-
-Considere como inconsistências graves:
+Considere como inconsistências:
 1. Divergências entre o conteúdo da ementa e o restante do texto;
 2. Contradições entre nomes de pessoas, lugares, logradouros ou endereços;
 3. Contradições entre tipos de moção ou natureza do ato legislativo;
@@ -36,10 +29,10 @@ Não reporte como problemas:
 - Diferenças na ordem de palavras que não alterem o sentido;
 - Pequenos erros formais ou gramaticais que não criem contradição lógica.
 
-Se encontrar inconsistências graves, liste-as numericamente, uma por linha, de forma sucinta (máximo 2 linhas por item). Para cada item, indique apenas o tipo de inconsistência e os trechos conflitantes — sem introduções, sem conclusões, sem repetições.
-Se NÃO encontrar inconsistências graves, responda APENAS com: "Sem inconsistências graves detectadas."
+Se encontrar inconsistências, liste-as de forma clara, sucinta e objetiva, indicando os trechos conflitantes e explicando o problema.
+Se NÃO encontrar inconsistências, responda APENAS com: "Sem inconsistências detectadas no documento."
 
-Seja direto e conciso. Responda em Português do Brasil."""
+Responda em Português do Brasil."""
 
 def get_prompt_file_path() -> Path:
     return get_data_dir() / "gemini_prompt.txt"
