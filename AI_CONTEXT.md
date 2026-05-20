@@ -2,7 +2,7 @@
 
 > Note to AI Agents: read this document before modifying the VBA pipeline or Python integration.
 >
-> Last updated: 2026-05-15 (v7.7.7-rc1 — all AI tools consolidated into chat_ia; legacy standalone grammar and consistency modules removed).
+> Last updated: 2026-05-20 (v7.7.7 stable — build fix: `[System.IO.Compression.ZipFile]` replaces `Compress-Archive` for nested `.zip` support in `build_exe.ps1`).
 
 ## 1. Project Overview
 
@@ -152,7 +152,7 @@ Log coverage includes:
 
 ### 5.3 Current baseline
 
-As of v7.7.7-rc1 (2026-05-15), `Run-Tests.ps1 -TestSuite All -NoProgress` passes. Python unit tests: 11 total (chat_ia) via `pytest`.
+As of v7.7.7 (2026-05-20), `Run-Tests.ps1 -TestSuite All -NoProgress` passes. Python unit tests: 11 total (chat_ia) via `pytest`.
 
 ## 6. Immediate Development Guidelines
 
@@ -168,6 +168,8 @@ As of v7.7.7-rc1 (2026-05-15), `Run-Tests.ps1 -TestSuite All -NoProgress` passes
 
 - Dependency install: `install_requirements.bat`.
 - Build executables: `ai/build_exe.ps1`.
+  - `Package-Artifact` uses `[System.IO.Compression.ZipFile]::CreateFromDirectory()` (not `Compress-Archive`) — required because PowerShell 5.1's `Compress-Archive` raises `UnauthorizedAccessError` on nested `.zip` files such as `_internal/base_library.zip`.
+  - Build artifacts are placed in `dist/` as `<name>-v<VERSION>.zip`; old PyInstaller output (`ai/dist/`) is cleaned up after packaging.
 - Word macro launcher (`WordMacro.bas`) uses `pyw -3` and path fallback logic for script location.
 - Footer page numbering format: `Pág. X de Y` (changed from `X-Y` in v6.2.1). Font size and color are applied to the full footer paragraph.
 
