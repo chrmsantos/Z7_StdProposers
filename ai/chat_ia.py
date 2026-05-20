@@ -13,7 +13,7 @@ LOGGER = configure_component_logger("chat_ia")
 _DEFAULT_MODEL = 'gemini-2.5-flash'
 _MAX_CONTEXT_CHARS = 150_000
 
-_APP_VERSION = "7.7.7-rc3"
+_APP_VERSION = "7.7.8-rc1"
 _APP_AUTHOR  = "Christian Martin dos Santos"
 _ORG         = "Câmara Municipal de Santa Bárbara d'Oeste"
 _LICENSE     = "GPL-3.0"
@@ -147,7 +147,7 @@ class ChatApp:
         # Analysis buttons (bottom bar)
         self.analysis_frame.configure(bg=bg)
         self.analysis_sep.configure(bg=border)
-        for btn in [self.grammar_btn, self.consistency_btn]:
+        for btn in [self.grammar_btn, self.consistency_btn, self.load_ctx_btn]:
             btn.configure(bg=btn_sec_bg, fg=fg, activebackground=btn_sec_hover, activeforeground=fg)
 
         # Chat area
@@ -271,6 +271,13 @@ class ChatApp:
         )
         self.consistency_btn.pack(side=tk.LEFT)
 
+        self.load_ctx_btn = tk.Button(
+            self.analysis_frame, text="📂  Carregar Contexto",
+            font=("Segoe UI", 9), relief=tk.FLAT, cursor="hand2",
+            padx=10, pady=5, command=self.load_context
+        )
+        self.load_ctx_btn.pack(side=tk.LEFT, padx=(8, 0))
+
         # Linha separadora acima dos botões de análise
         self.analysis_sep = tk.Frame(self.root, height=1)
         self.analysis_sep.pack(side=tk.BOTTOM, fill=tk.X)
@@ -292,6 +299,8 @@ class ChatApp:
             self.grammar_btn.winfo_reqwidth()
             + 8
             + self.consistency_btn.winfo_reqwidth()
+            + 8
+            + self.load_ctx_btn.winfo_reqwidth()
             + 48  # padx da janela
             + 20  # margem de conforto
         )
@@ -352,6 +361,48 @@ class ChatApp:
         except Exception as e:
             LOGGER.warning(f"Failed to reload document text: {e}")
             return False
+
+    def load_context(self) -> None:
+        """Recarrega o texto do documento e envia para a IA confirmar o novo contexto."""
+        if self.is_generating or not self.chat_session:
+            return
+
+        success = self._reload_doc_text()
+
+        if not success or not self.doc_text or not self.doc_text.strip():
+            self.append_message("Sistema", "Não foi possível carregar o contexto do documento.")
+            return
+
+        self.append_message("Sistema", "📄 Enviando contexto do documento para a IA...")
+
+        self.is_generating = True
+        self._cancel_requested = False
+        self.status_lbl.config(text="Carregando contexto na IA...")
+        self.send_btn.config(text="Cancelar")
+
+        threading.Thread(target=self._load_context_thread, daemon=True).start()
+
+    def _load_context_thread(self) -> None:
+        try:
+            truncation_note = (
+                f"\n\n⚠ Documento truncado em {_MAX_CONTEXT_CHARS:,} caracteres."
+                if self._doc_truncated else ""
+            )
+            ctx_msg = (
+                f"O conteúdo do documento foi atualizado. Abaixo está a versão mais recente:"
+                f"{truncation_note}\n\n"
+                f"---INICIO DO DOCUMENTO---\n{self.doc_text}\n---FIM DO DOCUMENTO---\n\n"
+                "Por favor, confirme que recebeu e processou o contexto atualizado do documento."
+            )
+            LOGGER.info("Sending updated document context to Gemini chat")
+            response = self.chat_session.send_message(ctx_msg)
+            reply = response.text
+        except Exception as e:
+            log_exception(LOGGER, "Failed to send context to AI", e)
+            self._set_word_status("Z7: Erro ao carregar contexto no Chat IA.")
+            reply = f"Falha ao enviar o contexto para a IA: {str(e)}"
+
+        self.root.after(0, self._on_message_received, reply)
 
     def run_grammar_check(self) -> None:
         if self.is_generating or not self.chat_session:
