@@ -34,6 +34,8 @@ Se NÃO encontrar inconsistências, responda APENAS com: "Sem inconsistências d
 
 Responda em Português do Brasil."""
 
+DEFAULT_CONSISTENCY_PROMPT = DEFAULT_PROMPT
+
 def get_prompt_file_path() -> Path:
     return get_data_dir() / "gemini_prompt.txt"
 
