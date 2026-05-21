@@ -53,6 +53,7 @@ class ChatApp:
         self._model = _DEFAULT_MODEL
         self.doc_text = ""
         self._doc_truncated = False
+        self._context_pending = False
 
         self.build_ui()
         self.apply_theme()
@@ -676,8 +677,16 @@ class ChatApp:
 
     def _send_message_thread(self, user_msg: str) -> None:
         try:
+            actual_msg = user_msg
+            if getattr(self, '_context_pending', False):
+                if self.doc_text and self.doc_text.strip() and "nenhum documento" not in self.doc_text.lower():
+                    actual_msg = (
+                        f"[Contexto do documento]\n{self.doc_text}\n\n"
+                        f"[Mensagem do usu\u00e1rio]\n{user_msg}"
+                    )
+                self._context_pending = False
             LOGGER.info("Sending message to Gemini chat")
-            response = self.chat_session.send_message(user_msg)
+            response = self.chat_session.send_message(actual_msg)
             reply = response.text
         except Exception as e:
             log_exception(LOGGER, "Chat message request failed", e)

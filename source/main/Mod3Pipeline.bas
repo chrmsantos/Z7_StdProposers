@@ -2793,10 +2793,10 @@ Public Function InsertFooterStamp(doc As Document) As Boolean
             rngInitials.ParagraphFormat.alignment = wdAlignParagraphLeft
             rngInitials.InsertParagraphAfter
 
-            ' Insere "Pag. X de Y" centralizado (numero da pagina e total de paginas)
+            ' Insere "Pagina X de Y" centralizado (numero da pagina e total de paginas)
             Set rngPage = footer.Range.Paragraphs.Last.Range
             rngPage.Collapse Direction:=wdCollapseStart
-            rngPage.text = "P" & Chr(225) & "g. "
+            rngPage.text = "P" & Chr(225) & "gina "
             rngPage.Collapse Direction:=wdCollapseEnd
 
             ' Campo PAGE (numero da pagina atual)
@@ -5330,11 +5330,10 @@ Public Function GetVereadorNormalizedWord(text As String) As String
     cleanText = Trim$(cleanText)
     cleanText = NormalizeLettersOnly(cleanText)
 
-    ' Retorna com travessoes (em dash) e sem espacos antes/depois da expressao
     If cleanText = "vereador" Then
-        GetVereadorNormalizedWord = ChrW(8212) & " Vereador " & ChrW(8212)
+        GetVereadorNormalizedWord = "Vereador"
     ElseIf cleanText = "vereadora" Then
-        GetVereadorNormalizedWord = ChrW(8212) & " Vereadora " & ChrW(8212)
+        GetVereadorNormalizedWord = "Vereadora"
     Else
         GetVereadorNormalizedWord = ""
     End If

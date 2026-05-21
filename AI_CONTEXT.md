@@ -171,6 +171,6 @@ As of v7.7.7 (2026-05-20), `Run-Tests.ps1 -TestSuite All -NoProgress` passes. Py
   - `Package-Artifact` uses `[System.IO.Compression.ZipFile]::CreateFromDirectory()` (not `Compress-Archive`) — required because PowerShell 5.1's `Compress-Archive` raises `UnauthorizedAccessError` on nested `.zip` files such as `_internal/base_library.zip`.
   - Build artifacts are placed in `dist/` as `<name>-v<VERSION>.zip`; old PyInstaller output (`ai/dist/`) is cleaned up after packaging.
 - Word macro launcher (`WordMacro.bas`) uses `pyw -3` and path fallback logic for script location.
-- Footer page numbering format: `Pág. X de Y` (changed from `X-Y` in v6.2.1). Font size and color are applied to the full footer paragraph.
+- Footer page numbering format: `Página X de Y` (changed from `X-Y` in v6.2.1). Font size and color are applied to the full footer paragraph.
 
 When changing runtime paths, update both VBA constants/macros and relevant docs together.

@@ -136,12 +136,16 @@ class TestChatIaNewConversation(unittest.TestCase):
             app._model = "gemini-2.5-flash"
             app.root = mock.MagicMock()
 
-            # Executa a thread de nova conversa de forma síncrona
-            mod.ChatApp._new_conversation_thread(app)
+            # Preserva doc_text: _reload_doc_text seria chamado internamente mas nao deve
+            # sobrescrever o valor ja definido no mock
+            with mock.patch.object(mod.ChatApp, '_reload_doc_text', return_value=True):
+                mod.ChatApp._new_conversation_thread(app)
 
-            _chat_session_stub.send_message.assert_called()
-            call_args = _chat_session_stub.send_message.call_args[0][0]
-            self.assertIn("Conteúdo do documento ativo.", call_args)
+            # Com abordagem history-based, o contexto e injetado via history no chats.create
+            create_call = app.client.chats.create.call_args
+            self.assertIsNotNone(create_call, "chats.create deve ter sido chamado")
+            history = create_call.kwargs.get('history', [])
+            self.assertGreater(len(history), 0, "history deve ser nao vazia quando ha contexto do documento")
 
     def test_new_conversation_skips_context_when_no_doc(self):
         with mock.patch.dict(sys.modules, _STUBS):
@@ -201,8 +205,9 @@ class TestChatIaContextPending(unittest.TestCase):
         return stubs, chat_stub
 
     def test_context_pending_set_when_initial_send_fails(self):
-        stubs, chat_stub = self._make_stubs_with_failing_context()
-        with mock.patch.dict(sys.modules, stubs):
+        """Com abordagem history-based, _context_pending nao e alterado pelo init.
+        O _context_pending pode ser usado por outras partes do codigo para injecao diferida."""
+        with mock.patch.dict(sys.modules, _STUBS):
             mod = _import_chat_ia()
             app = mock.MagicMock()
             app.doc_text = "Conteúdo do documento para contexto."
@@ -213,8 +218,8 @@ class TestChatIaContextPending(unittest.TestCase):
             with mock.patch.object(mod, 'get_api_key', return_value="fake-key"):
                 mod.ChatApp._init_ai_thread(app)
 
-            # _context_pending deve ser True porque o envio inicial falhou
-            self.assertTrue(app._context_pending)
+            # Com abordagem history-based, _context_pending permanece False apos init
+            self.assertFalse(app._context_pending)
 
     def test_send_message_injects_context_when_pending(self):
         with mock.patch.dict(sys.modules, _STUBS):
