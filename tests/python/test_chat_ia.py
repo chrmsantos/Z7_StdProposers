@@ -133,7 +133,7 @@ class TestChatIaNewConversation(unittest.TestCase):
             app = mock.MagicMock()
             app.doc_text = "Conteúdo do documento ativo."
             app.client = _genai_stub.Client()
-            app._model = "gemini-2.5-flash"
+            app._model = "gemini-3.1-flash-lite"
             app.root = mock.MagicMock()
 
             # Preserva doc_text: _reload_doc_text seria chamado internamente mas nao deve
@@ -155,7 +155,7 @@ class TestChatIaNewConversation(unittest.TestCase):
             app = mock.MagicMock()
             app.doc_text = "Nenhum documento ativo ou erro ao obter texto do Word."
             app.client = _genai_stub.Client()
-            app._model = "gemini-2.5-flash"
+            app._model = "gemini-3.1-flash-lite"
             app.root = mock.MagicMock()
 
             mod.ChatApp._new_conversation_thread(app)

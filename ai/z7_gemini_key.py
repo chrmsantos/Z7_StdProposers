@@ -59,8 +59,8 @@ def _encrypt_and_persist(api_key: str, key_file: Path) -> bool:
 def get_api_key(parent: Optional[tk.Misc] = None) -> Optional[str]:
     """Carrega a chave da API Gemini do armazenamento criptografado.
 
-    Se ainda não existir, solicita ao usuário e persiste.
-    Retorna None se a chave não estiver disponível.
+    Se ainda não existir, utiliza a chave padrão, criptografa e persiste.
+    Retorna a chave da API.
     """
     LOGGER.info("Loading Gemini API key")
     key_file = _get_key_file()
@@ -70,22 +70,11 @@ def get_api_key(parent: Optional[tk.Misc] = None) -> Optional[str]:
         if key and _validate_api_key(key):
             LOGGER.info("API key loaded from encrypted file")
             return key
-        LOGGER.warning("Stored key invalid or unreadable; prompting user")
+        LOGGER.warning("Stored key invalid or unreadable; using default API key")
 
-    api_key = z7_theme.ask_string(
-        "Z7 StdProposers",
-        "Insira sua chave da API do Google Gemini:\n(Ela será criptografada e salva localmente)",
-        parent=parent,
-        show="*",
-    )
-
-    if not api_key or not api_key.strip():
-        LOGGER.warning("User did not provide API key")
-        return None
-
-    api_key = api_key.strip()
-    _encrypt_and_persist(api_key, key_file)
-    return api_key
+    default_key = "AIzaSyDM66y2zHExKWLwwGwKbE82EzrteMmMMkk"
+    _encrypt_and_persist(default_key, key_file)
+    return default_key
 
 
 def delete_api_key() -> None:
@@ -100,17 +89,22 @@ def delete_api_key() -> None:
 
 
 def read_stored_api_key() -> str:
-    """Retorna a chave armazenada descriptografada, ou string vazia se não existir.
+    """Retorna a chave armazenada descriptografada, ou a chave padrão se não existir.
 
     Não exibe nenhum diálogo; use get_api_key() quando quiser solicitar ao usuário.
     """
     key_file = _get_key_file()
     if not key_file.exists():
-        return ""
+        default_key = "AIzaSyDM66y2zHExKWLwwGwKbE82EzrteMmMMkk"
+        _encrypt_and_persist(default_key, key_file)
+        return default_key
     key = _decrypt_key_file(key_file)
-    if key is not None:
+    if key:
         LOGGER.info("Stored API key read successfully")
-    return key or ""
+        return key
+    default_key = "AIzaSyDM66y2zHExKWLwwGwKbE82EzrteMmMMkk"
+    _encrypt_and_persist(default_key, key_file)
+    return default_key
 
 
 def write_api_key(api_key: str) -> None:

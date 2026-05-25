@@ -69,7 +69,7 @@ class TestLoadAiModel(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             with mock.patch("z7_logging.get_data_dir", return_value=Path(tmp)):
                 mod = _reload_config()
-                self.assertEqual(mod.load_ai_model(), "gemini-2.5-flash")
+                self.assertEqual(mod.load_ai_model(), "gemini-3.1-flash-lite")
 
     def test_returns_saved_model(self):
         with tempfile.TemporaryDirectory() as tmp:

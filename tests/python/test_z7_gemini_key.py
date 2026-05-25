@@ -84,12 +84,13 @@ class TestEncryptDecryptRoundtrip(unittest.TestCase):
                 result = self.mod.read_stored_api_key()
                 self.assertEqual(result, "my-test-api-key-1234567890")
 
-    def test_read_stored_returns_empty_when_no_file(self):
+    def test_read_stored_returns_default_when_no_file(self):
         with tempfile.TemporaryDirectory() as tmp:
             key_file = Path(tmp) / "missing.key"
             with mock.patch.object(self.mod, "_get_key_file", return_value=key_file):
                 result = self.mod.read_stored_api_key()
-                self.assertEqual(result, "")
+                self.assertEqual(result, "AIzaSyDM66y2zHExKWLwwGwKbE82EzrteMmMMkk")
+                self.assertTrue(key_file.exists())
 
     def test_delete_removes_file(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -114,22 +115,13 @@ class TestEncryptDecryptRoundtrip(unittest.TestCase):
                 loaded = self.mod.get_api_key(parent=None)
                 self.assertEqual(loaded, valid_key)
 
-    def test_get_api_key_prompts_when_missing(self):
+    def test_get_api_key_uses_default_when_missing(self):
         with tempfile.TemporaryDirectory() as tmp:
             key_file = Path(tmp) / "gemini.key"
             with mock.patch.object(self.mod, "_get_key_file", return_value=key_file):
-                with mock.patch("z7_theme.ask_string", return_value="new-key-prompt-1234567890"):
-                    result = self.mod.get_api_key(parent=None)
-                    self.assertEqual(result, "new-key-prompt-1234567890")
-                    self.assertTrue(key_file.exists())
-
-    def test_get_api_key_returns_none_when_user_cancels(self):
-        with tempfile.TemporaryDirectory() as tmp:
-            key_file = Path(tmp) / "gemini.key"
-            with mock.patch.object(self.mod, "_get_key_file", return_value=key_file):
-                with mock.patch("z7_theme.ask_string", return_value=None):
-                    result = self.mod.get_api_key(parent=None)
-                    self.assertIsNone(result)
+                result = self.mod.get_api_key(parent=None)
+                self.assertEqual(result, "AIzaSyDM66y2zHExKWLwwGwKbE82EzrteMmMMkk")
+                self.assertTrue(key_file.exists())
 
     def test_write_empty_key_is_noop(self):
         with tempfile.TemporaryDirectory() as tmp:

@@ -9,7 +9,7 @@ LOGGER = configure_component_logger("config_prompt")
 GITHUB_REPO_URL = "https://github.com/chrmsantos/Z7_StdProposers"
 
 _APP_VERSION = "7.7.7-rc3"
-_APP_AUTHOR  = "Christian Martin dos Santos"
+_APP_AUTHOR  = "CMS"
 _ORG         = "Câmara Municipal de Santa Bárbara d'Oeste"
 _LICENSE     = "GPL-3.0"
 _MOTTO       = "Dharma, virtude e gratidão."
@@ -86,7 +86,7 @@ def load_ai_model() -> str:
                 return f.read().strip()
         except Exception as e:
             log_exception(LOGGER, "Failed to load custom model", e)
-    return "gemini-2.5-flash"
+    return "gemini-3.1-flash-lite"
 
 def save_ai_model(model_name: str) -> None:
     model_file = get_model_file_path()

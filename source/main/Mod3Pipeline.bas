@@ -4502,6 +4502,13 @@ NextVariant:
         LogMessage "Substituicao aplicada: 'Área Pública' e 'Roçagem' em minusculas (" & (areaPublicaCount + rocagemCount) & "x)", LOG_LEVEL_INFO
     End If
 
+    ' Funcionalidade 17: "retorne à esta Casa de Leis com as seguintes respostas" -> "retorne à esta Casa de Leis com as seguintes informações"
+    Dim casaLeisRespostasCount As Long
+    casaLeisRespostasCount = ExecuteFindReplace(doc, "retorne à esta Casa de Leis com as seguintes respostas", "retorne à esta Casa de Leis com as seguintes informações", False)
+    If casaLeisRespostasCount > 0 Then
+        LogMessage "Substituicao aplicada: 'retorne à esta Casa de Leis com as seguintes respostas' -> 'retorne à esta Casa de Leis com as seguintes informações' (" & casaLeisRespostasCount & "x)", LOG_LEVEL_INFO
+    End If
+
     ApplyTextReplacements = True
     Exit Function
 
