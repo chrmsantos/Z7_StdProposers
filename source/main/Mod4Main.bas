@@ -812,7 +812,7 @@ Public Sub ChatComGemini()
     ' Muda o ponteiro do mouse para indicar carregamento
     System.Cursor = wdCursorWait
     
-    Application.StatusBar = "Carregando o chat interativo da IA... Isso pode levar alguns segundos."
+    Application.StatusBar = "Carregando o chat interativo da IA..."
     DoEvents
     
     ' Executa o comando SEM aguardar a conclusao, pois e uma janela interativa
