@@ -126,6 +126,15 @@ class TestPrivacyPrefs(unittest.TestCase):
                     t.join()
                 self.assertEqual(errors, [], msg=f"Thread errors: {errors}")
 
+    def test_save_privacy_pref_does_not_deadlock(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            with mock.patch("z7_logging.get_data_dir", return_value=Path(tmp)):
+                mod = _reload_theme()
+                # Calling the internal _save_privacy_pref should not deadlock/hang.
+                # In the old implementation with threading.Lock, this would hang indefinitely.
+                mod._save_privacy_pref("test_key")
+                self.assertTrue(mod.load_privacy_prefs().get("test_key"))
+
 
 class TestAskPrivacyWarning(unittest.TestCase):
     def test_returns_true_when_already_accepted(self):

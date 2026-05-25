@@ -19,7 +19,7 @@ __all__ = [
 ]
 
 _privacy_prefs_cache: dict | None = None
-_privacy_prefs_lock = threading.Lock()
+_privacy_prefs_lock = threading.RLock()
 
 
 def _get_data_dir() -> Path:
