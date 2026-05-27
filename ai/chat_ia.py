@@ -10,10 +10,10 @@ from z7_gemini_key import get_api_key, delete_api_key
 
 LOGGER = configure_component_logger("chat_ia")
 
-_DEFAULT_MODEL = 'gemini-3.1-flash-lite'
+_DEFAULT_MODEL = 'gemini-3.5-flash'
 _MAX_CONTEXT_CHARS = 150_000
 
-_APP_VERSION = "7.7.8-rc1"
+_APP_VERSION = "7.8.3"
 _APP_AUTHOR  = "CMS"
 _ORG         = "Câmara Municipal de Santa Bárbara d'Oeste"
 _LICENSE     = "GPL-3.0"
