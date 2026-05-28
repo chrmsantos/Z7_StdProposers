@@ -1406,13 +1406,18 @@ Public Sub RemoveEmentaTrailingMunicipioSuffix(doc As Document)
     normalizedText = Replace(rawText, ChrW(160), " ")
     If Len(normalizedText) = 0 Then Exit Sub
 
-    ' Construcao ASCII-safe de ",neste municipio" (com acento via ChrW)
-    Dim municipio As String
-    municipio = "mun" & ChrW(237) & "cipio" ' municipio
-    Dim suffix1 As String
-    Dim suffix2 As String
-    suffix1 = ",neste " & municipio
-    suffix2 = ", neste " & municipio
+    ' Construcao ASCII-safe de ",neste municipio" (com e sem acento)
+    Dim municipio1 As String
+    Dim municipio2 As String
+    municipio1 = "mun" & ChrW(237) & "cipio" ' município (com acento)
+    municipio2 = "municipio"               ' municipio (sem acento)
+    
+    Dim suffix1 As String, suffix2 As String
+    Dim suffix3 As String, suffix4 As String
+    suffix1 = ",neste " & municipio1
+    suffix2 = ", neste " & municipio1
+    suffix3 = ",neste " & municipio2
+    suffix4 = ", neste " & municipio2
 
     Dim lowerText As String
     lowerText = LCase$(normalizedText)
@@ -1439,6 +1444,18 @@ Public Sub RemoveEmentaTrailingMunicipioSuffix(doc As Document)
     If deleteSuffix = "" And Len(lowerBase) >= Len(suffix2) Then
         If Right$(lowerBase, Len(suffix2)) = LCase$(suffix2) Then
             deleteSuffix = suffix2
+        End If
+    End If
+
+    If deleteSuffix = "" And Len(lowerBase) >= Len(suffix3) Then
+        If Right$(lowerBase, Len(suffix3)) = LCase$(suffix3) Then
+            deleteSuffix = suffix3
+        End If
+    End If
+
+    If deleteSuffix = "" And Len(lowerBase) >= Len(suffix4) Then
+        If Right$(lowerBase, Len(suffix4)) = LCase$(suffix4) Then
+            deleteSuffix = suffix4
         End If
     End If
 
@@ -2600,6 +2617,61 @@ Public Function EnsureBlankLinesBetweenLongParagraphs(doc As Document) As Boolea
 ErrorHandler:
     EnsureBlankLinesBetweenLongParagraphs = False
     LogMessage "Erro ao garantir linhas em branco entre paragrafos longos: " & Err.Description, LOG_LEVEL_WARNING
+End Function
+
+'================================================================================
+' ENSURE BLANK LINE BELOW CONSIDERANDO - Garante uma linha pulada abaixo de CONSIDERANDO
+'================================================================================
+Public Function EnsureConsideringBlankLines(doc As Document) As Boolean
+    On Error GoTo ErrorHandler
+
+    Dim i As Long
+    Dim p As Paragraph
+    Dim cleanText As String
+    Dim nextCleanText As String
+    Dim addedCount As Long
+
+    addedCount = 0
+    LogMessage "Verificando linhas em branco abaixo de CONSIDERANDO...", LOG_LEVEL_INFO
+
+    For i = doc.Paragraphs.count To 1 Step -1
+        Set p = doc.Paragraphs(i)
+        cleanText = Trim(Replace(Replace(p.Range.text, vbCr, ""), vbLf, ""))
+        
+        ' Verifica se o paragrafo comeca com CONSIDERANDO
+        If Left(UCase(cleanText), 12) = "CONSIDERANDO" Then
+            Dim needsBlank As Boolean
+            needsBlank = False
+            
+            If i = doc.Paragraphs.count Then
+                ' E o ultimo paragrafo, precisa de linha abaixo
+                needsBlank = True
+            Else
+                ' Verifica se o proximo paragrafo e em branco
+                nextCleanText = Trim(Replace(Replace(doc.Paragraphs(i + 1).Range.text, vbCr, ""), vbLf, ""))
+                If nextCleanText <> "" Or HasVisualContent(doc.Paragraphs(i + 1)) Then
+                    needsBlank = True
+                End If
+            End If
+            
+            If needsBlank Then
+                ' Insere paragrafo em branco logo apos o paragrafo atual
+                p.Range.InsertParagraphAfter
+                addedCount = addedCount + 1
+            End If
+        End If
+    Next i
+
+    If addedCount > 0 Then
+        LogMessage "Linhas em branco adicionadas abaixo de CONSIDERANDO: " & addedCount, LOG_LEVEL_INFO
+    End If
+
+    EnsureConsideringBlankLines = True
+    Exit Function
+
+ErrorHandler:
+    LogMessage "Erro ao garantir linhas em branco abaixo de CONSIDERANDO: " & Err.Description, LOG_LEVEL_WARNING
+    EnsureConsideringBlankLines = False
 End Function
 
 '================================================================================
@@ -4508,6 +4580,9 @@ NextVariant:
     If casaLeisRespostasCount > 0 Then
         LogMessage "Substituicao aplicada: 'retorne à esta Casa de Leis com as seguintes respostas' -> 'retorne à esta Casa de Leis com as seguintes informações' (" & casaLeisRespostasCount & "x)", LOG_LEVEL_INFO
     End If
+
+    ' Substitui Nº por n° exceto no titulo
+    ReplaceNoWithNoExceptTitle doc
 
     ApplyTextReplacements = True
     Exit Function
@@ -7141,5 +7216,71 @@ Public Sub AddSpecialElementsSpacing(doc As Document)
 
 ErrorHandler:
     LogMessage "Erro ao adicionar espacamento especial: " & Err.Description, LOG_LEVEL_WARNING
+End Sub
+
+'================================================================================
+' SUBSTITUI "Nº" POR "n°" EXCENTUANDO O TITULO DO DOCUMENTO
+'================================================================================
+Public Sub ReplaceNoWithNoExceptTitle(doc As Document)
+    On Error GoTo ErrorHandler
+
+    Dim titleRng As Range
+    Set titleRng = GetTituloRange(doc)
+
+    Dim searchRng As Range
+    Set searchRng = doc.Range
+
+    Dim findTexts(0 To 2) As String
+    findTexts(0) = "N" & Chr(186)  ' Nº (maiusculo, ordinal)
+    findTexts(1) = "N" & Chr(176)  ' N° (maiusculo, grau)
+    findTexts(2) = "n" & Chr(186)  ' nº (minusculo, ordinal)
+
+    Dim replaceText As String
+    replaceText = "n" & Chr(176)   ' n° (minusculo, grau)
+
+    Dim i As Integer
+    Dim foundCount As Long
+    foundCount = 0
+
+    For i = 0 To 2
+        Set searchRng = doc.Range
+        With searchRng.Find
+            .ClearFormatting
+            .Replacement.ClearFormatting
+            .text = findTexts(i)
+            .Forward = True
+            .Wrap = wdFindStop
+            .MatchCase = True
+            .MatchWholeWord = False
+            
+            Do While .Execute
+                ' Verifica se o range encontrado esta dentro do titulo
+                Dim inTitle As Boolean
+                inTitle = False
+                
+                If Not titleRng Is Nothing Then
+                    If searchRng.Start >= titleRng.Start And searchRng.End <= titleRng.End Then
+                        inTitle = True
+                    End If
+                End If
+                
+                If Not inTitle Then
+                    searchRng.text = replaceText
+                    foundCount = foundCount + 1
+                End If
+                
+                searchRng.Collapse wdCollapseEnd
+            Loop
+        End With
+    Next i
+
+    If foundCount > 0 Then
+        LogMessage "Substituicao aplicada: 'Nº'/'N°'/'nº' por 'n°' (" & foundCount & "x), exceto no titulo", LOG_LEVEL_INFO
+    End If
+
+    Exit Sub
+
+ErrorHandler:
+    LogMessage "Erro ao substituir 'Nº' por 'n°': " & Err.Description, LOG_LEVEL_WARNING
 End Sub
 

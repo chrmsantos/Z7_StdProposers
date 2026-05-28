@@ -13,7 +13,7 @@ LOGGER = configure_component_logger("chat_ia")
 _DEFAULT_MODEL = 'gemini-3.5-flash'
 _MAX_CONTEXT_CHARS = 150_000
 
-_APP_VERSION = "7.8.3"
+_APP_VERSION = "7.8.4"
 _APP_AUTHOR  = "CMS"
 _ORG         = "Câmara Municipal de Santa Bárbara d'Oeste"
 _LICENSE     = "GPL-3.0"
@@ -33,9 +33,9 @@ class ChatApp:
         screen_height = self.root.winfo_screenheight()
         
         chat_width = int(screen_width * 2 / 3)
-        chat_height = int(screen_height * 3 / 4)
+        chat_height = int(screen_height * 0.92)
         chat_left = 0
-        chat_top = (screen_height - chat_height) // 2 + int(screen_height * 0.05)  # Centraliza e desloca 5% para baixo
+        chat_top = int(screen_height * 0.02)
         
         self.chat_width_px = chat_width
         self.root.geometry(f"{chat_width}x{chat_height}+{chat_left}+{chat_top}")
@@ -54,6 +54,7 @@ class ChatApp:
         self.doc_text = ""
         self._doc_truncated = False
         self._context_pending = False
+        self.current_status_text = "Carregando contexto..."
 
         self.build_ui()
         self.apply_theme()
@@ -137,7 +138,6 @@ class ChatApp:
         # Header
         self.top_frame.configure(bg=bg)
         self.title_lbl.configure(bg=bg, fg=fg)
-        self.status_lbl.configure(bg=bg, fg=fg_muted)
         self.action_frame.configure(bg=bg)
         self.header_sep.configure(bg=border)
 
@@ -148,7 +148,7 @@ class ChatApp:
         # Analysis buttons (bottom bar)
         self.analysis_frame.configure(bg=bg)
         self.analysis_sep.configure(bg=border)
-        for btn in [self.grammar_btn, self.consistency_btn, self.load_ctx_btn]:
+        for btn in [self.grammar_btn, self.consistency_btn]:
             btn.configure(bg=btn_sec_bg, fg=fg, activebackground=btn_sec_hover, activeforeground=fg)
 
         # Chat area
@@ -179,6 +179,52 @@ class ChatApp:
             spacing1=4, spacing3=4)
         self.chat_area.tag_config("sys_tag",  font=("Segoe UI", 10, "italic"), foreground=fg_muted)
 
+        # Refresh the status badge with current mode
+        self.update_status(self.current_status_text)
+
+    def update_status(self, text: str) -> None:
+        """Atualiza o texto e a aparência do status de acordo com o estado atual."""
+        self.current_status_text = text
+        
+        # Determina a cor baseada no conteúdo do status
+        colors = z7_theme.get_theme_colors(self.mode)
+        text_lower = text.lower()
+        
+        if "erro" in text_lower or "inválida" in text_lower or "ausente" in text_lower:
+            # Estado de erro: vermelho destacado
+            fg_color = "#ef4444"
+            bg_color = "#fef2f2" if self.mode == "light" else "#450a0a"
+            border_color = "#fca5a5" if self.mode == "light" else "#991b1b"
+            indicator = "● "
+        elif "pronto" in text_lower or "copiada" in text_lower or "recebi" in text_lower:
+            # Estado pronto/sucesso: verde
+            fg_color = "#10b981" if self.mode == "light" else "#34d399"
+            bg_color = "#ecfdf5" if self.mode == "light" else "#064e3b"
+            border_color = "#a7f3d0" if self.mode == "light" else "#065f46"
+            indicator = "● "
+        elif "digitando" in text_lower or "corrigindo" in text_lower or "verificando" in text_lower or "carregando" in text_lower or "iniciando" in text_lower or "cancelando" in text_lower:
+            # Estado ocupado/trabalhando: azul/indigo
+            fg_color = "#6366f1" if self.mode == "light" else "#a5b4fc"
+            bg_color = "#f5f3ff" if self.mode == "light" else "#1e1b4b"
+            border_color = "#c7d2fe" if self.mode == "light" else "#312e81"
+            indicator = "◌ "
+        else:
+            # Estado padrão
+            fg_color = colors["fg_muted"]
+            bg_color = colors["bg"]
+            border_color = colors["border"]
+            indicator = ""
+            
+        def _apply():
+            self.status_lbl.config(text=f"{indicator}{text}", fg=fg_color, bg=bg_color)
+            if hasattr(self, "status_frame"):
+                self.status_frame.config(bg=bg_color, highlightbackground=border_color, highlightcolor=border_color)
+        
+        try:
+            self.root.after(0, _apply)
+        except Exception:
+            pass
+
     def build_ui(self) -> None:
         # ── Cabeçalho ────────────────────────────────────────────────────────
         self.top_frame = tk.Frame(self.root)
@@ -190,11 +236,19 @@ class ChatApp:
         )
         self.title_lbl.pack(side=tk.TOP, anchor="w")
 
-        self.status_lbl = tk.Label(
-            self.top_frame, text="Carregando contexto...",
-            font=("Segoe UI", 9, "italic")
+        self.status_frame = tk.Frame(
+            self.top_frame,
+            padx=8, pady=3,
+            highlightthickness=1,
+            bd=0
         )
-        self.status_lbl.pack(side=tk.TOP, anchor="w", pady=(2, 10))
+        self.status_frame.pack(side=tk.TOP, anchor="w", pady=(6, 12))
+
+        self.status_lbl = tk.Label(
+            self.status_frame, text="Carregando contexto...",
+            font=("Segoe UI", 9, "bold")
+        )
+        self.status_lbl.pack()
 
         self.action_frame = tk.Frame(self.top_frame)
         self.action_frame.pack(side=tk.TOP, anchor="w", pady=(0, 14))
@@ -272,13 +326,6 @@ class ChatApp:
         )
         self.consistency_btn.pack(side=tk.LEFT)
 
-        self.load_ctx_btn = tk.Button(
-            self.analysis_frame, text="📂  Carregar Contexto",
-            font=("Segoe UI", 9), relief=tk.FLAT, cursor="hand2",
-            padx=10, pady=5, command=self.load_context
-        )
-        self.load_ctx_btn.pack(side=tk.LEFT, padx=(8, 0))
-
         # Linha separadora acima dos botões de análise
         self.analysis_sep = tk.Frame(self.root, height=1)
         self.analysis_sep.pack(side=tk.BOTTOM, fill=tk.X)
@@ -300,8 +347,6 @@ class ChatApp:
             self.grammar_btn.winfo_reqwidth()
             + 8
             + self.consistency_btn.winfo_reqwidth()
-            + 8
-            + self.load_ctx_btn.winfo_reqwidth()
             + 48  # padx da janela
             + 20  # margem de conforto
         )
@@ -330,7 +375,7 @@ class ChatApp:
         if self.is_generating:
             self._cancel_requested = True
             self.send_btn.config(text="Enviar ➤")
-            self.status_lbl.config(text="Cancelando...")
+            self.update_status("Cancelando...")
         else:
             self.send_message()
 
@@ -339,9 +384,9 @@ class ChatApp:
             return
         self.root.clipboard_clear()
         self.root.clipboard_append(self.last_ai_reply)
-        old_status = self.status_lbl.cget("text")
-        self.status_lbl.config(text="Resposta copiada!")
-        self.root.after(2000, lambda: self.status_lbl.config(text=old_status))
+        old_status = self.current_status_text
+        self.update_status("Resposta copiada!")
+        self.root.after(2000, lambda: self.update_status(old_status))
 
     def _reload_doc_text(self) -> bool:
         """Tenta atualizar self.doc_text com o conteúdo atual do Word na thread principal."""
@@ -386,7 +431,7 @@ class ChatApp:
 
         self.is_generating = True
         self._cancel_requested = False
-        self.status_lbl.config(text="Carregando contexto na IA...")
+        self.update_status("Carregando contexto na IA...")
         self.send_btn.config(text="Cancelar")
 
         threading.Thread(target=self._load_context_thread, daemon=True).start()
@@ -425,7 +470,7 @@ class ChatApp:
 
         self.is_generating = True
         self._cancel_requested = False
-        self.status_lbl.config(text="IA corrigindo gramática...")
+        self.update_status("IA corrigindo gramática...")
         self.send_btn.config(text="Cancelar")
 
         threading.Thread(target=self._run_task_thread, args=("grammar",), daemon=True).start()
@@ -442,7 +487,7 @@ class ChatApp:
 
         self.is_generating = True
         self._cancel_requested = False
-        self.status_lbl.config(text="IA verificando consistência...")
+        self.update_status("IA verificando consistência...")
         self.send_btn.config(text="Cancelar")
 
         threading.Thread(target=self._run_task_thread, args=("consistency",), daemon=True).start()
@@ -482,7 +527,7 @@ class ChatApp:
         self.chat_area.config(state=tk.DISABLED)
         self.last_ai_reply = ""
         self.chat_session = None
-        self.status_lbl.config(text="Iniciando nova conversa...")
+        self.update_status("Iniciando nova conversa...")
         threading.Thread(target=self._new_conversation_thread, daemon=True).start()
 
     def _new_conversation_thread(self) -> None:
@@ -515,10 +560,10 @@ class ChatApp:
             self.root.after(0, lambda g=greeting: self._on_new_conversation_ready(g))
         except Exception as e:
             log_exception(LOGGER, "Failed to start new conversation", e)
-            self.root.after(0, lambda: self.status_lbl.config(text="Erro ao iniciar nova conversa."))
+            self.root.after(0, lambda: self.update_status("Erro ao iniciar nova conversa."))
 
     def _on_new_conversation_ready(self, greeting: str) -> None:
-        self.status_lbl.config(text="Pronto para conversar")
+        self.update_status("Pronto para conversar")
         self.append_message("AI", greeting)
         LOGGER.info("New conversation started")
 
@@ -579,7 +624,7 @@ class ChatApp:
             if not api_key:
                 LOGGER.error("Chat initialization aborted: missing API key")
                 self._set_word_status("Z7: Erro no Chat - chave da API indisponivel.")
-                self.root.after(0, lambda: self.status_lbl.config(text="Erro: Chave API ausente."))
+                self.root.after(0, lambda: self.update_status("Erro: Chave API ausente."))
                 return
 
             self.client = genai.Client(api_key=api_key, http_options={'timeout': 60_000})
@@ -643,16 +688,16 @@ class ChatApp:
             self._set_word_status("Z7: Erro ao inicializar o Chat IA.")
             error_msg = str(e).lower()
             if "403" in error_msg or "401" in error_msg or "invalid api key" in error_msg or "api_key" in error_msg:
-                self.root.after(0, lambda: self.status_lbl.config(text="Erro: Chave Inválida."))
+                self.root.after(0, lambda: self.update_status("Erro: Chave Inválida."))
                 self.root.after(0, lambda: self.append_message("Sistema", "Sua chave da API parece inválida ou expirou. Abra as Configurações da IA para atualizar ou remover a chave."))
             else:
-                self.root.after(0, lambda: self.status_lbl.config(text="Erro na inicialização."))
+                self.root.after(0, lambda: self.update_status("Erro na inicialização."))
                 self.root.after(0, lambda: self.append_message("Sistema", f"Erro crítico: {str(e)}"))
         finally:
             pythoncom.CoUninitialize()
 
     def _on_ai_ready(self) -> None:
-        self.status_lbl.config(text="Pronto para conversar")
+        self.update_status("Pronto para conversar")
         self.append_message("AI", getattr(self, 'initial_greeting', "Olá! Como posso ajudar?"))
 
     def send_message(self) -> None:
@@ -670,7 +715,7 @@ class ChatApp:
 
         self.is_generating = True
         self._cancel_requested = False
-        self.status_lbl.config(text="IA digitando...")
+        self.update_status("IA digitando...")
         self.send_btn.config(text="Cancelar")
 
         threading.Thread(target=self._send_message_thread, args=(user_msg,), daemon=True).start()
@@ -701,12 +746,12 @@ class ChatApp:
         self.input_text.focus_set()
         if self._cancel_requested:
             self._cancel_requested = False
-            self.status_lbl.config(text="Pronto para conversar")
+            self.update_status("Pronto para conversar")
             LOGGER.info("Response discarded after user cancel")
             return
         self.last_ai_reply = reply
         self.append_message("AI", reply)
-        self.status_lbl.config(text="Pronto para conversar")
+        self.update_status("Pronto para conversar")
 
 def main() -> None:
     root = tk.Tk()

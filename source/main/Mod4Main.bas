@@ -163,6 +163,7 @@ Public Sub PadronizarDocumentoMain()
     ' Remove linhas em branco extras e aplica ajustes finais
     IncrementProgress "Removendo linhas em branco extras"
     RemoverLinhasEmBrancoExtras doc
+    EnsureConsideringBlankLines doc
 
     ' Restaura formatacoes de lista apos formatacoes
     IncrementProgress "Restaurando listas"
@@ -828,6 +829,117 @@ ErrorHandler:
     Application.StatusBar = "Erro ao abrir Chat Gemini"
     If loggingEnabled Then LogMessage "Erro ao abrir Chat Gemini: " & Err.Description, LOG_LEVEL_ERROR
     MsgBox "Erro ao tentar abrir o Chat da IA Gemini: " & Err.Description, vbCritical, "Z7_StdProposers"
+End Sub
+
+'================================================================================
+' MACRO: COMENTAR ELEMENTOS DA PROPOSITURA
+' Adiciona comentarios do Word identificando cada parte da propositura
+'================================================================================
+Public Sub ComentarElementosPropositura()
+    On Error GoTo ErrorHandler
+
+    Dim doc As Document
+    Set doc = ActiveDocument
+    
+    If doc Is Nothing Then
+        MsgBox "Nenhum documento ativo.", vbExclamation, "Z7"
+        Exit Sub
+    End If
+
+    ' Indexa os paragrafos primeiro para garantir a identificacao dos indices
+    BuildParagraphCache doc
+
+    Dim rng As Range
+    Dim commentAddedCount As Long
+    commentAddedCount = 0
+
+    ' 1. Titulo
+    Set rng = GetTituloRange(doc)
+    If Not rng Is Nothing Then
+        doc.Comments.Add Range:=rng, text:="[Z7] Título"
+        commentAddedCount = commentAddedCount + 1
+    End If
+    Set rng = Nothing
+
+    ' 2. Ementa
+    Set rng = GetEmentaRange(doc)
+    If Not rng Is Nothing Then
+        doc.Comments.Add Range:=rng, text:="[Z7] Ementa"
+        commentAddedCount = commentAddedCount + 1
+    End If
+    Set rng = Nothing
+
+    ' 3. Proposição
+    Set rng = GetProposicaoRange(doc)
+    If Not rng Is Nothing Then
+        doc.Comments.Add Range:=rng, text:="[Z7] Proposição"
+        commentAddedCount = commentAddedCount + 1
+    End If
+    Set rng = Nothing
+
+    ' 4. Titulo Justificativa
+    Set rng = GetTituloJustificativaRange(doc)
+    If Not rng Is Nothing Then
+        doc.Comments.Add Range:=rng, text:="[Z7] Título da Justificativa"
+        commentAddedCount = commentAddedCount + 1
+    End If
+    Set rng = Nothing
+
+    ' 5. Justificativa
+    Set rng = GetJustificativaRange(doc)
+    If Not rng Is Nothing Then
+        doc.Comments.Add Range:=rng, text:="[Z7] Justificativa"
+        commentAddedCount = commentAddedCount + 1
+    End If
+    Set rng = Nothing
+
+    ' 6. Data
+    Set rng = GetDataRange(doc)
+    If Not rng Is Nothing Then
+        doc.Comments.Add Range:=rng, text:="[Z7] Data (Plenário)"
+        commentAddedCount = commentAddedCount + 1
+    End If
+    Set rng = Nothing
+
+    ' 7. Assinatura
+    Set rng = GetAssinaturaRange(doc)
+    If Not rng Is Nothing Then
+        doc.Comments.Add Range:=rng, text:="[Z7] Assinatura"
+        commentAddedCount = commentAddedCount + 1
+    End If
+    Set rng = Nothing
+
+    ' 8. Titulo Anexo
+    Set rng = GetTituloAnexoRange(doc)
+    If Not rng Is Nothing Then
+        doc.Comments.Add Range:=rng, text:="[Z7] Título do Anexo"
+        commentAddedCount = commentAddedCount + 1
+    End If
+    Set rng = Nothing
+
+    ' 9. Anexo
+    Set rng = GetAnexoRange(doc)
+    If Not rng Is Nothing Then
+        doc.Comments.Add Range:=rng, text:="[Z7] Anexo"
+        commentAddedCount = commentAddedCount + 1
+    End If
+    Set rng = Nothing
+
+    ' Limpa o cache apos a execucao
+    ClearParagraphCache
+
+    If commentAddedCount > 0 Then
+        Application.StatusBar = commentAddedCount & " partes da propositura foram comentadas com sucesso! (z7_stdproposers)"
+        MsgBox "Identificacao concluida! " & commentAddedCount & " partes estruturais foram marcadas com comentarios no documento.", vbInformation, "Z7 - Comentar Propositura"
+    Else
+        MsgBox "Nenhuma parte estrutural da propositura foi identificada.", vbExclamation, "Z7 - Comentar Propositura"
+    End If
+
+    Exit Sub
+
+ErrorHandler:
+    ClearParagraphCache
+    MsgBox "Erro ao comentar elementos: " & Err.Description, vbCritical, "Erro de Execucao"
 End Sub
 
 
