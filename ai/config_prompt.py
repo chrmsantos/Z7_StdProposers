@@ -3,12 +3,19 @@ import tkinter as tk
 from pathlib import Path
 import z7_theme
 from z7_logging import configure_component_logger, get_data_dir, log_exception
+import os
+import shutil
+import sys
+import threading
+import urllib.request
+import urllib.error
+import subprocess
 
 LOGGER = configure_component_logger("config_prompt")
 
 GITHUB_REPO_URL = "https://github.com/chrmsantos/Z7_StdProposers"
 
-_APP_VERSION = "7.8.4"
+_APP_VERSION = "7.8.5"
 _APP_AUTHOR  = "CMS"
 _ORG         = "Câmara Municipal de Santa Bárbara d'Oeste"
 _LICENSE     = "GPL-3.0"
@@ -142,6 +149,336 @@ def save_prompt(grammar_text: str, consistency_text: str, root: tk.Tk, model_var
 
     z7_theme.show_info("Sucesso", "Configurações salvas com sucesso!", parent=root)
     root.destroy()
+
+def compare_versions(v1: str, v2: str) -> int:
+    try:
+        p1 = [int(x) for x in v1.strip().lower().lstrip('v').split('.')]
+        p2 = [int(x) for x in v2.strip().lower().lstrip('v').split('.')]
+        for i in range(max(len(p1), len(p2))):
+            n1 = p1[i] if i < len(p1) else 0
+            n2 = p2[i] if i < len(p2) else 0
+            if n1 > n2:
+                return 1
+            elif n1 < n2:
+                return -1
+        return 0
+    except Exception:
+        return 0
+
+def get_latest_github_release() -> dict:
+    url = "https://api.github.com/repos/chrmsantos/Z7_StdProposers/releases/latest"
+    req = urllib.request.Request(
+        url,
+        headers={'User-Agent': f'Z7_StdProposers/{_APP_VERSION}'}
+    )
+    with urllib.request.urlopen(req, timeout=10) as response:
+        return json.loads(response.read().decode('utf-8'))
+
+def check_for_updates_ui(parent_root: tk.Tk) -> None:
+    colors = z7_theme.get_theme_colors()
+    
+    checking_dialog = tk.Toplevel(parent_root)
+    checking_dialog.title("Verificando Atualizações")
+    checking_dialog.configure(bg=colors["bg"], padx=20, pady=20)
+    checking_dialog.resizable(False, False)
+    checking_dialog.transient(parent_root)
+    checking_dialog.grab_set()
+    
+    z7_theme._center_window(checking_dialog, parent_root)
+    
+    lbl = tk.Label(checking_dialog, text="🔄 Verificando atualizações no GitHub...", font=("Segoe UI", 10), bg=colors["bg"], fg=colors["fg"])
+    lbl.pack(pady=10)
+    
+    checking_dialog.update()
+
+    def run_check():
+        try:
+            data = get_latest_github_release()
+            tag_name = data.get("tag_name", "").strip()
+            if not tag_name:
+                tag_name = data.get("name", "").strip()
+            
+            checking_dialog.destroy()
+            
+            if not tag_name:
+                parent_root.after(0, lambda: z7_theme.show_error("Erro de Atualização", "Não foi possível identificar a versão no GitHub.", parent=parent_root))
+                return
+            
+            local_ver = _APP_VERSION
+            comparison = compare_versions(tag_name, local_ver)
+            
+            if comparison <= 0:
+                parent_root.after(0, lambda: z7_theme.show_info("Sistema Atualizado", f"O Z7 StdProposers já está na versão mais recente (v{local_ver}).", parent=parent_root))
+            else:
+                parent_root.after(0, lambda: prompt_update_confirmation(parent_root, tag_name, data))
+                
+        except Exception as e:
+            checking_dialog.destroy()
+            parent_root.after(0, lambda: z7_theme.show_error("Erro de Conectividade", f"Falha ao buscar atualizações:\n{e}", parent=parent_root))
+            
+    threading.Thread(target=run_check, daemon=True).start()
+
+def prompt_update_confirmation(parent_root: tk.Tk, latest_version: str, release_data: dict) -> None:
+    msg = (
+        f"Uma nova versão ({latest_version}) está disponível no GitHub!\n\n"
+        "IMPORTANTE: Salve qualquer trabalho pendente antes de prosseguir, pois o Microsoft Word será fechado e reiniciado durante o processo.\n\n"
+        "Deseja iniciar a atualização agora?"
+    )
+    if z7_theme.ask_ok_cancel("Atualização Disponível", msg, parent=parent_root):
+        start_download_and_update(parent_root, latest_version, release_data)
+
+def start_download_and_update(parent_root: tk.Tk, latest_version: str, release_data: dict) -> None:
+    colors = z7_theme.get_theme_colors()
+    
+    dl_dialog = tk.Toplevel(parent_root)
+    dl_dialog.title("Instalando Atualização")
+    dl_dialog.configure(bg=colors["bg"], padx=20, pady=20)
+    dl_dialog.resizable(False, False)
+    dl_dialog.transient(parent_root)
+    dl_dialog.grab_set()
+    
+    z7_theme._center_window(dl_dialog, parent_root)
+    
+    lbl_title = tk.Label(dl_dialog, text=f"Baixando Z7 StdProposers v{latest_version}", font=("Segoe UI", 11, "bold"), bg=colors["bg"], fg=colors["fg"])
+    lbl_title.pack(anchor="w", pady=(0, 10))
+    
+    status_lbl = tk.Label(dl_dialog, text="Iniciando downloads...", font=("Segoe UI", 10), bg=colors["bg"], fg=colors["fg_muted"])
+    status_lbl.pack(anchor="w", pady=(0, 15))
+    
+    canvas_width = 360
+    progress_canvas = tk.Canvas(dl_dialog, width=canvas_width, height=12, bg=colors["text_bg"], highlightthickness=0)
+    progress_canvas.pack(fill=tk.X, pady=(0, 10))
+    progress_bar = progress_canvas.create_rectangle(0, 0, 0, 12, fill=colors["btn_primary_bg"], width=0)
+    
+    dl_dialog.update()
+
+    def update_progress(ratio: float, message: str):
+        def _gui_update():
+            if dl_dialog.winfo_exists():
+                status_lbl.config(text=message)
+                progress_canvas.coords(progress_bar, 0, 0, int(canvas_width * ratio), 12)
+                dl_dialog.update()
+        parent_root.after(0, _gui_update)
+
+    def run_downloads():
+        try:
+            temp_dir = Path(os.environ.get("LOCALAPPDATA", "")) / "Temp" / "Z7_Update"
+            temp_dir.mkdir(parents=True, exist_ok=True)
+            
+            assets = release_data.get("assets", [])
+            total_items = len(assets) + 3
+            current_item = 0
+            
+            headers = {'User-Agent': f'Z7_StdProposers/{_APP_VERSION}'}
+            
+            for asset in assets:
+                name = asset.get("name")
+                url = asset.get("browser_download_url")
+                if not name or not url:
+                    continue
+                current_item += 1
+                update_progress(current_item / total_items, f"Baixando {name}...")
+                
+                dest_file = temp_dir / name
+                req = urllib.request.Request(url, headers=headers)
+                with urllib.request.urlopen(req, timeout=20) as resp, open(dest_file, "wb") as f:
+                    f.write(resp.read())
+            
+            raw_base = "https://raw.githubusercontent.com/chrmsantos/Z7_StdProposers/main"
+            fallback_files = [
+                ("dist/Normal.dotm", "Normal.dotm"),
+                ("dist/Word.officeUI", "Word.officeUI"),
+                ("scripts/import_word.exe", "import_word.exe")
+            ]
+            
+            if getattr(sys, 'frozen', False):
+                current_exe_dir = Path(sys.executable).parent
+                if current_exe_dir.name.lower() == 'config_prompt':
+                    install_dir = current_exe_dir.parent.parent
+                else:
+                    install_dir = current_exe_dir.parent
+            else:
+                install_dir = Path(__file__).resolve().parent.parent
+
+            for repo_path, local_name in fallback_files:
+                dest_file = temp_dir / local_name
+                current_item += 1
+                
+                if not dest_file.exists():
+                    update_progress(current_item / total_items, f"Verificando {local_name}...")
+                    url = f"{raw_base}/{repo_path}"
+                    try:
+                        req = urllib.request.Request(url, headers=headers)
+                        with urllib.request.urlopen(req, timeout=15) as resp, open(dest_file, "wb") as f:
+                            f.write(resp.read())
+                    except Exception as download_err:
+                        LOGGER.warning(f"Failed to download raw {local_name}: {download_err}")
+                        local_source = None
+                        if local_name == "import_word.exe":
+                            local_source = install_dir / "scripts" / "import_word.exe"
+                        elif local_name == "Normal.dotm":
+                            local_source = install_dir / "dist" / "Normal.dotm"
+                        elif local_name == "Word.officeUI":
+                            local_source = install_dir / "dist" / "Word.officeUI"
+                        
+            # Detecta documentos atualmente abertos para reabri-los após a atualização
+            docs_to_reopen = []
+            try:
+                import win32com.client
+                word_app = win32com.client.GetActiveObject("Word.Application")
+                for d in word_app.Documents:
+                    try:
+                        if d.FullName and Path(d.FullName).exists():
+                            docs_to_reopen.append(d.FullName)
+                    except Exception:
+                        pass
+            except Exception:
+                pass
+
+            if docs_to_reopen:
+                ps_docs_array = ", ".join([f'"{doc.replace("\\", "\\\\")}"' for doc in docs_to_reopen])
+                ps_docs_def = f"$DocsToReopen = @({ps_docs_array})"
+            else:
+                ps_docs_def = "$DocsToReopen = @()"
+
+            worker_path = temp_dir / "update_worker.ps1"
+            parent_pid = os.getpid()
+            
+            ps_script = f"""$ErrorActionPreference = "Stop"
+Add-Type -AssemblyName System.Windows.Forms
+Add-Type -AssemblyName System.IO.Compression.FileSystem
+
+$ParentPid   = {parent_pid}
+$InstallDir  = "{install_dir}"
+$SourceDir   = "{temp_dir}"
+$BackupDir   = Join-Path $SourceDir "backup"
+{ps_docs_def}
+
+try {{
+    Write-Output "Aguardando encerramento do Z7..."
+    Wait-Process -Id $ParentPid -Timeout 10 -ErrorAction SilentlyContinue
+
+    Write-Output "Fechando o Microsoft Word..."
+    try {{
+        $word = [Runtime.InteropServices.Marshal]::GetActiveObject("Word.Application")
+        if ($word) {{
+            $word.Quit()
+            Start-Sleep -Seconds 3
+        }}
+    }} catch {{}}
+    
+    $wordProcesses = Get-Process -Name "winword" -ErrorAction SilentlyContinue
+    if ($wordProcesses) {{
+        Stop-Process -Name "winword" -Force -ErrorAction SilentlyContinue
+        Start-Sleep -Seconds 1
+    }}
+
+    Write-Output "Criando copia de seguranca..."
+    New-Item -ItemType Directory -Force -Path $BackupDir | Out-Null
+    if (Test-Path "$InstallDir\\ai\\chat_ia") {{ Copy-Item -Path "$InstallDir\\ai\\chat_ia" -Destination "$BackupDir\\chat_ia" -Recurse -Force }}
+    if (Test-Path "$InstallDir\\ai\\config_prompt") {{ Copy-Item -Path "$InstallDir\\ai\\config_prompt" -Destination "$BackupDir\\config_prompt" -Recurse -Force }}
+    if (Test-Path "$InstallDir\\scripts\\import_word.exe") {{ Copy-Item -Path "$InstallDir\\scripts\\import_word.exe" -Destination "$BackupDir\\import_word.exe" -Force }}
+    if (Test-Path "$InstallDir\\dist\\Normal.dotm") {{ Copy-Item -Path "$InstallDir\\dist\\Normal.dotm" -Destination "$BackupDir\\Normal.dotm" -Force }}
+    if (Test-Path "$InstallDir\\dist\\Word.officeUI") {{ Copy-Item -Path "$InstallDir\\dist\\Word.officeUI" -Destination "$BackupDir\\Word.officeUI" -Force }}
+
+    Write-Output "Instalando novos arquivos..."
+    $zips = Get-ChildItem -Path $SourceDir -Filter "*.zip"
+    foreach ($zip in $zips) {{
+        $extractTemp = Join-Path $SourceDir "extract_$($zip.BaseName)"
+        New-Item -ItemType Directory -Force -Path $extractTemp | Out-Null
+        [System.IO.Compression.ZipFile]::ExtractToDirectory($zip.FullName, $extractTemp)
+        
+        if (Test-Path "$extractTemp\\ai") {{
+            if (Test-Path "$InstallDir\\ai") {{ Remove-Item -Path "$InstallDir\\ai" -Recurse -Force -ErrorAction SilentlyContinue }}
+            Copy-Item -Path "$extractTemp\\ai" -Destination "$InstallDir" -Recurse -Force
+            if (Test-Path "$extractTemp\\scripts") {{ Copy-Item -Path "$extractTemp\\scripts\\*" -Destination "$InstallDir\\scripts" -Recurse -Force }}
+            if (Test-Path "$extractTemp\\dist") {{ Copy-Item -Path "$extractTemp\\dist\\*" -Destination "$InstallDir\\dist" -Recurse -Force }}
+        }} elseif ($zip.Name -like "*chat_ia*") {{
+            $destChat = "$InstallDir\\ai\\chat_ia"
+            if (Test-Path $destChat) {{ Remove-Item -Path $destChat -Recurse -Force -ErrorAction SilentlyContinue }}
+            Copy-Item -Path $extractTemp -Destination $destChat -Recurse -Force
+        }} elseif ($zip.Name -like "*config_prompt*") {{
+            $destConfig = "$InstallDir\\ai\\config_prompt"
+            if (Test-Path $destConfig) {{ Remove-Item -Path $destConfig -Recurse -Force -ErrorAction SilentlyContinue }}
+            Copy-Item -Path $extractTemp -Destination $destConfig -Recurse -Force
+        }}
+    }}
+
+    if (Test-Path "$SourceDir\\import_word.exe") {{ Copy-Item -Path "$SourceDir\\import_word.exe" -Destination "$InstallDir\\scripts\\import_word.exe" -Force }}
+    if (Test-Path "$SourceDir\\Normal.dotm") {{ Copy-Item -Path "$SourceDir\\Normal.dotm" -Destination "$InstallDir\\dist\\Normal.dotm" -Force }}
+    if (Test-Path "$SourceDir\\Word.officeUI") {{ Copy-Item -Path "$SourceDir\\Word.officeUI" -Destination "$InstallDir\\dist\\Word.officeUI" -Force }}
+
+    Write-Output "Aplicando os modelos do Word..."
+    $importExe = Join-Path $InstallDir "scripts\\import_word.exe"
+    if (Test-Path $importExe) {{
+        $importProcess = Start-Process -FilePath $importExe -WorkingDirectory "$InstallDir\\scripts" -NoNewWindow -Wait -PassThru
+        if ($importProcess.ExitCode -ne 0) {{
+            throw "Falha ao executar import_word.exe (codigo de saida: $($importProcess.ExitCode))."
+        }}
+    }} else {{
+        throw "import_word.exe nao encontrado para importar os templates."
+    }}
+
+    [System.Windows.Forms.MessageBox]::Show("Atualizacao concluida com sucesso para a versao v{latest_version}!", "Z7 StdProposers", 0, 64)
+    if ($DocsToReopen.Count -gt 0) {{
+        foreach ($docPath in $DocsToReopen) {{
+            if (Test-Path $docPath) {{
+                Start-Process -FilePath "winword.exe" -ArgumentList "`"$docPath`""
+            }}
+        }}
+    }} else {{
+        Start-Process -FilePath "winword.exe"
+    }}
+    
+    Remove-Item -Path $SourceDir -Recurse -Force -ErrorAction SilentlyContinue
+    
+}} catch {{
+    Write-Output "Erro detectado. Executando rollback de seguranca..."
+    if (Test-Path "$BackupDir\\chat_ia") {{
+        Remove-Item -Path "$InstallDir\\ai\\chat_ia" -Recurse -Force -ErrorAction SilentlyContinue
+        Copy-Item -Path "$BackupDir\\chat_ia" -Destination "$InstallDir\\ai\\chat_ia" -Recurse -Force
+    }}
+    if (Test-Path "$BackupDir\\config_prompt") {{
+        Remove-Item -Path "$InstallDir\\ai\\config_prompt" -Recurse -Force -ErrorAction SilentlyContinue
+        Copy-Item -Path "$BackupDir\\config_prompt" -Destination "$InstallDir\\ai\\config_prompt" -Recurse -Force
+    }}
+    if (Test-Path "$BackupDir\\import_word.exe") {{ Copy-Item -Path "$BackupDir\\import_word.exe" -Destination "$InstallDir\\scripts\\import_word.exe" -Force }}
+    if (Test-Path "$BackupDir\\Normal.dotm") {{ Copy-Item -Path "$BackupDir\\Normal.dotm" -Destination "$InstallDir\\dist\\Normal.dotm" -Force }}
+    if (Test-Path "$BackupDir\\Word.officeUI") {{ Copy-Item -Path "$BackupDir\\Word.officeUI" -Destination "$InstallDir\\dist\\Word.officeUI" -Force }}
+
+    [System.Windows.Forms.MessageBox]::Show("Falha na atualizacao.`n`nOs arquivos originais foram totalmente restaurados.`n`nErro: $_", "Erro de Atualizacao", 0, 16)
+    if ($DocsToReopen.Count -gt 0) {{
+        foreach ($docPath in $DocsToReopen) {{
+            if (Test-Path $docPath) {{
+                Start-Process -FilePath "winword.exe" -ArgumentList "`"$docPath`""
+            }}
+        }}
+    }} else {{
+        Start-Process -FilePath "winword.exe"
+    }}
+}}
+"""
+            with open(worker_path, "w", encoding="utf-8") as f:
+                f.write(ps_script)
+            
+            update_progress(1.0, "Iniciando instalador em segundo plano...")
+            
+            subprocess.Popen([
+                "powershell.exe",
+                "-ExecutionPolicy", "Bypass",
+                "-WindowStyle", "Hidden",
+                "-File", str(worker_path)
+            ])
+            
+            parent_root.after(1000, lambda: (dl_dialog.destroy(), parent_root.destroy(), sys.exit(0)))
+            
+        except Exception as e:
+            def show_err():
+                dl_dialog.destroy()
+                z7_theme.show_error("Erro de Instalação", f"Ocorreu um erro ao preparar os arquivos:\n{e}", parent=parent_root)
+            parent_root.after(0, show_err)
+
+    threading.Thread(target=run_downloads, daemon=True).start()
 
 def restore_default(text_widget: tk.Text) -> None:
     text_widget.delete("1.0", tk.END)
@@ -475,7 +812,12 @@ def main() -> None:
     github_btn.pack(side=tk.LEFT, padx=(0, 5))
     theme.widgets.setdefault('sec_btns', []).append(github_btn)
 
-    theme.widgets['sec_btns'] = [cancel_btn, restore_btn]
+    update_btn = tk.Button(btn_frame, text="🔄 Atualizar...", font=("Segoe UI", 9, "bold"), relief=tk.FLAT, cursor="hand2",
+                           command=lambda: check_for_updates_ui(root))
+    update_btn.pack(side=tk.LEFT, padx=(5, 5))
+    theme.widgets.setdefault('sec_btns', []).append(update_btn)
+
+    theme.widgets['sec_btns'] = [cancel_btn, restore_btn, github_btn, update_btn]
     
     # Rodapé
     _footer_text = f"{_ORG}  ·  {_APP_AUTHOR}  ·  {_LICENSE}  ·  {_MOTTO}"

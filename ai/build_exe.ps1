@@ -37,7 +37,8 @@ if (-not $pyinstallerPath) {
 function Invoke-PyInstaller {
 	param(
 		[Parameter(Mandatory = $true)]
-		[string]$ScriptName
+		[string]$ScriptName,
+		[switch]$OneFile
 	)
 
 	$baseName = [System.IO.Path]::GetFileNameWithoutExtension($ScriptName)
@@ -55,7 +56,8 @@ function Invoke-PyInstaller {
 	# --onedir: DLLs ficam pre-extraidas na pasta, eliminando 1-3s de extração em cada execução
 	# --noconfirm: sobrescreve dist sem pedir confirmacao interativa
 	# Nota: nao usar --clean pois remove o diretorio pre-criado (workaround bug Python 3.14)
-	$pyiArgs = @("--onedir", "--noconsole", "--noconfirm", $scriptPath)
+	$mode = if ($OneFile) { "--onefile" } else { "--onedir" }
+	$pyiArgs = @($mode, "--noconsole", "--noconfirm", $scriptPath)
 	$process = Start-Process -FilePath $pyinstallerPath -ArgumentList $pyiArgs -WorkingDirectory $scriptDir -NoNewWindow -Wait -PassThru
 	if ($process.ExitCode -ne 0) {
 		throw "Falha ao compilar $ScriptName (exit code: $($process.ExitCode))."
@@ -98,6 +100,19 @@ Write-Host "Compilando chat_ia.py..."
 Invoke-PyInstaller -ScriptName "chat_ia.py"
 Install-Executable -Name "chat_ia"
 Package-Artifact   -Name "chat_ia"
+
+Write-Host "Compilando installer.py..."
+Copy-Item -Path (Join-Path $projectRoot "scripts\installer.py") -Destination (Join-Path $scriptDir "installer.py") -Force
+Invoke-PyInstaller -ScriptName "installer.py" -OneFile
+
+$installerSrc = Join-Path $scriptDir "dist\installer.exe"
+if (Test-Path $installerSrc) {
+    Copy-Item -Path $installerSrc -Destination (Join-Path $projectRoot "scripts\installer.exe") -Force
+    New-Item -ItemType Directory -Force -Path $distDir | Out-Null
+    Copy-Item -Path $installerSrc -Destination (Join-Path $distDir "installer.exe") -Force
+    Write-Host "[installer] instalado e empacotado."
+}
+Remove-Item -Path (Join-Path $scriptDir "installer.py") -Force -ErrorAction SilentlyContinue
 
 
 
