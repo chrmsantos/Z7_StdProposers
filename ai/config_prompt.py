@@ -15,7 +15,7 @@ LOGGER = configure_component_logger("config_prompt")
 
 GITHUB_REPO_URL = "https://github.com/chrmsantos/Z7_StdProposers"
 
-_APP_VERSION = "7.8.5"
+_APP_VERSION = "7.8.6"
 _APP_AUTHOR  = "CMS"
 _ORG         = "Câmara Municipal de Santa Bárbara d'Oeste"
 _LICENSE     = "GPL-3.0"
@@ -647,14 +647,23 @@ def main() -> None:
             word = win32com.client.GetActiveObject("Word.Application")
         except Exception:
             word = win32com.client.GetObject(Class="Word.Application")
-        word.StatusBar = "Z7: Abrindo Configurações..."
+        word.StatusBar = "Z7: Abrindo Configuracoes..."
     except Exception as e:
         LOGGER.warning("Could not connect to Word to update status bar: %s", str(e))
         
     root = tk.Tk()
     root.title(f"Configurar Prompts — Z7 StdProposers v{_APP_VERSION}")
-    root.geometry("700x600")
-    root.minsize(600, 500)
+    
+    screen_width = root.winfo_screenwidth()
+    screen_height = root.winfo_screenheight()
+    
+    chat_width = int(screen_width * 2 / 3)
+    chat_height = int(screen_height * 0.92)
+    chat_left = 0
+    chat_top = int(screen_height * 0.02)
+    
+    root.geometry(f"{chat_width}x{chat_height}+{chat_left}+{chat_top}")
+    root.minsize(300, 500)
     
     theme = AppTheme(root)
     

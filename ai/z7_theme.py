@@ -167,7 +167,6 @@ def ask_string(title, message, parent=None, show=""):
 def ask_ok_cancel(title, message, parent=None):
     return _create_dialog(title, message, parent, is_prompt=False, is_cancelable=True)
 
-_privacy_prefs_cache: dict | None = None
 
 def _get_privacy_prefs_path() -> Path:
     return _get_data_dir() / "privacy_prefs.json"

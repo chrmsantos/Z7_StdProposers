@@ -13,7 +13,7 @@ LOGGER = configure_component_logger("chat_ia")
 _DEFAULT_MODEL = 'gemini-3.5-flash'
 _MAX_CONTEXT_CHARS = 150_000
 
-_APP_VERSION = "7.8.5"
+_APP_VERSION = "7.8.6"
 _APP_AUTHOR  = "CMS"
 _ORG         = "Câmara Municipal de Santa Bárbara d'Oeste"
 _LICENSE     = "GPL-3.0"
@@ -88,7 +88,7 @@ class ChatApp:
             word.WindowState = 1  # wdWindowStateNormal
             word.Left = 0
             word.Top = 0
-            word.StatusBar = "Z7: Aguardando interação no Chat..."
+            word.StatusBar = "Z7: Aguardando interacao no Chat..."
             
             # A API COM do Word trabalha em 'Points', enquanto o Tkinter usa 'Pixels'.
             # Precisamos converter para que a janela não fique gigante ou pequena demais.
