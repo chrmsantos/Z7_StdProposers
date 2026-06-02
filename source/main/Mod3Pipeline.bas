@@ -7066,6 +7066,8 @@ Public Sub ExecutarInstalador()
     Dim fso As Object
     Dim response As VbMsgBoxResult
 
+    LogMessage "ExecutarInstalador acionado manualmente pelo usuario", LOG_LEVEL_INFO
+
     ' Pergunta confirmacao ao usuario
     Dim msgInstaller As String
     msgInstaller = "Deseja executar o instalador do Z7_STDPROPOSERS?" & vbCrLf & vbCrLf & _
@@ -7077,8 +7079,11 @@ Public Sub ExecutarInstalador()
     response = MsgBox(msgInstaller, vbYesNo + vbQuestion, "Z7_STDPROPOSERS - Executar Instalador")
 
     If response <> vbYes Then
+        LogMessage "ExecutarInstalador cancelado pelo usuario no prompt de confirmacao", LOG_LEVEL_INFO
         Exit Sub
     End If
+
+    LogMessage "ExecutarInstalador: usuario confirmou execucao do instalador", LOG_LEVEL_INFO
 
     ' Caminho do instalador
     installerPath = Environ("USERPROFILE") & "\AppData\Local\Z7\Apps\Z7_StdProposers\installer.cmd"
@@ -7087,17 +7092,21 @@ Public Sub ExecutarInstalador()
     Set fso = CreateObject("Scripting.FileSystemObject")
 
     If Not fso.FileExists(installerPath) Then
+        LogMessage "ERRO CRITICO: Instalador nao encontrado para execucao manual em: " & installerPath, LOG_LEVEL_ERROR
         MsgBox "Instalador nao encontrado em:" & vbCrLf & installerPath & vbCrLf & vbCrLf & _
                "Baixe manualmente de: https://github.com/chrmsantos/Z7_StdProposers/raw/main/z7_stdproposers_installer.cmd", _
                vbExclamation, "Z7_STDPROPOSERS - Instalador Nao Encontrado"
         Exit Sub
     End If
 
+    LogMessage "ExecutarInstalador: instalador localizado em " & installerPath & ". Preparando salvamento de documentos...", LOG_LEVEL_INFO
+
     ' Salva todos os documentos abertos antes de executar o instalador
     Dim doc As Object
     For Each doc In Application.Documents
         If doc.Saved = False Then
             On Error Resume Next
+            LogMessage "Salvando documento pendente antes da instalacao: " & doc.Name, LOG_LEVEL_INFO
             doc.Save
             On Error GoTo ErrorHandler
         End If
@@ -7105,6 +7114,7 @@ Public Sub ExecutarInstalador()
 
     ' Executa o instalador em uma nova janela de comando
     shellCmd = "cmd.exe /c """ & installerPath & """"
+    LogMessage "Disparando shell cmd para iniciar atualizacao manual: " & shellCmd, LOG_LEVEL_INFO
     CreateObject("WScript.Shell").Run shellCmd, 1, False
 
     ' Mensagem informativa

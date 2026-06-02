@@ -77,7 +77,7 @@ Public Const CHAT_IA_SCRIPT_RELATIVE_PATH As String = "\AppData\Local\Z7\Apps\Z7
 '================================================================================
 ' CONSTANTES DE SISTEMA
 '================================================================================
-Public Const Z7_STDPROPOSERS_VERSION As String = "7.8.9"
+Public Const Z7_STDPROPOSERS_VERSION As String = "7.9.0"
 Public Const MIN_SUPPORTED_VERSION As Long = 14
 Public Const REQUIRED_STRING As String = "$NUMERO$/$ANO$"
 Public Const MAX_BACKUP_FILES As Long = 10
@@ -610,22 +610,26 @@ Public Function CheckForUpdates() As Boolean
     Dim updateAvailable As Boolean
 
     CheckForUpdates = False
+    
+    LogMessage "Iniciando verificacao de atualizacao...", LOG_LEVEL_INFO
 
     ' Nao executar verificacao durante operacao critica (ex.: padronizacao em andamento)
     If undoGroupEnabled Then
-        LogMessage "Verificacao de atualizacao ignorada: operacao em andamento", LOG_LEVEL_INFO
+        LogMessage "Verificacao de atualizacao ignorada: operacao de padronizacao em andamento", LOG_LEVEL_INFO
         Exit Function
     End If
 
     ' Cache: se ja checou com sucesso nesta sessao, reusa o resultado
     If lastUpdateCheckAttempt <> 0 Then
         If lastUpdateCheckSucceeded Then
+            LogMessage "Verificacao de atualizacao ignorada: resultado em cache utilizado (v" & cachedRemoteVersion & ")", LOG_LEVEL_INFO
             CheckForUpdates = cachedUpdateAvailable
             Exit Function
         End If
 
         ' Se a ultima tentativa falhou recentemente, evita repetir (reduz chance de travamentos)
         If DateDiff("n", lastUpdateCheckAttempt, Now) < UPDATE_CHECK_COOLDOWN_MINUTES Then
+            LogMessage "Verificacao de atualizacao ignorada devido ao cooldown de " & UPDATE_CHECK_COOLDOWN_MINUTES & " minutos", LOG_LEVEL_INFO
             CheckForUpdates = cachedUpdateAvailable
             Exit Function
         End If
@@ -636,17 +640,19 @@ Public Function CheckForUpdates() As Boolean
     ' Obtem versao local
     localVersion = GetLocalVersion()
     If localVersion = "" Then
-        LogMessage "Nao foi possivel obter versao local", LOG_LEVEL_WARNING
+        LogMessage "Nao foi possivel obter a versao local do arquivo VERSION", LOG_LEVEL_WARNING
         lastUpdateCheckSucceeded = False
         Exit Function
     End If
 
     cachedLocalVersion = localVersion
+    LogMessage "Versao local detectada: v" & localVersion, LOG_LEVEL_INFO
 
     ' Obtem versao remota do GitHub
+    LogMessage "Buscando versao remota no GitHub...", LOG_LEVEL_INFO
     remoteVersion = GetRemoteVersion()
     If remoteVersion = "" Then
-        LogMessage "Nao foi possivel obter versao remota", LOG_LEVEL_WARNING
+        LogMessage "Nao foi possivel obter a versao remota a partir do GitHub", LOG_LEVEL_WARNING
         lastUpdateCheckSucceeded = False
         cachedUpdateAvailable = False
         Exit Function
@@ -654,22 +660,23 @@ Public Function CheckForUpdates() As Boolean
 
     cachedRemoteVersion = remoteVersion
     lastUpdateCheckSucceeded = True
+    LogMessage "Versao remota detectada: v" & remoteVersion, LOG_LEVEL_INFO
 
     ' Compara versoes
     updateAvailable = CompareVersions(remoteVersion, localVersion) > 0
     cachedUpdateAvailable = updateAvailable
 
     If updateAvailable Then
-        LogMessage "Atualizacao disponivel: " & localVersion & " -> " & remoteVersion, LOG_LEVEL_INFO
+        LogMessage "Nova atualizacao disponivel: v" & localVersion & " -> v" & remoteVersion, LOG_LEVEL_INFO
         CheckForUpdates = True
     Else
-        LogMessage "Sistema esta atualizado (v" & localVersion & ")", LOG_LEVEL_INFO
+        LogMessage "Nenhuma atualizacao necessaria. O sistema esta atualizado (v" & localVersion & ")", LOG_LEVEL_INFO
     End If
 
     Exit Function
 
 ErrorHandler:
-    LogMessage "Erro ao verificar atualizacoes: " & Err.Description, LOG_LEVEL_ERROR
+    LogMessage "Erro ao verificar atualizacoes: " & Err.Description & " (Erro #" & Err.Number & ")", LOG_LEVEL_ERROR
     lastUpdateCheckSucceeded = False
     CheckForUpdates = False
 End Function
@@ -913,7 +920,10 @@ Public Sub PromptForUpdate()
     Dim installerPath As String
     Dim shellCmd As String
 
+    LogMessage "PromptForUpdate acionado interativamente pelo usuario", LOG_LEVEL_INFO
+
     If undoGroupEnabled Then
+        LogMessage "Atualizacao nao permitida: padronizacao em andamento", LOG_LEVEL_WARNING
         MsgBox "A verificacao de atualizacao nao pode ser executada durante a padronizacao." & vbCrLf & _
                "Aguarde a conclusao e tente novamente.", vbExclamation, "Z7_STDPROPOSERS - Atualizacao"
         Exit Sub
@@ -923,9 +933,12 @@ Public Sub PromptForUpdate()
     updateAvailable = CheckForUpdates()
 
     If Not updateAvailable Then
+        LogMessage "PromptForUpdate concluido: sistema ja esta atualizado", LOG_LEVEL_INFO
         MsgBox "Seu sistema Z7_STDPROPOSERS esta atualizado!", vbInformation, "Z7_STDPROPOSERS - Verificacao de Versao"
         Exit Sub
     End If
+
+    LogMessage "Prompt de atualizacao exibido ao usuario para versao v" & cachedRemoteVersion, LOG_LEVEL_INFO
 
     ' Pergunta ao usuario se deseja atualizar
     Dim msgUpdate As String
@@ -935,6 +948,7 @@ Public Sub PromptForUpdate()
     response = MsgBox(msgUpdate, vbYesNo + vbQuestion, "Z7_STDPROPOSERS - Atualizacao Disponivel")
 
     If response = vbYes Then
+        LogMessage "Usuario aceitou a atualizacao para v" & cachedRemoteVersion, LOG_LEVEL_INFO
         ' Caminho do instalador
         installerPath = Environ("USERPROFILE") & "\AppData\Local\Z7\Apps\Z7_StdProposers\installer.cmd"
 
@@ -945,30 +959,38 @@ Public Sub PromptForUpdate()
         If fso.FileExists(installerPath) Then
             ' Executa o instalador
             shellCmd = "cmd.exe /c """ & installerPath & """"
+            LogMessage "Instalador localizado em: " & installerPath & ". Preparando salvamento de documentos...", LOG_LEVEL_INFO
 
             ' Salva todos os documentos abertos
             Dim doc As Object
             For Each doc In Application.Documents
                 If doc.Saved = False Then
+                    LogMessage "Salvando documento pendente: " & doc.Name, LOG_LEVEL_INFO
                     doc.Save
                 End If
             Next doc
 
             ' Executa instalador e fecha o Word
+            LogMessage "Disparando shell cmd para iniciar atualizacao: " & shellCmd, LOG_LEVEL_INFO
             CreateObject("WScript.Shell").Run shellCmd, 1, False
 
+            LogMessage "Fechando Microsoft Word para atualizacao segura", LOG_LEVEL_INFO
             MsgBox "O instalador sera executado. O Word sera fechado agora.", vbInformation, "Z7_STDPROPOSERS - Atualizacao"
             Application.Quit SaveChanges:=wdSaveChanges
         Else
+            LogMessage "ERRO CRITICO: Arquivo do instalador nao encontrado em: " & installerPath, LOG_LEVEL_ERROR
             MsgBox "Instalador nao encontrado em:" & vbCrLf & installerPath & vbCrLf & vbCrLf & _
                    "Baixe manualmente de: https://github.com/chrmsantos/Z7_StdProposers", _
                    vbExclamation, "Z7_STDPROPOSERS - Erro"
         End If
+    Else
+        LogMessage "Usuario recusou a atualizacao para v" & cachedRemoteVersion, LOG_LEVEL_INFO
     End If
 
     Exit Sub
 
 ErrorHandler:
+    LogMessage "Erro ao processar atualizacao: " & Err.Description & " (Erro #" & Err.Number & ")", LOG_LEVEL_ERROR
     MsgBox "Erro ao processar atualizacao: " & Err.Description, vbCritical, "Z7_STDPROPOSERS - Erro"
 End Sub
 

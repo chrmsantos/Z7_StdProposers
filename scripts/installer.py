@@ -31,7 +31,7 @@ except ImportError:
 else:
     LOGGER = configure_component_logger("installer")
 
-_APP_VERSION = "7.8.9"
+_APP_VERSION = "7.9.0"
 GITHUB_REPO_URL = "https://github.com/chrmsantos/Z7_StdProposers"
 
 class InstallerTheme:
@@ -148,7 +148,7 @@ def main() -> None:
     
     # Card Central
     colors = z7_theme.get_theme_colors(theme.mode) if 'z7_theme' in sys.modules else None
-    card_frame = tk.Frame(root, relief=tk.SINGLE, bd=1, highlightthickness=1)
+    card_frame = tk.Frame(root, relief=tk.SOLID, bd=1, highlightthickness=1)
     card_frame.pack(fill=tk.BOTH, expand=True, padx=40, pady=(0, 25))
     theme.widgets['card_frame'] = card_frame
     
@@ -222,21 +222,31 @@ def main() -> None:
         # Pasta de backups
         backup_dir = temp_dir / "backup"
         
+        LOGGER.info("Iniciando processo de instalacao/atualizacao. Pasta destino: %s, Pasta temp: %s", install_dir, temp_dir)
+        
         try:
+            LOGGER.info("Fase 1: Verificando versao estavel no GitHub...")
             update_progress(0.05, "Verificando versão estável mais recente no GitHub...")
+            
             data = get_latest_github_release()
             latest_version = data.get("tag_name", "").strip().lower().lstrip('v')
             if not latest_version:
                 latest_version = data.get("name", "").strip().lower().lstrip('v')
             
             if not latest_version:
+                LOGGER.error("Falha ao resolver tag de versao remota. Dados da API: %s", data)
                 raise Exception("Não foi possível resolver a tag da versão mais recente no GitHub.")
             
+            LOGGER.info("Versao remota identificada com sucesso: v%s", latest_version)
             update_progress(0.1, f"Versão estável encontrada: v{latest_version}. Preparando pastas...")
+            
+            LOGGER.info("Preparando diretorio temporario: %s", temp_dir)
             temp_dir.mkdir(parents=True, exist_ok=True)
             
             # 1. Download de Ativos de Release
             assets = data.get("assets", [])
+            LOGGER.info("Encontrados %d ativos na release do GitHub", len(assets))
+            
             total_items = len(assets) + 3
             current_item = 0
             
@@ -246,14 +256,21 @@ def main() -> None:
                 name = asset.get("name")
                 url = asset.get("browser_download_url")
                 if not name or not url:
+                    LOGGER.warning("Ativo ignorado devido a nome ou URL ausente: %s", asset)
                     continue
                 current_item += 1
+                LOGGER.info("Baixando ativo %d/%d: %s de %s", current_item, len(assets), name, url)
                 update_progress(0.1 + (current_item / total_items) * 0.4, f"Baixando {name}...")
                 
                 dest_file = temp_dir / name
                 req = urllib.request.Request(url, headers=headers)
-                with urllib.request.urlopen(req, timeout=25) as resp, open(dest_file, "wb") as f:
-                    f.write(resp.read())
+                t0 = time.monotonic()
+                with urllib.request.urlopen(req, timeout=25) as resp:
+                    content = resp.read()
+                with open(dest_file, "wb") as f:
+                    f.write(content)
+                elapsed = time.monotonic() - t0
+                LOGGER.info("Download concluido para %s (%d bytes) em %.2fs", name, len(content), elapsed)
             
             # 2. Download Fallback de arquivos ausentes do repositório Raw
             raw_base = "https://raw.githubusercontent.com/chrmsantos/Z7_StdProposers/main"
@@ -263,6 +280,7 @@ def main() -> None:
                 ("scripts/import_word.exe", "import_word.exe")
             ]
             
+            LOGGER.info("Verificando downloads de fallback necessarios")
             for repo_path, local_name in fallback_files:
                 dest_file = temp_dir / local_name
                 current_item += 1
@@ -270,12 +288,18 @@ def main() -> None:
                 if not dest_file.exists():
                     update_progress(0.1 + (current_item / total_items) * 0.4, f"Verificando {local_name}...")
                     url = f"{raw_base}/{repo_path}"
+                    LOGGER.info("Ativo de fallback %s nao encontrado localmente. Tentando baixar de: %s", local_name, url)
                     try:
                         req = urllib.request.Request(url, headers=headers)
-                        with urllib.request.urlopen(req, timeout=15) as resp, open(dest_file, "wb") as f:
-                            f.write(resp.read())
+                        t0 = time.monotonic()
+                        with urllib.request.urlopen(req, timeout=15) as resp:
+                            content = resp.read()
+                        with open(dest_file, "wb") as f:
+                            f.write(content)
+                        elapsed = time.monotonic() - t0
+                        LOGGER.info("Download de fallback concluido para %s (%d bytes) em %.2fs", local_name, len(content), elapsed)
                     except Exception as download_err:
-                        LOGGER.warning(f"Failed to download raw {local_name}: {download_err}")
+                        LOGGER.warning("Falha ao baixar %s via URL Raw: %s. Tentando usar copia local do projeto...", local_name, download_err)
                         # Fallback: se o arquivo já existir localmente no diretório de compilação, copia dele
                         local_source = None
                         if local_name == "import_word.exe":
@@ -287,51 +311,75 @@ def main() -> None:
                         
                         if local_source and local_source.exists():
                             shutil.copy2(local_source, dest_file)
-                            LOGGER.info(f"Copied local {local_name} as fallback during installation")
+                            LOGGER.info("Copia local do fallback %s realizada com sucesso a partir de %s", local_name, local_source)
+                        else:
+                            LOGGER.error("Falha critica: arquivo de fallback %s nao pode ser obtido", local_name)
+                else:
+                    LOGGER.info("Arquivo de fallback %s ja existe na pasta temporaria, download dispensado", local_name)
             
+            LOGGER.info("Fase 2: Detectando e fechando o Microsoft Word...")
             update_progress(0.55, "Detectando e fechando o Microsoft Word...")
             
             # Detecta documentos abertos para reabertura automática
             docs_to_reopen = []
             try:
                 import win32com.client
+                LOGGER.info("Buscando instancia ativa do Word via COM...")
                 word_app = win32com.client.GetActiveObject("Word.Application")
+                LOGGER.info("Instancia do Word encontrada. Mapeando documentos abertos...")
                 for d in word_app.Documents:
                     try:
                         if d.FullName and Path(d.FullName).exists():
                             docs_to_reopen.append(d.FullName)
-                    except Exception:
-                        pass
+                            LOGGER.info("Documento aberto mapeado para reabertura: %s", d.FullName)
+                    except Exception as doc_err:
+                        LOGGER.warning("Falha ao obter informacoes do documento Word: %s", doc_err)
                 
-                # Fecha de forma amigável
+                LOGGER.info("Solicitando encerramento amigavel do Word...")
                 word_app.Quit()
                 import time
                 time.sleep(3)
-            except Exception:
-                pass
+            except Exception as com_err:
+                LOGGER.info("Nenhuma instancia ativa do Word COM detectada ou falha ao fechar amigavelmente: %s", com_err)
             
             # Encerramento garantido via taskkill se winword ainda ativo
-            subprocess.run("taskkill /f /im winword.exe", shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            LOGGER.info("Executando taskkill winword.exe para garantir finalizacao...")
+            res_kill = subprocess.run("taskkill /f /im winword.exe", shell=True, capture_output=True, text=True)
+            LOGGER.info("Resultado do taskkill: returncode=%d, stdout=%s, stderr=%s", res_kill.returncode, res_kill.stdout.strip(), res_kill.stderr.strip())
             
+            LOGGER.info("Fase 3: Criando backup da instalacao atual (se houver)...")
             update_progress(0.65, "Criando backup da instalação atual (se houver)...")
             
             # Se já existir uma instalação prévia, cria backup de segurança
             if install_dir.exists():
+                LOGGER.info("Pasta de instalacao previa detectada em %s. Criando backup em %s", install_dir, backup_dir)
                 backup_dir.mkdir(parents=True, exist_ok=True)
+                
+                backed_up_items = []
                 if (install_dir / "ai" / "chat_ia").exists():
                     shutil.copytree(install_dir / "ai" / "chat_ia", backup_dir / "chat_ia", dirs_exist_ok=True)
+                    backed_up_items.append("ai/chat_ia")
                 if (install_dir / "ai" / "config_prompt").exists():
                     shutil.copytree(install_dir / "ai" / "config_prompt", backup_dir / "config_prompt", dirs_exist_ok=True)
+                    backed_up_items.append("ai/config_prompt")
                 if (install_dir / "scripts" / "import_word.exe").exists():
                     shutil.copy2(install_dir / "scripts" / "import_word.exe", backup_dir / "import_word.exe")
+                    backed_up_items.append("scripts/import_word.exe")
                 if (install_dir / "dist" / "Normal.dotm").exists():
                     shutil.copy2(install_dir / "dist" / "Normal.dotm", backup_dir / "Normal.dotm")
+                    backed_up_items.append("dist/Normal.dotm")
                 if (install_dir / "dist" / "Word.officeUI").exists():
                     shutil.copy2(install_dir / "dist" / "Word.officeUI", backup_dir / "Word.officeUI")
+                    backed_up_items.append("dist/Word.officeUI")
+                LOGGER.info("Backup dos seguintes itens concluido com sucesso: %s", backed_up_items)
+            else:
+                LOGGER.info("Nenhuma instalacao previa encontrada em %s. Backup dispensado", install_dir)
             
+            LOGGER.info("Fase 4: Extraindo e aplicando novos binarios...")
             update_progress(0.75, "Extraindo e aplicando novos binários...")
             
             # Cria a estrutura final de pastas
+            LOGGER.info("Garantindo estrutura de pastas finais em %s", install_dir)
             install_dir.mkdir(parents=True, exist_ok=True)
             (install_dir / "ai").mkdir(exist_ok=True)
             (install_dir / "scripts").mkdir(exist_ok=True)
@@ -340,46 +388,62 @@ def main() -> None:
             # Extrai os pacotes zip baixados
             import zipfile
             zips = list(temp_dir.glob("*.zip"))
+            LOGGER.info("Encontrados %d arquivos ZIP para extrair", len(zips))
             for zip_file in zips:
                 extract_temp = temp_dir / f"extract_{zip_file.stem}"
+                LOGGER.info("Extraindo %s para %s", zip_file.name, extract_temp)
                 extract_temp.mkdir(parents=True, exist_ok=True)
                 with zipfile.ZipFile(zip_file, 'r') as zip_ref:
                     zip_ref.extractall(extract_temp)
                 
                 # Trata pacote unificado vs pacotes individuais
                 if (extract_temp / "ai").exists():
+                    LOGGER.info("Pacote unificado detectado em %s", zip_file.name)
                     shutil.copytree(extract_temp / "ai", install_dir / "ai", dirs_exist_ok=True)
                     if (extract_temp / "scripts").exists():
                         shutil.copytree(extract_temp / "scripts", install_dir / "scripts", dirs_exist_ok=True)
                     if (extract_temp / "dist").exists():
                         shutil.copytree(extract_temp / "dist", install_dir / "dist", dirs_exist_ok=True)
                 elif "chat_ia" in zip_file.name.lower():
+                    LOGGER.info("Pacote individual chat_ia detectado")
                     shutil.copytree(extract_temp, install_dir / "ai" / "chat_ia", dirs_exist_ok=True)
                 elif "config_prompt" in zip_file.name.lower():
+                    LOGGER.info("Pacote individual config_prompt detectado")
                     shutil.copytree(extract_temp, install_dir / "ai" / "config_prompt", dirs_exist_ok=True)
             
             # Copia recursos avulsos
+            copied_assets = []
             if (temp_dir / "import_word.exe").exists():
                 shutil.copy2(temp_dir / "import_word.exe", install_dir / "scripts" / "import_word.exe")
+                copied_assets.append("import_word.exe")
             if (temp_dir / "Normal.dotm").exists():
                 shutil.copy2(temp_dir / "Normal.dotm", install_dir / "dist" / "Normal.dotm")
+                copied_assets.append("Normal.dotm")
             if (temp_dir / "Word.officeUI").exists():
                 shutil.copy2(temp_dir / "Word.officeUI", install_dir / "dist" / "Word.officeUI")
+                copied_assets.append("Word.officeUI")
+            LOGGER.info("Arquivos avulsos copiados para a instalacao final: %s", copied_assets)
                 
+            LOGGER.info("Fase 5: Executando import_word.exe para configurar os templates no Word...")
             update_progress(0.9, "Executando import_word.exe para configurar os templates no Word...")
             
             import_exe = install_dir / "scripts" / "import_word.exe"
             if not import_exe.exists():
+                LOGGER.error("Arquivo import_word.exe nao encontrado no destino final: %s", import_exe)
                 raise Exception("Arquivo 'import_word.exe' não foi encontrado na instalação.")
             
             # Roda import_word em segundo plano silenciada e aguarda finalizar
+            LOGGER.info("Disparando subprocesso: %s", import_exe)
             res = subprocess.run([str(import_exe)], cwd=str(install_dir / "scripts"), capture_output=True, text=True)
+            LOGGER.info("Resultado de import_word.exe: returncode=%d, stdout=%s, stderr=%s", res.returncode, res.stdout.strip(), res.stderr.strip())
             if res.returncode != 0:
                 raise Exception(f"Falha ao executar import_word.exe: {res.stderr or res.stdout}")
             
+            LOGGER.info("Instalacao e configuracao concluidas com sucesso!")
             update_progress(1.0, "Instalação concluída com sucesso!")
             
             # Limpa vestígios temporários
+            LOGGER.info("Limpando diretorio temporario de instalacao: %s", temp_dir)
             shutil.rmtree(temp_dir, ignore_errors=True)
             
             def success_action():
@@ -391,6 +455,7 @@ def main() -> None:
                     tk.messagebox.showinfo("Sucesso", f"O Z7 StdProposers v{latest_version} foi instalado com sucesso!")
                 
                 # Reabre os documentos originais no Word (ou abre ele limpo)
+                LOGGER.info("Abrindo Microsoft Word. Documentos a reabrir: %s", docs_to_reopen)
                 if docs_to_reopen:
                     for doc_path in docs_to_reopen:
                         subprocess.Popen(["cmd.exe", "/c", "start", "winword.exe", doc_path])
@@ -401,25 +466,39 @@ def main() -> None:
             root.after(500, success_action)
             
         except Exception as err:
-            LOGGER.error(f"Erro crítico durante instalação: {err}")
+            LOGGER.error("Erro critico durante o processo de instalacao: %s", err, exc_info=True)
             
             # Rollback total de segurança
+            LOGGER.info("Iniciando ROLLBACK de seguranca para restaurar arquivos originais...")
             update_progress(1.0, "Ocorreu um erro. Revertendo arquivos originais...")
+            
             if backup_dir.exists():
-                if (backup_dir / "chat_ia").exists():
-                    shutil.rmtree(install_dir / "ai" / "chat_ia", ignore_errors=True)
-                    shutil.copytree(backup_dir / "chat_ia", install_dir / "ai" / "chat_ia", dirs_exist_ok=True)
-                if (backup_dir / "config_prompt").exists():
-                    shutil.rmtree(install_dir / "ai" / "config_prompt", ignore_errors=True)
-                    shutil.copytree(backup_dir / "config_prompt", install_dir / "ai" / "config_prompt", dirs_exist_ok=True)
-                if (backup_dir / "import_word.exe").exists():
-                    shutil.copy2(backup_dir / "import_word.exe", install_dir / "scripts" / "import_word.exe")
-                if (backup_dir / "Normal.dotm").exists():
-                    shutil.copy2(backup_dir / "Normal.dotm", install_dir / "dist" / "Normal.dotm")
-                if (backup_dir / "Word.officeUI").exists():
-                    shutil.copy2(backup_dir / "Word.officeUI", install_dir / "dist" / "Word.officeUI")
+                try:
+                    if (backup_dir / "chat_ia").exists():
+                        shutil.rmtree(install_dir / "ai" / "chat_ia", ignore_errors=True)
+                        shutil.copytree(backup_dir / "chat_ia", install_dir / "ai" / "chat_ia", dirs_exist_ok=True)
+                        LOGGER.info("Rollback: ai/chat_ia restaurado")
+                    if (backup_dir / "config_prompt").exists():
+                        shutil.rmtree(install_dir / "ai" / "config_prompt", ignore_errors=True)
+                        shutil.copytree(backup_dir / "config_prompt", install_dir / "ai" / "config_prompt", dirs_exist_ok=True)
+                        LOGGER.info("Rollback: ai/config_prompt restaurado")
+                    if (backup_dir / "import_word.exe").exists():
+                        shutil.copy2(backup_dir / "import_word.exe", install_dir / "scripts" / "import_word.exe")
+                        LOGGER.info("Rollback: scripts/import_word.exe restaurado")
+                    if (backup_dir / "Normal.dotm").exists():
+                        shutil.copy2(backup_dir / "Normal.dotm", install_dir / "dist" / "Normal.dotm")
+                        LOGGER.info("Rollback: dist/Normal.dotm restaurado")
+                    if (backup_dir / "Word.officeUI").exists():
+                        shutil.copy2(backup_dir / "Word.officeUI", install_dir / "dist" / "Word.officeUI")
+                        LOGGER.info("Rollback: dist/Word.officeUI restaurado")
+                    LOGGER.info("Rollback de seguranca executado com sucesso.")
+                except Exception as rollback_err:
+                    LOGGER.error("FALHA CRITICA NO ROLLBACK: %s", rollback_err, exc_info=True)
+            else:
+                LOGGER.info("Nenhum backup disponivel para restaurar, rollback nao realizado")
             
             # Limpa temporários
+            LOGGER.info("Limpando pasta temporaria apos falha: %s", temp_dir)
             shutil.rmtree(temp_dir, ignore_errors=True)
             
             def error_action():
@@ -431,6 +510,7 @@ def main() -> None:
                     tk.messagebox.showerror("Falha na Instalação", f"A instalação falhou. As configurações anteriores foram restauradas.\n\nErro: {err}")
                 
                 # Reabre os documentos no Word se foram fechados
+                LOGGER.info("Reabrindo Microsoft Word apos falha. Documentos a reabrir: %s", docs_to_reopen)
                 if docs_to_reopen:
                     for doc_path in docs_to_reopen:
                         subprocess.Popen(["cmd.exe", "/c", "start", "winword.exe", doc_path])
