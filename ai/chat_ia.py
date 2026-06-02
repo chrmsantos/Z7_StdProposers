@@ -13,7 +13,7 @@ LOGGER = configure_component_logger("chat_ia")
 _DEFAULT_MODEL = 'gemini-3.5-flash'
 _MAX_CONTEXT_CHARS = 150_000
 
-_APP_VERSION = "7.8.6"
+_APP_VERSION = "7.8.7"
 _APP_AUTHOR  = "CMS"
 _ORG         = "Câmara Municipal de Santa Bárbara d'Oeste"
 _LICENSE     = "GPL-3.0"

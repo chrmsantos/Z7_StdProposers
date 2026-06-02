@@ -4096,8 +4096,25 @@ Public Function FormatDocumentTitle(doc As Document) As Boolean
             If UBound(words) <= 0 Then Exit Do
             Dim lastW As String
             lastW = words(UBound(words))
-            ' Se a ultima palavra e numero, contem barra, ou e "N", "N.", "N" & Chr(186), remove.
-            If IsNumeric(lastW) Or InStr(lastW, "/") > 0 Or UCase(lastW) = "N" Or UCase(lastW) = "N." Or UCase(lastW) = "N" & Chr(186) Or UCase(lastW) = "NO" Then
+            
+            ' Verifica se a ultima palavra e uma abreviacao/indicador de numero ou fracao
+            Dim isNumIndicator As Boolean
+            isNumIndicator = False
+            
+            Dim uLastW As String
+            uLastW = UCase(lastW)
+            
+            If IsNumeric(lastW) Or InStr(lastW, "/") > 0 Then
+                isNumIndicator = True
+            ElseIf uLastW = "N" Or uLastW = "N." Or uLastW = "NO" Or uLastW = "N.O" Or uLastW = "NO." Then
+                isNumIndicator = True
+            ElseIf uLastW = "N" & Chr(186) Or uLastW = "N" & Chr(176) Then
+                isNumIndicator = True
+            ElseIf uLastW = "N." & Chr(186) Or uLastW = "N." & Chr(176) Then
+                isNumIndicator = True
+            End If
+            
+            If isNumIndicator Then
                 baseText = Left(baseText, Len(baseText) - Len(lastW))
                 baseText = Trim(baseText)
             Else
@@ -4566,10 +4583,12 @@ NextVariant:
     ' Funcionalidade 16: "Área Pública" e "Roçagem" sempre em minusculas
     Dim areaPublicaCount As Long
     Dim rocagemCount As Long
-    areaPublicaCount = ExecuteFindReplace(doc, "Área Pública", "área pública", False)
-    areaPublicaCount = areaPublicaCount + ExecuteFindReplace(doc, "Area Publica", "área pública", False)
-    rocagemCount = ExecuteFindReplace(doc, "Roçagem", "roçagem", False)
-    rocagemCount = rocagemCount + ExecuteFindReplace(doc, "Rocagem", "roçagem", False)
+    areaPublicaCount = ExecuteFindReplace(doc, "Área Pública", "área pública", True)
+    areaPublicaCount = areaPublicaCount + ExecuteFindReplace(doc, "Área pública", "área pública", True)
+    areaPublicaCount = areaPublicaCount + ExecuteFindReplace(doc, "Area Publica", "área pública", True)
+    areaPublicaCount = areaPublicaCount + ExecuteFindReplace(doc, "Area pública", "área pública", True)
+    rocagemCount = ExecuteFindReplace(doc, "Roçagem", "roçagem", True)
+    rocagemCount = rocagemCount + ExecuteFindReplace(doc, "Rocagem", "roçagem", True)
     If areaPublicaCount > 0 Or rocagemCount > 0 Then
         LogMessage "Substituicao aplicada: 'Área Pública' e 'Roçagem' em minusculas (" & (areaPublicaCount + rocagemCount) & "x)", LOG_LEVEL_INFO
     End If
