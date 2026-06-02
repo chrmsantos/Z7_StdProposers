@@ -4128,8 +4128,13 @@ Public Function FormatDocumentTitle(doc As Document) As Boolean
         newText = paraText
     End If
 
-    ' SEMPRE aplica formatacao de titulo: caixa alta, negrito, sublinhado
-    firstPara.Range.text = UCase(newText)
+    ' SEMPRE aplica formatacao de titulo: caixa alta, negrito, sublinhado (preserva marca de paragrafo)
+    Dim titleRng As Range
+    Set titleRng = firstPara.Range
+    If titleRng.End > titleRng.Start Then
+        titleRng.End = titleRng.End - 1
+    End If
+    titleRng.text = UCase(newText)
 
     ' Formatacao completa do titulo (primeira linha)
     With firstPara.Range.Font
@@ -4580,24 +4585,24 @@ NextVariant:
     ' Funcionalidade 14: Substitui "in loco" (com aspas) por in loco (italico, sem aspas)
     FormatInLocoItalic doc
 
-    ' Funcionalidade 16: "Área Pública" e "Roçagem" sempre em minusculas
+    ' Funcionalidade 16: "Área Pública" e "Roçagem" sempre em minusculas (ChrW seguro)
     Dim areaPublicaCount As Long
     Dim rocagemCount As Long
-    areaPublicaCount = ExecuteFindReplace(doc, "Área Pública", "área pública", True)
-    areaPublicaCount = areaPublicaCount + ExecuteFindReplace(doc, "Área pública", "área pública", True)
-    areaPublicaCount = areaPublicaCount + ExecuteFindReplace(doc, "Area Publica", "área pública", True)
-    areaPublicaCount = areaPublicaCount + ExecuteFindReplace(doc, "Area pública", "área pública", True)
-    rocagemCount = ExecuteFindReplace(doc, "Roçagem", "roçagem", True)
-    rocagemCount = rocagemCount + ExecuteFindReplace(doc, "Rocagem", "roçagem", True)
+    areaPublicaCount = ExecuteFindReplace(doc, "" & ChrW(193) & "rea P" & ChrW(250) & "blica", "" & ChrW(225) & "rea p" & ChrW(250) & "blica", True)
+    areaPublicaCount = areaPublicaCount + ExecuteFindReplace(doc, "" & ChrW(193) & "rea p" & ChrW(250) & "blica", "" & ChrW(225) & "rea p" & ChrW(250) & "blica", True)
+    areaPublicaCount = areaPublicaCount + ExecuteFindReplace(doc, "Area Publica", "" & ChrW(225) & "rea p" & ChrW(250) & "blica", True)
+    areaPublicaCount = areaPublicaCount + ExecuteFindReplace(doc, "Area p" & ChrW(250) & "blica", "" & ChrW(225) & "rea p" & ChrW(250) & "blica", True)
+    rocagemCount = ExecuteFindReplace(doc, "Ro" & ChrW(231) & "agem", "ro" & ChrW(231) & "agem", True)
+    rocagemCount = rocagemCount + ExecuteFindReplace(doc, "Rocagem", "ro" & ChrW(231) & "agem", True)
     If areaPublicaCount > 0 Or rocagemCount > 0 Then
-        LogMessage "Substituicao aplicada: 'Área Pública' e 'Roçagem' em minusculas (" & (areaPublicaCount + rocagemCount) & "x)", LOG_LEVEL_INFO
+        LogMessage "Substituicao aplicada: 'Area Publica' e 'Rocagem' em minusculas (" & (areaPublicaCount + rocagemCount) & "x)", LOG_LEVEL_INFO
     End If
 
-    ' Funcionalidade 17: "retorne à esta Casa de Leis com as seguintes respostas" -> "retorne à esta Casa de Leis com as seguintes informações"
+    ' Funcionalidade 17: "retorne à esta Casa de Leis com as seguintes respostas" -> "retorne à esta Casa de Leis com as seguintes informações" (ChrW seguro)
     Dim casaLeisRespostasCount As Long
-    casaLeisRespostasCount = ExecuteFindReplace(doc, "retorne à esta Casa de Leis com as seguintes respostas", "retorne à esta Casa de Leis com as seguintes informações", False)
+    casaLeisRespostasCount = ExecuteFindReplace(doc, "retorne " & ChrW(224) & " esta Casa de Leis com as seguintes respostas", "retorne " & ChrW(224) & " esta Casa de Leis com as seguintes informa" & ChrW(231) & ChrW(245) & "es", False)
     If casaLeisRespostasCount > 0 Then
-        LogMessage "Substituicao aplicada: 'retorne à esta Casa de Leis com as seguintes respostas' -> 'retorne à esta Casa de Leis com as seguintes informações' (" & casaLeisRespostasCount & "x)", LOG_LEVEL_INFO
+        LogMessage "Substituicao aplicada: 'retorne a esta Casa de Leis com as seguintes respostas' -> 'retorne a esta Casa de Leis com as seguintes informacoes' (" & casaLeisRespostasCount & "x)", LOG_LEVEL_INFO
     End If
 
     ' Substitui Nº por n° exceto no titulo
@@ -6668,7 +6673,7 @@ Public Sub RemoverLinhasEmBrancoExtras(doc As Document)
             Dim foundText As String
             foundText = Replace(repRange.text, vbCr, "")
             If InStr(foundText, "financeira e or") > 0 And InStr(foundText, "para atender tal solicita") > 0 Then
-                repRange.text = "Cabe ao Poder Legislativo dispor sobre as matérias de competência do Município, especialmente assuntos de interesse local. Compete-lhe também a função de fiscalização dos atos do Poder Executivo, abrangendo os atos administrativos, de gestão e fiscalização financeira e orçamentária do município." & vbCr & "Desta forma, faço esta indicação para o prefeito determinar ao setor competente realize os atos administrativos para atender tal solicitação." & vbCr
+                repRange.text = "Cabe ao Poder Legislativo dispor sobre as mat" & ChrW(233) & "rias de compet" & ChrW(234) & "ncia do Munic" & ChrW(237) & "pio, especialmente assuntos de interesse local. Compete-lhe tamb" & ChrW(233) & "m a fun" & ChrW(231) & ChrW(227) & "o de fiscaliza" & ChrW(231) & ChrW(227) & "o dos atos do Poder Executivo, abrangendo os atos administrativos, de gest" & ChrW(227) & "o e fiscaliza" & ChrW(231) & ChrW(227) & "o financeira e or" & ChrW(231) & "ament" & ChrW(225) & "ria do munic" & ChrW(237) & "pio." & vbCr & "Desta forma, fa" & ChrW(231) & "o esta indica" & ChrW(231) & ChrW(227) & "o para o prefeito determinar ao setor competente realize os atos administrativos para atender tal solicita" & ChrW(231) & ChrW(227) & "o." & vbCr
                 replacedCount = replacedCount + 1
             End If
             repRange.Collapse wdCollapseEnd
@@ -7193,6 +7198,50 @@ Public Sub AddSpecialElementsSpacing(doc As Document)
     elementsProcessed = 0
 
     LogMessage "Adicionando espacamento especial para ementa, justificativa e data...", LOG_LEVEL_INFO
+
+    ' Garante uma linha pulada sempre entre o titulo e a ementa
+    If tituloParaIndex > 0 And ementaParaIndex > 0 And ementaParaIndex > tituloParaIndex And tituloParaIndex <= doc.Paragraphs.count And ementaParaIndex <= doc.Paragraphs.count Then
+        Dim hasEmptyBetween As Boolean
+        hasEmptyBetween = False
+        
+        Dim idx As Long
+        For idx = tituloParaIndex + 1 To ementaParaIndex - 1
+            If idx <= doc.Paragraphs.count Then
+                Dim midParaText As String
+                midParaText = Trim(Replace(Replace(doc.Paragraphs(idx).Range.text, vbCr, ""), vbLf, ""))
+                If midParaText = "" And Not HasVisualContent(doc.Paragraphs(idx)) Then
+                    hasEmptyBetween = True
+                    Exit For
+                End If
+            End If
+        Next idx
+        
+        If Not hasEmptyBetween Then
+            On Error Resume Next
+            doc.Paragraphs(tituloParaIndex).Range.InsertParagraphAfter
+            
+            ' Ajusta indices subsequentes
+            ementaParaIndex = ementaParaIndex + 1
+            If dataParaIndex >= ementaParaIndex Then dataParaIndex = dataParaIndex + 1
+            If tituloJustificativaIndex >= ementaParaIndex Then tituloJustificativaIndex = tituloJustificativaIndex + 1
+            
+            ' Formata o novo paragrafo vazio para manter recuos e espacamentos padronizados
+            Dim emptyParaIndex As Long
+            emptyParaIndex = tituloParaIndex + 1
+            If emptyParaIndex <= doc.Paragraphs.count Then
+                With doc.Paragraphs(emptyParaIndex).Format
+                    .SpaceBefore = 0
+                    .SpaceAfter = 0
+                    .leftIndent = 0
+                    .RightIndent = 0
+                    .firstLineIndent = 0
+                    .LineSpacingRule = wdLineSpaceSingle
+                End With
+            End If
+            Err.Clear
+            On Error GoTo ErrorHandler
+        End If
+    End If
 
     ' Garante sem espaco antes e depois da Ementa
     If ementaParaIndex > 0 And ementaParaIndex <= doc.Paragraphs.count Then

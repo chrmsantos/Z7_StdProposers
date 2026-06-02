@@ -856,7 +856,7 @@ Public Sub ComentarElementosPropositura()
     ' 1. Titulo
     Set rng = GetTituloRange(doc)
     If Not rng Is Nothing Then
-        doc.Comments.Add Range:=rng, text:="[Z7] Título"
+        doc.Comments.Add Range:=rng, text:="[Z7] T" & ChrW(237) & "tulo"
         commentAddedCount = commentAddedCount + 1
     End If
     Set rng = Nothing
@@ -872,7 +872,7 @@ Public Sub ComentarElementosPropositura()
     ' 3. Proposição
     Set rng = GetProposicaoRange(doc)
     If Not rng Is Nothing Then
-        doc.Comments.Add Range:=rng, text:="[Z7] Proposição"
+        doc.Comments.Add Range:=rng, text:="[Z7] Proposi" & ChrW(231) & ChrW(227) & "o"
         commentAddedCount = commentAddedCount + 1
     End If
     Set rng = Nothing
@@ -880,7 +880,7 @@ Public Sub ComentarElementosPropositura()
     ' 4. Titulo Justificativa
     Set rng = GetTituloJustificativaRange(doc)
     If Not rng Is Nothing Then
-        doc.Comments.Add Range:=rng, text:="[Z7] Título da Justificativa"
+        doc.Comments.Add Range:=rng, text:="[Z7] T" & ChrW(237) & "tulo da Justificativa"
         commentAddedCount = commentAddedCount + 1
     End If
     Set rng = Nothing
@@ -896,7 +896,7 @@ Public Sub ComentarElementosPropositura()
     ' 6. Data
     Set rng = GetDataRange(doc)
     If Not rng Is Nothing Then
-        doc.Comments.Add Range:=rng, text:="[Z7] Data (Plenário)"
+        doc.Comments.Add Range:=rng, text:="[Z7] Data (Plen" & ChrW(225) & "rio)"
         commentAddedCount = commentAddedCount + 1
     End If
     Set rng = Nothing
@@ -912,7 +912,7 @@ Public Sub ComentarElementosPropositura()
     ' 8. Titulo Anexo
     Set rng = GetTituloAnexoRange(doc)
     If Not rng Is Nothing Then
-        doc.Comments.Add Range:=rng, text:="[Z7] Título do Anexo"
+        doc.Comments.Add Range:=rng, text:="[Z7] T" & ChrW(237) & "tulo do Anexo"
         commentAddedCount = commentAddedCount + 1
     End If
     Set rng = Nothing
