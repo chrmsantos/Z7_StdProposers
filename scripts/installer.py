@@ -5,6 +5,7 @@ import json
 import threading
 import urllib.request
 import urllib.error
+import unicodedata
 import subprocess
 import tkinter as tk
 from pathlib import Path
@@ -30,7 +31,7 @@ except ImportError:
 else:
     LOGGER = configure_component_logger("installer")
 
-_APP_VERSION = "7.8.7"
+_APP_VERSION = "7.8.8"
 GITHUB_REPO_URL = "https://github.com/chrmsantos/Z7_StdProposers"
 
 class InstallerTheme:
