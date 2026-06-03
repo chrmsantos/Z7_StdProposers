@@ -77,7 +77,7 @@ Public Const CHAT_IA_SCRIPT_RELATIVE_PATH As String = "\AppData\Local\Z7\Apps\Z7
 '================================================================================
 ' CONSTANTES DE SISTEMA
 '================================================================================
-Public Const Z7_STDPROPOSERS_VERSION As String = "7.9.0"
+Public Const Z7_STDPROPOSERS_VERSION As String = "7.9.1"
 Public Const MIN_SUPPORTED_VERSION As Long = 14
 Public Const REQUIRED_STRING As String = "$NUMERO$/$ANO$"
 Public Const MAX_BACKUP_FILES As Long = 10
@@ -602,7 +602,7 @@ End Function
 ' Descricao: Verifica se ha uma nova versao disponivel no GitHub
 ' Retorna: True se houver atualizacao disponivel, False caso contrario
 '================================================================================
-Public Function CheckForUpdates() As Boolean
+Public Function CheckForUpdates(Optional forceCheck As Boolean = False) As Boolean
     On Error GoTo ErrorHandler
 
     Dim localVersion As String
@@ -620,18 +620,20 @@ Public Function CheckForUpdates() As Boolean
     End If
 
     ' Cache: se ja checou com sucesso nesta sessao, reusa o resultado
-    If lastUpdateCheckAttempt <> 0 Then
-        If lastUpdateCheckSucceeded Then
-            LogMessage "Verificacao de atualizacao ignorada: resultado em cache utilizado (v" & cachedRemoteVersion & ")", LOG_LEVEL_INFO
-            CheckForUpdates = cachedUpdateAvailable
-            Exit Function
-        End If
+    If Not forceCheck Then
+        If lastUpdateCheckAttempt <> 0 Then
+            If lastUpdateCheckSucceeded Then
+                LogMessage "Verificacao de atualizacao ignorada: resultado em cache utilizado (v" & cachedRemoteVersion & ")", LOG_LEVEL_INFO
+                CheckForUpdates = cachedUpdateAvailable
+                Exit Function
+            End If
 
-        ' Se a ultima tentativa falhou recentemente, evita repetir (reduz chance de travamentos)
-        If DateDiff("n", lastUpdateCheckAttempt, Now) < UPDATE_CHECK_COOLDOWN_MINUTES Then
-            LogMessage "Verificacao de atualizacao ignorada devido ao cooldown de " & UPDATE_CHECK_COOLDOWN_MINUTES & " minutos", LOG_LEVEL_INFO
-            CheckForUpdates = cachedUpdateAvailable
-            Exit Function
+            ' Se a ultima tentativa falhou recentemente, evita repetir (reduz chance de travamentos)
+            If DateDiff("n", lastUpdateCheckAttempt, Now) < UPDATE_CHECK_COOLDOWN_MINUTES Then
+                LogMessage "Verificacao de atualizacao ignorada devido ao cooldown de " & UPDATE_CHECK_COOLDOWN_MINUTES & " minutos", LOG_LEVEL_INFO
+                CheckForUpdates = cachedUpdateAvailable
+                Exit Function
+            End If
         End If
     End If
 
@@ -757,8 +759,10 @@ Public Function GetRemoteVersion() As String
     ' Alguns MSXML podem falhar no header User-Agent; nao e critico
     On Error Resume Next
     http.setRequestHeader "User-Agent", "Z7_STDPROPOSERS/" & Z7_STDPROPOSERS_VERSION
-    ' Aplica timeouts independentemente da implementacao MSXML disponivel
-    http.setTimeouts 5000, 5000, 10000, 10000
+    ' Aplica timeouts condicionalmente se ServerXMLHTTP estiver em uso
+    If usedServerHttp Then
+        http.setTimeouts 5000, 5000, 10000, 10000
+    End If
     On Error GoTo ErrorHandler
 
     http.send
@@ -929,8 +933,8 @@ Public Sub PromptForUpdate()
         Exit Sub
     End If
 
-    ' Verifica se ha atualizacoes
-    updateAvailable = CheckForUpdates()
+    ' Verifica se ha atualizacoes (forcando checagem remota por ser interativo)
+    updateAvailable = CheckForUpdates(forceCheck:=True)
 
     If Not updateAvailable Then
         LogMessage "PromptForUpdate concluido: sistema ja esta atualizado", LOG_LEVEL_INFO

@@ -2,6 +2,7 @@ import os
 import sys
 import shutil
 import json
+import time
 import threading
 import urllib.request
 import urllib.error
@@ -31,7 +32,7 @@ except ImportError:
 else:
     LOGGER = configure_component_logger("installer")
 
-_APP_VERSION = "7.9.0"
+_APP_VERSION = "7.9.1"
 GITHUB_REPO_URL = "https://github.com/chrmsantos/Z7_StdProposers"
 
 class InstallerTheme:
@@ -337,7 +338,6 @@ def main() -> None:
                 
                 LOGGER.info("Solicitando encerramento amigavel do Word...")
                 word_app.Quit()
-                import time
                 time.sleep(3)
             except Exception as com_err:
                 LOGGER.info("Nenhuma instancia ativa do Word COM detectada ou falha ao fechar amigavelmente: %s", com_err)
@@ -458,9 +458,17 @@ def main() -> None:
                 LOGGER.info("Abrindo Microsoft Word. Documentos a reabrir: %s", docs_to_reopen)
                 if docs_to_reopen:
                     for doc_path in docs_to_reopen:
-                        subprocess.Popen(["cmd.exe", "/c", "start", "winword.exe", doc_path])
+                        try:
+                            os.startfile(doc_path)
+                        except Exception as start_err:
+                            LOGGER.warning("Falha ao abrir documento via startfile: %s. Tentando via Popen...", start_err)
+                            subprocess.Popen(["cmd.exe", "/c", "start", "", doc_path])
                 else:
-                    subprocess.Popen(["cmd.exe", "/c", "start", "winword.exe"])
+                    try:
+                        os.startfile("winword.exe")
+                    except Exception as start_err:
+                        LOGGER.warning("Falha ao abrir Word via startfile: %s. Tentando via Popen...", start_err)
+                        subprocess.Popen(["cmd.exe", "/c", "start", "winword.exe"])
                 sys.exit(0)
                 
             root.after(500, success_action)
@@ -513,9 +521,17 @@ def main() -> None:
                 LOGGER.info("Reabrindo Microsoft Word apos falha. Documentos a reabrir: %s", docs_to_reopen)
                 if docs_to_reopen:
                     for doc_path in docs_to_reopen:
-                        subprocess.Popen(["cmd.exe", "/c", "start", "winword.exe", doc_path])
+                        try:
+                            os.startfile(doc_path)
+                        except Exception as start_err:
+                            LOGGER.warning("Falha ao abrir documento via startfile: %s. Tentando via Popen...", start_err)
+                            subprocess.Popen(["cmd.exe", "/c", "start", "", doc_path])
                 else:
-                    subprocess.Popen(["cmd.exe", "/c", "start", "winword.exe"])
+                    try:
+                        os.startfile("winword.exe")
+                    except Exception as start_err:
+                        LOGGER.warning("Falha ao abrir Word via startfile: %s. Tentando via Popen...", start_err)
+                        subprocess.Popen(["cmd.exe", "/c", "start", "winword.exe"])
                 sys.exit(1)
                 
             root.after(500, error_action)

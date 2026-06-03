@@ -1149,6 +1149,10 @@ Public Function PreviousFormatting(doc As Document) As Boolean
     RemoveEmentaQuotes doc
     LogStepComplete "Remocao de aspas da ementa"
 
+    LogStepStart "Substituicao de DAE por Poder Executivo Municipal em Indicacoes"
+    ProcessEmentaIndicacao doc
+    LogStepComplete "Substituicao de DAE por Poder Executivo Municipal em Indicacoes"
+
     LogStepStart "Formatacao de titulo"
     FormatDocumentTitle doc
     LogStepComplete "Formatacao de titulo"
@@ -1585,6 +1589,79 @@ Public Sub RemoveEmentaQuotes(doc As Document)
 
 ErrorHandler:
     LogMessage "Erro ao remover aspas da ementa: " & Err.Description, LOG_LEVEL_WARNING
+End Sub
+
+'================================================================================
+' EMENTA - Substitui "Indica ao DAE" ou "Sugere ao DAE" por "Indica ao Poder Executivo Municipal"
+' em indicações (documentos cujo título começa com "INDICAÇÃO").
+'================================================================================
+Public Sub ProcessEmentaIndicacao(doc As Document)
+    On Error GoTo ErrorHandler
+
+    Dim titleRng As Range
+    Set titleRng = GetTituloRange(doc)
+    If titleRng Is Nothing Then Exit Sub
+
+    Dim titleText As String
+    titleText = Trim$(titleRng.text)
+    If Right$(titleText, 1) = vbCr Then titleText = Left$(titleText, Len(titleText) - 1)
+    titleText = Trim$(titleText)
+
+    Dim lowerTitle As String
+    lowerTitle = LCase$(titleText)
+
+    ' Verifica se o título começa com "INDICAÇÃO" ou "INDICACAO"
+    If Left$(lowerTitle, 9) = "indicação" Or Left$(lowerTitle, 9) = "indicacao" Then
+        Dim ementaRng As Range
+        Set ementaRng = GetEmentaRange(doc)
+        If ementaRng Is Nothing Then Exit Sub
+
+        Dim ementaText As String
+        ementaText = ementaRng.text
+
+        ' Remove o parágrafo vbCr final para manipulação de string
+        Dim hasCr As Boolean
+        hasCr = (Right$(ementaText, 1) = vbCr)
+        
+        Dim cleanEmenta As String
+        cleanEmenta = ementaText
+        If hasCr Then cleanEmenta = Left$(cleanEmenta, Len(cleanEmenta) - 1)
+
+        Dim trimEmenta As String
+        trimEmenta = Trim$(cleanEmenta)
+
+        Dim lowerTrimEmenta As String
+        lowerTrimEmenta = LCase$(trimEmenta)
+
+        Dim modified As Boolean
+        modified = False
+
+        ' Verifica se começa com "Indica ao DAE" ou "Sugere ao DAE" (13 caracteres)
+        If Len(lowerTrimEmenta) >= 13 Then
+            If Left$(lowerTrimEmenta, 13) = "indica ao dae" Then
+                trimEmenta = "Indica ao Poder Executivo Municipal" & Mid$(trimEmenta, 14)
+                modified = True
+            ElseIf Left$(lowerTrimEmenta, 13) = "sugere ao dae" Then
+                trimEmenta = "Indica ao Poder Executivo Municipal" & Mid$(trimEmenta, 14)
+                modified = True
+            End If
+        End If
+
+        If modified Then
+            If hasCr Then
+                ementaRng.text = trimEmenta & vbCr
+            Else
+                ementaRng.text = trimEmenta
+            End If
+            documentDirty = True
+            LogMessage "ProcessEmentaIndicacao: Ementa da Indicacao atualizada de DAE para Poder Executivo Municipal", LOG_LEVEL_INFO
+        End If
+    End If
+
+    Exit Sub
+
+ErrorHandler:
+    LogMessage "Erro ao processar ementa da indicacao: " & Err.Description, LOG_LEVEL_WARNING
 End Sub
 
 Public Function GetEmentaLeadingLabelDeleteLen(ByVal txt As String) As Long

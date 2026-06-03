@@ -16,7 +16,7 @@ Describe 'Z7_STDPROPOSERS - Update VBA' {
     }
 
     It 'Declara as rotinas de atualizacao corretas no modulo de infraestrutura' {
-        $mod1 | Should Match 'Public Function CheckForUpdates\(\) As Boolean'
+        $mod1 | Should Match 'Public Function CheckForUpdates\(Optional forceCheck As Boolean = False\) As Boolean'
         $mod1 | Should Match 'Public Function GetLocalVersion\(\) As String'
         $mod1 | Should Match 'Public Function GetRemoteVersion\(\) As String'
         $mod1 | Should Match 'Public Function CompareVersions\(ByVal version1 As String, ByVal version2 As String\) As Integer'

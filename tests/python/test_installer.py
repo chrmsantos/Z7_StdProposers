@@ -31,7 +31,7 @@ class TestGetLatestGithubRelease(unittest.TestCase):
         self.assertEqual(res["tag_name"], "v1.2.3")
         mock_request_cls.assert_called_once_with(
             "https://api.github.com/repos/chrmsantos/Z7_StdProposers/releases/latest",
-            headers={"User-Agent": "Z7_StdProposers/7.8.9"}
+            headers={"User-Agent": f"Z7_StdProposers/{installer._APP_VERSION}"}
         )
 
 
