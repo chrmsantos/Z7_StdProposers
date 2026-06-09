@@ -504,6 +504,31 @@ ErrorHandler:
     LogMessage "Erro na operacao Find/Replace: " & findText & " -> " & replaceText & " | " & Err.Description, LOG_LEVEL_WARNING
 End Function
 
+'--------------------------------------------------------------------------------
+' SafeReplaceText - Substitui o texto de um range mantendo a formatação original
+'--------------------------------------------------------------------------------
+Public Sub SafeReplaceText(ByVal rng As Range, ByVal newText As String)
+    If rng Is Nothing Then Exit Sub
+    
+    Dim origFont As Font
+    Dim origParaFormat As ParagraphFormat
+    
+    ' Salva a formatação original com segurança
+    On Error Resume Next
+    Set origFont = rng.Font.Duplicate
+    Set origParaFormat = rng.ParagraphFormat.Duplicate
+    On Error GoTo 0
+    
+    ' Realiza a substituição
+    rng.text = newText
+    
+    ' Restaura a formatação original no novo range (que agora contém o novo texto)
+    On Error Resume Next
+    If Not origFont Is Nothing Then rng.Font = origFont
+    If Not origParaFormat Is Nothing Then rng.ParagraphFormat = origParaFormat
+    On Error GoTo 0
+End Sub
+
 '================================================================================
 ' SISTEMA DE REGISTRO DE LOGS
 '================================================================================
@@ -1649,9 +1674,9 @@ Public Sub ProcessEmentaIndicacao(doc As Document)
 
         If modified Then
             If hasCr Then
-                ementaRng.text = trimEmenta & vbCr
+                SafeReplaceText ementaRng, trimEmenta & vbCr
             Else
-                ementaRng.text = trimEmenta
+                SafeReplaceText ementaRng, trimEmenta
             End If
             documentDirty = True
             LogMessage "ProcessEmentaIndicacao: Ementa da Indicacao atualizada de DAE para Poder Executivo Municipal", LOG_LEVEL_INFO
@@ -2074,7 +2099,7 @@ Public Function ApplyStdParagraphs(doc As Document) As Boolean
 
         ' Aplica o texto limpo APENAS se nao ha imagens E nao e paragrafo especial
         If cleanText <> para.Range.text And Not hasInlineImage And Not isSpecialFormatParagraph Then
-            para.Range.text = cleanText
+            SafeReplaceText para.Range, cleanText
         End If
 
         ' Formatacao de paragrafo - SEMPRE aplicada (exceto para paragrafos especiais)
@@ -2190,7 +2215,7 @@ Public Function FormatSecondParagraph(doc As Document) As Boolean
         If Len(paraFullText) >= 8 Then
             lowerStart = LCase(Left(paraFullText, 8))
             If lowerStart = "solicita" Then
-                para.Range.text = "Requer" & Mid(paraFullText, 9) & vbCr
+                SafeReplaceText para.Range, "Requer" & Mid(paraFullText, 9) & vbCr
                 LogMessage "Palavra inicial 'Solicita' substituida por 'Requer' no 2 paragrafo", LOG_LEVEL_INFO
                 wasReplaced = True
             End If
@@ -2200,7 +2225,7 @@ Public Function FormatSecondParagraph(doc As Document) As Boolean
         If Not wasReplaced And Len(paraFullText) >= 4 Then
             lowerStart = LCase(Left(paraFullText, 4))
             If lowerStart = "pede" Then
-                para.Range.text = "Requer" & Mid(paraFullText, 5) & vbCr
+                SafeReplaceText para.Range, "Requer" & Mid(paraFullText, 5) & vbCr
                 LogMessage "Palavra inicial 'Pede' substituida por 'Requer' no 2 paragrafo", LOG_LEVEL_INFO
                 wasReplaced = True
             End If
@@ -2210,7 +2235,7 @@ Public Function FormatSecondParagraph(doc As Document) As Boolean
         If Not wasReplaced And Len(paraFullText) >= 6 Then
             lowerStart = LCase(Left(paraFullText, 6))
             If lowerStart = "sugere" Then
-                para.Range.text = "Indica" & Mid(paraFullText, 7) & vbCr
+                SafeReplaceText para.Range, "Indica" & Mid(paraFullText, 7) & vbCr
                 LogMessage "Palavra inicial 'Sugere' substituida por 'Indica' no 2 paragrafo", LOG_LEVEL_INFO
                 wasReplaced = True
             End If
@@ -2235,7 +2260,7 @@ Public Function FormatSecondParagraph(doc As Document) As Boolean
             ' Verifica se termina com ", neste municipio"
             If Right(lowerTextNorm, 17) = ", neste municipio" Then
                 ' Remove os ultimos 17 caracteres
-                para.Range.text = Left(paraFullText, Len(paraFullText) - 17) & vbCr
+                SafeReplaceText para.Range, Left(paraFullText, Len(paraFullText) - 17) & vbCr
                 LogMessage "String ', neste municipio' removida do 2 paragrafo", LOG_LEVEL_INFO
             End If
         End If
@@ -4775,7 +4800,7 @@ Public Function NormalizeArt108ParaIndicarAfterEmenta(doc As Document) As Long
 
         replaceRng.Start = replaceRng.Start + leadingSpacesLen
         replaceRng.End = replaceRng.Start + endPos
-        replaceRng.text = newPhrase
+        SafeReplaceText replaceRng, newPhrase
 
         documentDirty = True
         NormalizeArt108ParaIndicarAfterEmenta = 1
@@ -4940,7 +4965,7 @@ Public Function NormalizeArt108IntroAfterEmenta(doc As Document) As Long
 
         replaceRng.Start = replaceRng.Start + leadingSpacesLen
         replaceRng.End = replaceRng.Start + (endPos - 1)
-        replaceRng.text = newText
+        SafeReplaceText replaceRng, newText
 
         documentDirty = True
         NormalizeArt108IntroAfterEmenta = 1
@@ -5133,7 +5158,7 @@ Public Sub SubstituiVereadoraPorSenhoraVereadora(doc As Document)
                 ' Substitui o conteudo sem remover a marca de paragrafo
                 Set rng = para.Range
                 rng.MoveEnd wdCharacter, -1
-                rng.text = "Senhora Vereadora,"
+                SafeReplaceText rng, "Senhora Vereadora,"
 
                 substitutedCount = substitutedCount + 1
                 LogMessage "Substituicao: 'Vereadora,' -> 'Senhora Vereadora,' (posicao: " & i & ")", LOG_LEVEL_INFO
@@ -6750,7 +6775,7 @@ Public Sub RemoverLinhasEmBrancoExtras(doc As Document)
             Dim foundText As String
             foundText = Replace(repRange.text, vbCr, "")
             If InStr(foundText, "financeira e or") > 0 And InStr(foundText, "para atender tal solicita") > 0 Then
-                repRange.text = "Cabe ao Poder Legislativo dispor sobre as mat" & ChrW(233) & "rias de compet" & ChrW(234) & "ncia do Munic" & ChrW(237) & "pio, especialmente assuntos de interesse local. Compete-lhe tamb" & ChrW(233) & "m a fun" & ChrW(231) & ChrW(227) & "o de fiscaliza" & ChrW(231) & ChrW(227) & "o dos atos do Poder Executivo, abrangendo os atos administrativos, de gest" & ChrW(227) & "o e fiscaliza" & ChrW(231) & ChrW(227) & "o financeira e or" & ChrW(231) & "ament" & ChrW(225) & "ria do munic" & ChrW(237) & "pio." & vbCr & "Desta forma, fa" & ChrW(231) & "o esta indica" & ChrW(231) & ChrW(227) & "o para o prefeito determinar ao setor competente realize os atos administrativos para atender tal solicita" & ChrW(231) & ChrW(227) & "o." & vbCr
+                SafeReplaceText repRange, "Cabe ao Poder Legislativo dispor sobre as mat" & ChrW(233) & "rias de compet" & ChrW(234) & "ncia do Munic" & ChrW(237) & "pio, especialmente assuntos de interesse local. Compete-lhe tamb" & ChrW(233) & "m a fun" & ChrW(231) & ChrW(227) & "o de fiscaliza" & ChrW(231) & ChrW(227) & "o dos atos do Poder Executivo, abrangendo os atos administrativos, de gest" & ChrW(227) & "o e fiscaliza" & ChrW(231) & ChrW(227) & "o financeira e or" & ChrW(231) & "ament" & ChrW(225) & "ria do munic" & ChrW(237) & "pio." & vbCr & "Desta forma, fa" & ChrW(231) & "o esta indica" & ChrW(231) & ChrW(227) & "o para o prefeito determinar ao setor competente realize os atos administrativos para atender tal solicita" & ChrW(231) & ChrW(227) & "o." & vbCr
                 replacedCount = replacedCount + 1
             End If
             repRange.Collapse wdCollapseEnd

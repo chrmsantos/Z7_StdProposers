@@ -334,6 +334,7 @@ Public Function GetProposicaoRange(doc As Document) As Range
     Set GetProposicaoRange = Nothing
 
     If proposicaoStartIndex <= 0 Or proposicaoEndIndex <= 0 Then Exit Function
+    If proposicaoStartIndex > proposicaoEndIndex Then Exit Function
     If proposicaoStartIndex > doc.Paragraphs.count Then Exit Function
     If proposicaoEndIndex > doc.Paragraphs.count Then Exit Function
 
@@ -375,6 +376,7 @@ Public Function GetJustificativaRange(doc As Document) As Range
     Set GetJustificativaRange = Nothing
 
     If justificativaStartIndex <= 0 Or justificativaEndIndex <= 0 Then Exit Function
+    If justificativaStartIndex > justificativaEndIndex Then Exit Function
     If justificativaStartIndex > doc.Paragraphs.count Then Exit Function
     If justificativaEndIndex > doc.Paragraphs.count Then Exit Function
 
@@ -416,6 +418,7 @@ Public Function GetAssinaturaRange(doc As Document) As Range
     Set GetAssinaturaRange = Nothing
 
     If assinaturaStartIndex <= 0 Or assinaturaEndIndex <= 0 Then Exit Function
+    If assinaturaStartIndex > assinaturaEndIndex Then Exit Function
     If assinaturaStartIndex > doc.Paragraphs.count Then Exit Function
     If assinaturaEndIndex > doc.Paragraphs.count Then Exit Function
 
@@ -457,6 +460,7 @@ Public Function GetAnexoRange(doc As Document) As Range
     Set GetAnexoRange = Nothing
 
     If anexoStartIndex <= 0 Or anexoEndIndex <= 0 Then Exit Function
+    If anexoStartIndex > anexoEndIndex Then Exit Function
     If anexoStartIndex > doc.Paragraphs.count Then Exit Function
     If anexoEndIndex > doc.Paragraphs.count Then Exit Function
 

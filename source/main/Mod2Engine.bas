@@ -95,25 +95,64 @@ Public Function IsTituloElement(para As Paragraph) As Boolean
     ' Obtem texto limpo
     Dim paraText As String
     paraText = Trim(para.Range.text)
-    If Len(paraText) < TITULO_MIN_LENGTH Then Exit Function
+    ' Aceita comprimentos a partir de 10 caracteres (ex: "MOCAO 1/26")
+    If Len(paraText) < 10 Then Exit Function
 
-    ' Verifica se termina com a string requerida
+    ' Limpa quebras de linha e espacos extras
     Dim cleanText As String
     cleanText = Replace(Replace(paraText, vbCr, ""), vbLf, "")
-    If Not (Right(Trim(cleanText), Len(REQUIRED_STRING)) = REQUIRED_STRING) Then Exit Function
+    
+    Dim cleanTextNorm As String
+    cleanTextNorm = Trim(cleanText)
+    If Right(cleanTextNorm, 1) = "." Then cleanTextNorm = Left(cleanTextNorm, Len(cleanTextNorm) - 1)
+    cleanTextNorm = Trim(cleanTextNorm)
+
+    ' Verifica se termina com a string de template ou com o padrao de Numero/Ano (ex: 123/2026, 45/26)
+    Dim hasValidSuffix As Boolean
+    hasValidSuffix = False
+    
+    If Right(cleanTextNorm, Len(REQUIRED_STRING)) = REQUIRED_STRING Then
+        hasValidSuffix = True
+    Else
+        If cleanTextNorm Like "*#/#" Or cleanTextNorm Like "*#/##" Or cleanTextNorm Like "*#/###" Or cleanTextNorm Like "*#/####" Then
+            ' Garante que o caractere anterior e posterior a barra sao numericos
+            Dim lastSlash As Long
+            lastSlash = InStrRev(cleanTextNorm, "/")
+            If lastSlash > 1 And lastSlash < Len(cleanTextNorm) Then
+                Dim leftChar As String
+                Dim rightChar As String
+                leftChar = Mid(cleanTextNorm, lastSlash - 1, 1)
+                rightChar = Mid(cleanTextNorm, lastSlash + 1, 1)
+                If IsNumeric(leftChar) And IsNumeric(rightChar) Then
+                    hasValidSuffix = True
+                End If
+            End If
+        End If
+    End If
+    
+    If Not hasValidSuffix Then Exit Function
 
     ' Verifica formatacao do paragrafo
     With para.Format
-        If .leftIndent <> 0 Then Exit Function
-        If .alignment <> wdAlignParagraphLeft Then Exit Function
+        ' Permite recuo de ate 36 pontos (1.27 cm) e aceita alinhamento a esquerda ou centralizado
+        If .leftIndent > 36 Then Exit Function
+        If .alignment <> wdAlignParagraphLeft And .alignment <> wdAlignParagraphCenter Then Exit Function
     End With
 
-    ' Verifica formatacao do texto (negrito, sublinhado, caixa alta)
-    With para.Range.Font
-        If .Bold <> msoTrue Then Exit Function
-        If .Underline = wdUnderlineNone Then Exit Function
-        If .AllCaps <> msoTrue Then Exit Function
-    End With
+    ' Verifica formatacao do texto (negrito e se inicia com palavra-chave)
+    Dim isBold As Boolean
+    isBold = (para.Range.Font.Bold = msoTrue)
+    
+    Dim normText As String
+    normText = NormalizeForComparison(cleanTextNorm)
+    
+    Dim startsWithKeyword As Boolean
+    startsWithKeyword = (Left(normText, 9) = "indicacao" Or _
+                         Left(normText, 12) = "requerimento" Or _
+                         Left(normText, 5) = "mocao")
+
+    ' Se nao for negrito e nao iniciar com palavra-chave, nao e titulo
+    If Not isBold And Not startsWithKeyword Then Exit Function
 
     IsTituloElement = True
     Exit Function
@@ -144,9 +183,7 @@ Public Function IsEmentaElement(para As Paragraph, prevParaIsTitulo As Boolean) 
     paraText = Trim(para.Range.text)
     If Len(paraText) = 0 Then Exit Function
 
-    ' Verifica recuo a esquerda
-    If para.Format.leftIndent <= EMENTA_MIN_LEFT_INDENT Then Exit Function
-
+    ' Aceita como ementa qualquer paragrafo nao-vazio apos o titulo
     IsEmentaElement = True
     Exit Function
 
@@ -165,12 +202,22 @@ Public Function IsJustificativaTitleElement(para As Paragraph) As Boolean
     ' Validacao de seguranca
     If para Is Nothing Then Exit Function
 
-    ' Verifica se o texto e "Justificativa"
+    ' Verifica se o texto contem "justificativa" ou "justificacao"
     Dim cleanText As String
     cleanText = GetCleanParagraphText(para)
-    If cleanText <> JUSTIFICATIVA_TEXT Then Exit Function
+    
+    ' Evita correspondencia em paragrafos normais longos
+    If Len(cleanText) > 40 Then Exit Function
 
-    IsJustificativaTitleElement = True
+    ' Normaliza para comparacao sem acentos
+    Dim normText As String
+    normText = NormalizeForComparison(cleanText)
+
+    ' Aceita se contiver "justificativa" ou "justificacao"
+    If InStr(normText, "justificativa") > 0 Or InStr(normText, "justificacao") > 0 Then
+        IsJustificativaTitleElement = True
+    End If
+    
     Exit Function
 
 ErrorHandler:
@@ -192,13 +239,72 @@ Public Function IsDataElement(para As Paragraph) As Boolean
     If para Is Nothing Then Exit Function
 
     ' Normaliza para comparacao (remove acentos) para aceitar "Plenario" e "Plenario" com acento
-     Dim paraTextCmp As String
-     paraTextCmp = NormalizeForComparison(Trim$(Replace(Replace(para.Range.text, vbCr, ""), vbLf, "")))
+    Dim paraTextCmp As String
+    paraTextCmp = NormalizeForComparison(Trim$(Replace(Replace(para.Range.text, vbCr, ""), vbLf, "")))
 
-     ' Busca por "plenario" e elementos relacionados
-     If InStr(paraTextCmp, "plenario") > 0 And _
-         InStr(paraTextCmp, "tancredo neves") > 0 Then
+    ' Limite de tamanho para evitar falsos positivos no corpo do texto
+    If Len(paraTextCmp) = 0 Or Len(paraTextCmp) > 120 Then Exit Function
+
+    ' 1. Placeholder de data
+    If InStr(paraTextCmp, "$dataatualextenso$") > 0 Then
         IsDataElement = True
+        Exit Function
+    End If
+
+    ' 2. Plenario Tancredo Neves (caso original)
+    If InStr(paraTextCmp, "plenario") > 0 And InStr(paraTextCmp, "tancredo neves") > 0 Then
+        IsDataElement = True
+        Exit Function
+    End If
+
+    ' 3. Contem padrao de data com um mes valido em portugues
+    Dim months As Variant
+    months = Array("janeiro", "fevereiro", "marco", "abril", "maio", "junho", _
+                   "julho", "agosto", "setembro", "outubro", "novembro", "dezembro")
+    
+    Dim hasMonthPattern As Boolean
+    hasMonthPattern = False
+    
+    Dim m As Variant
+    For Each m In months
+        If InStr(paraTextCmp, "de " & m & " de") > 0 Then
+            hasMonthPattern = True
+            Exit For
+        End If
+    Next m
+
+    If hasMonthPattern Then
+        ' Se tiver o padrao do mes, verificamos se contem alguma pista de local ou se simplemente
+        ' comeca com letra maiuscula/numero/placeholder e e um paragrafo curto.
+        Dim hasKeyword As Boolean
+        hasKeyword = (InStr(paraTextCmp, "plenario") > 0) Or _
+                     (InStr(paraTextCmp, "sessoes") > 0) Or _
+                     (InStr(paraTextCmp, "sessao") > 0) Or _
+                     (InStr(paraTextCmp, "camara") > 0) Or _
+                     (InStr(paraTextCmp, "sala") > 0) Or _
+                     (InStr(paraTextCmp, "gabinete") > 0) Or _
+                     (InStr(paraTextCmp, "prefeitura") > 0) Or _
+                     (InStr(paraTextCmp, "dado e passado") > 0) Or _
+                     (InStr(paraTextCmp, "palacio") > 0)
+        
+        If hasKeyword Then
+            IsDataElement = True
+            Exit Function
+        Else
+            ' Se nao tem keyword, mas e um paragrafo curto contendo a data, e que comeca com letra maiuscula, numero ou $
+            Dim origText As String
+            origText = Trim$(para.Range.text)
+            If Len(origText) > 0 Then
+                Dim firstChar As String
+                firstChar = Left$(origText, 1)
+                Dim firstCharUpper As String
+                firstCharUpper = UCase$(firstChar)
+                If (firstCharUpper Like "[A-Z0-9À-ÚÇ]") Or (firstCharUpper = "$") Then
+                    IsDataElement = True
+                    Exit Function
+                End If
+            End If
+        End If
     End If
 
     Exit Function
@@ -440,44 +546,7 @@ Public Sub IdentifyDocumentStructure(doc As Document)
                 End If
                 LogMessage "Data (Plenario) identificada no paragrafo " & i, LOG_LEVEL_INFO
 
-            ' 5. Identifica ASSINATURA (apos a data, com 2 linhas em branco)
-            ElseIf foundData And assinaturaStartIndex = 0 And IsAssinaturaStart(doc, i) Then
-                .isAssinatura = True
-                assinaturaStartIndex = i
-                ' Conta os 3 paragrafos + imagens (se houver)
-                Dim j As Long
-                Dim assinaturaCount As Long
-                assinaturaCount = 0
-                For j = i To cacheSize
-                    If j > cacheSize Then Exit For
-                    Dim tempText As String
-                    tempText = Trim(paragraphCache(j).text)
 
-                    ' Para em linha vazia
-                    If Len(tempText) = 0 Then Exit For
-
-                    ' Marca como assinatura
-                    paragraphCache(j).isAssinatura = True
-                    assinaturaCount = assinaturaCount + 1
-                    assinaturaEndIndex = j
-
-                    ' Se ja contou 3 paragrafos, verifica se ha imagens nos proximos
-                    If assinaturaCount >= ASSINATURA_PARAGRAPH_COUNT Then
-                        ' Verifica se proximo paragrafo tem imagem (sem linha vazia)
-                        If j + 1 <= cacheSize Then
-                            If paragraphCache(j + 1).hasImages Then
-                                ' Inclui imagem na assinatura
-                                paragraphCache(j + 1).isAssinatura = True
-                                assinaturaEndIndex = j + 1
-                            End If
-                        End If
-                        Exit For
-                    End If
-
-                    ' Limite de seguranca
-                    If assinaturaCount > 10 Then Exit For
-                Next j
-                LogMessage "Assinatura identificada nos paragrafos " & assinaturaStartIndex & " a " & assinaturaEndIndex, LOG_LEVEL_INFO
 
             ' 6. Identifica TITULO DO ANEXO
             ElseIf tituloAnexoIndex = 0 And IsTituloAnexoElement(para) Then
@@ -513,6 +582,41 @@ Public Sub IdentifyDocumentStructure(doc As Document)
             DoEvents
         End If
     Next i
+
+    ' 5. Identifica ASSINATURA (os dois primeiros paragrafos nao-vazios apos a data)
+    If dataParaIndex > 0 And assinaturaStartIndex = 0 Then
+        Dim searchIdx As Long
+        Dim foundCount As Long
+        foundCount = 0
+        
+        For searchIdx = dataParaIndex + 1 To cacheSize
+            ' Pula se o paragrafo no cache for vazio ou tiver apenas espacos/quebra
+            Dim checkTxt As String
+            checkTxt = Trim(Replace(Replace(paragraphCache(searchIdx).text, vbCr, ""), vbLf, ""))
+            
+            ' Se nao estiver vazio
+            If Len(checkTxt) > 0 Then
+                foundCount = foundCount + 1
+                If foundCount = 1 Then
+                    assinaturaStartIndex = searchIdx
+                    paragraphCache(searchIdx).isAssinatura = True
+                ElseIf foundCount = 2 Then
+                    assinaturaEndIndex = searchIdx
+                    paragraphCache(searchIdx).isAssinatura = True
+                    Exit For
+                End If
+            End If
+        Next searchIdx
+        
+        ' Fallback caso apenas 1 paragrafo nao-vazio tenha sido encontrado apos a data
+        If assinaturaStartIndex > 0 And assinaturaEndIndex = 0 Then
+            assinaturaEndIndex = assinaturaStartIndex
+        End If
+        
+        If assinaturaStartIndex > 0 And assinaturaEndIndex > 0 Then
+            LogMessage "Assinatura identificada nos paragrafos " & assinaturaStartIndex & " a " & assinaturaEndIndex, LOG_LEVEL_INFO
+        End If
+    End If
 
     ' Se nao encontrou fim da proposicao, define ate antes da justificativa ou data
     If proposicaoStartIndex > 0 And proposicaoEndIndex = 0 Then
