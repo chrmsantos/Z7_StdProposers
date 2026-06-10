@@ -197,6 +197,93 @@ ErrorHandler:
 End Function
 
 '--------------------------------------------------------------------------------
+' IsVocativoElement - Identifica se o paragrafo e o vocativo
+'--------------------------------------------------------------------------------
+Public Function IsVocativoElement(para As Paragraph) As Boolean
+    On Error GoTo ErrorHandler
+
+    IsVocativoElement = False
+
+    ' Validacao de seguranca
+    If para Is Nothing Then Exit Function
+
+    ' Verifica se contem texto
+    Dim paraText As String
+    paraText = Trim(para.Range.text)
+    If Len(paraText) = 0 Then Exit Function
+
+    ' Normaliza para comparacao (remove acentos, caixa baixa, quebras de linha)
+    Dim normText As String
+    normText = NormalizeForComparison(Trim$(Replace(Replace(paraText, vbCr, ""), vbLf, "")))
+    
+    ' Remove pontuacao comum no final do vocativo (como virgula ou dois pontos)
+    Do While Len(normText) > 0 And InStr(".,;:", Right(normText, 1)) > 0
+        normText = Left(normText, Len(normText) - 1)
+    Loop
+    normText = Trim$(normText)
+    normText = Replace(normText, "-", " ")
+
+    ' Limite de tamanho para evitar falsos positivos no corpo do texto (vocativos sao curtos)
+    If Len(normText) > 100 Then Exit Function
+
+    ' Vocativos nao devem conter numeros (ex: "Art. 1", "Lei 12.345")
+    Dim i As Long
+    For i = 1 To Len(normText)
+        If Mid(normText, i, 1) Like "[0-9]" Then
+            Exit Function
+        End If
+    Next i
+
+    ' Lista de prefixos/palavras-chave comuns que indicam vocativo
+    Dim isKeywordMatch As Boolean
+    isKeywordMatch = False
+
+    If Left(normText, 7) = "senhor " Or _
+       Left(normText, 7) = "senhora" Or _
+       Left(normText, 8) = "senhores" Or _
+       Left(normText, 8) = "senhoras" Or _
+       Left(normText, 3) = "sr " Or _
+       Left(normText, 4) = "sra " Or _
+       Left(normText, 4) = "srs " Or _
+       Left(normText, 14) = "excelentissimo" Or _
+       Left(normText, 14) = "excelentissima" Or _
+       Left(normText, 5) = "exmo " Or _
+       Left(normText, 5) = "exma " Or _
+       Left(normText, 5) = "nobre" Or _
+       Left(normText, 6) = "nobres" Or _
+       Left(normText, 7) = "ilustre" Or _
+       Left(normText, 8) = "ilustres" Or _
+       normText = "vereador" Or _
+       normText = "vereadora" Or _
+       normText = "presidente" Or _
+       normText = "prefeito" Or _
+       normText = "secretario" Or _
+       normText = "mesa diretora" Or _
+       InStr(normText, "membros da mesa") > 0 Or _
+       InStr(normText, "senhores membros") > 0 Then
+        isKeywordMatch = True
+    End If
+
+    If isKeywordMatch Then
+        ' Garante que nao comeca com termos tipicos de proposicao
+        If Not (Left(normText, 8) = "requeiro" Or _
+                Left(normText, 6) = "indico" Or _
+                Left(normText, 8) = "solicito" Or _
+                Left(normText, 12) = "considerando" Or _
+                Left(normText, 3) = "art" Or _
+                Left(normText, 7) = "decreto" Or _
+                Left(normText, 9) = "resolucao") Then
+            IsVocativoElement = True
+        End If
+    End If
+
+    Exit Function
+
+ErrorHandler:
+    IsVocativoElement = False
+End Function
+
+'--------------------------------------------------------------------------------
 ' IsJustificativaTitleElement - Identifica o titulo "Justificativa"
 '--------------------------------------------------------------------------------
 Public Function IsJustificativaTitleElement(para As Paragraph) As Boolean
@@ -485,6 +572,7 @@ Public Sub IdentifyDocumentStructure(doc As Document)
     anexoEndIndex = 0
 
     Dim i As Long
+    Dim tempJ As Long
     Dim para As Paragraph
     Dim foundTitulo As Boolean
     Dim foundJustificativa As Boolean
@@ -547,24 +635,59 @@ Public Sub IdentifyDocumentStructure(doc As Document)
         Next i
         
         If vocStart > 0 Then
-            vocativoStartIndex = vocStart
-            vocativoEndIndex = vocStart
-            
-            For i = vocStart To cacheSize
-                If i > doc.Paragraphs.count Then Exit For
-                Set para = doc.Paragraphs(i)
+            ' Apenas identifica como vocativo se realmente corresponder aos padroes
+            If IsVocativoElement(doc.Paragraphs(vocStart)) Then
+                vocativoStartIndex = vocStart
+                vocativoEndIndex = vocStart
                 
-                If Len(Trim(para.Range.text)) = 0 Then
-                    Exit For
-                End If
-                
-                ' Evita avancar sobre outros elementos estruturais conhecidos
-                If IsJustificativaTitleElement(para) Or IsDataElement(para) Or IsTituloAnexoElement(para) Then
-                    Exit For
-                End If
-                
-                vocativoEndIndex = i
-            Next i
+                For i = vocStart To cacheSize
+                    If i > doc.Paragraphs.count Then Exit For
+                    Set para = doc.Paragraphs(i)
+                    
+                    If Len(Trim(para.Range.text)) = 0 Then
+                        Exit For
+                    End If
+                    
+                    ' Evita avancar sobre outros elementos estruturais conhecidos
+                    If IsJustificativaTitleElement(para) Or IsDataElement(para) Or IsTituloAnexoElement(para) Then
+                        Exit For
+                    End If
+                    
+                    ' Para a leitura se a linha nao parecer com vocativo (ex: contem numeros ou termos de proposicao)
+                    Dim nextNorm As String
+                    nextNorm = NormalizeForComparison(Trim$(Replace(Replace(para.Range.text, vbCr, ""), vbLf, "")))
+                    Do While Len(nextNorm) > 0 And InStr(".,;:", Right(nextNorm, 1)) > 0
+                        nextNorm = Left(nextNorm, Len(nextNorm) - 1)
+                    Loop
+                    nextNorm = Trim$(nextNorm)
+                    
+                    If Len(nextNorm) > 80 Then Exit For
+                    
+                    ' Se contem digitos, nao e vocativo
+                    Dim hasDigits As Boolean
+                    hasDigits = False
+                    For tempJ = 1 To Len(nextNorm)
+                        If Mid(nextNorm, tempJ, 1) Like "[0-9]" Then
+                            hasDigits = True
+                            Exit For
+                        End If
+                    Next tempJ
+                    If hasDigits Then Exit For
+                    
+                    ' Se parecer com proposicao, para
+                    If Left(nextNorm, 8) = "requeiro" Or _
+                       Left(nextNorm, 6) = "indico" Or _
+                       Left(nextNorm, 8) = "solicito" Or _
+                       Left(nextNorm, 12) = "considerando" Or _
+                       Left(nextNorm, 3) = "art" Or _
+                       Left(nextNorm, 7) = "decreto" Or _
+                       Left(nextNorm, 9) = "resolucao" Then
+                        Exit For
+                    End If
+                    
+                    vocativoEndIndex = i
+                Next i
+            End If
         End If
         
         ' Encontra o inicio da Proposicao

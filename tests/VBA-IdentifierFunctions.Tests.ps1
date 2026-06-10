@@ -43,6 +43,14 @@ Describe 'Z7_STDPROPOSERS - VBA Identifier Functions (Modular)' {
         }
     }
 
+    Context 'Novas funcoes de identificacao' {
+        It 'Declara IsVocativoElement' {
+            $mod2Path = Join-Path $repoRoot 'source\main\Mod2Engine.bas'
+            $mod2Content = Get-Content $mod2Path -Raw -Encoding UTF8
+            $mod2Content | Should Match '(?m)^Public Function IsVocativoElement\(para As Paragraph\) As Boolean'
+        }
+    }
+
     Context 'Validacoes de seguranca por indice' {
         It 'GetTituloRange valida limites de indice' {
             $script:mod4Content | Should Match 'If tituloParaIndex <= 0 Or tituloParaIndex > doc\.Paragraphs\.count Then Exit Function'
