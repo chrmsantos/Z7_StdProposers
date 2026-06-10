@@ -183,8 +183,13 @@ Public Function IsEmentaElement(para As Paragraph, prevParaIsTitulo As Boolean) 
     paraText = Trim(para.Range.text)
     If Len(paraText) = 0 Then Exit Function
 
-    ' Aceita como ementa qualquer paragrafo nao-vazio apos o titulo
-    IsEmentaElement = True
+    ' Criterio do recuo a esquerda: deve ser acima de 7 cm (aprox. 198.45 pontos)
+    Dim minIndent As Single
+    minIndent = Application.CentimetersToPoints(7)
+    
+    If para.Format.leftIndent > minIndent Then
+        IsEmentaElement = True
+    End If
     Exit Function
 
 ErrorHandler:
@@ -465,6 +470,8 @@ Public Sub IdentifyDocumentStructure(doc As Document)
     ' Reseta todos os indices
     tituloParaIndex = 0
     ementaParaIndex = 0
+    vocativoStartIndex = 0
+    vocativoEndIndex = 0
     proposicaoStartIndex = 0
     proposicaoEndIndex = 0
     tituloJustificativaIndex = 0
@@ -487,9 +494,103 @@ Public Sub IdentifyDocumentStructure(doc As Document)
     foundJustificativa = False
     foundData = False
 
-    ' Percorre todos os paragrafos
+    ' 1. Identifica Titulo, Ementa e Vocativo sequencialmente
+    ' Encontra o Titulo
     For i = 1 To cacheSize
-        ' Protecao contra mudancas no documento durante execucao
+        If i > doc.Paragraphs.count Then Exit For
+        Set para = doc.Paragraphs(i)
+        If IsTituloElement(para) Then
+            tituloParaIndex = i
+            foundTitulo = True
+            Exit For
+        End If
+    Next i
+
+    If foundTitulo Then
+        ' Encontra a Ementa (se houver)
+        Dim firstTextIdx As Long
+        firstTextIdx = 0
+        For i = tituloParaIndex + 1 To cacheSize
+            If i > doc.Paragraphs.count Then Exit For
+            Set para = doc.Paragraphs(i)
+            If Len(Trim(para.Range.text)) > 0 Then
+                firstTextIdx = i
+                Exit For
+            End If
+        Next i
+        
+        If firstTextIdx > 0 Then
+            Set para = doc.Paragraphs(firstTextIdx)
+            If IsEmentaElement(para, True) Then
+                ementaParaIndex = firstTextIdx
+            End If
+        End If
+        
+        ' Encontra o Vocativo
+        Dim vocStart As Long
+        vocStart = 0
+        
+        Dim startSearchIdx As Long
+        If ementaParaIndex > 0 Then
+            startSearchIdx = ementaParaIndex + 1
+        Else
+            startSearchIdx = tituloParaIndex + 1
+        End If
+        
+        For i = startSearchIdx To cacheSize
+            If i > doc.Paragraphs.count Then Exit For
+            Set para = doc.Paragraphs(i)
+            If Len(Trim(para.Range.text)) > 0 Then
+                vocStart = i
+                Exit For
+            End If
+        Next i
+        
+        If vocStart > 0 Then
+            vocativoStartIndex = vocStart
+            vocativoEndIndex = vocStart
+            
+            For i = vocStart To cacheSize
+                If i > doc.Paragraphs.count Then Exit For
+                Set para = doc.Paragraphs(i)
+                
+                If Len(Trim(para.Range.text)) = 0 Then
+                    Exit For
+                End If
+                
+                ' Evita avancar sobre outros elementos estruturais conhecidos
+                If IsJustificativaTitleElement(para) Or IsDataElement(para) Or IsTituloAnexoElement(para) Then
+                    Exit For
+                End If
+                
+                vocativoEndIndex = i
+            Next i
+        End If
+        
+        ' Encontra o inicio da Proposicao
+        Dim startPropSearch As Long
+        If vocativoEndIndex > 0 Then
+            startPropSearch = vocativoEndIndex + 1
+        ElseIf ementaParaIndex > 0 Then
+            startPropSearch = ementaParaIndex + 1
+        Else
+            startPropSearch = tituloParaIndex + 1
+        End If
+        
+        For i = startPropSearch To cacheSize
+            If i > doc.Paragraphs.count Then Exit For
+            Set para = doc.Paragraphs(i)
+            If Len(Trim(para.Range.text)) > 0 Then
+                if Not IsJustificativaTitleElement(para) And Not IsDataElement(para) And Not IsTituloAnexoElement(para) Then
+                    proposicaoStartIndex = i
+                    Exit For
+                End If
+            End If
+        Next i
+    End If
+
+    ' Percorre todos os paragrafos para marcar no cache e encontrar outros elementos
+    For i = 1 To cacheSize
         If i > doc.Paragraphs.count Then Exit For
 
         Set para = doc.Paragraphs(i)
@@ -499,6 +600,7 @@ Public Sub IdentifyDocumentStructure(doc As Document)
             ' Reseta flags
             .isTitulo = False
             .isEmenta = False
+            .isVocativo = False
             .isProposicaoContent = False
             .isTituloJustificativa = False
             .isJustificativaContent = False
@@ -507,66 +609,45 @@ Public Sub IdentifyDocumentStructure(doc As Document)
             .isTituloAnexo = False
             .isAnexoContent = False
 
-            ' 1. Identifica TITULO (primeira ocorrencia)
-            If Not foundTitulo And IsTituloElement(para) Then
+            ' Marca flags que ja identificamos acima
+            If i = tituloParaIndex Then
                 .isTitulo = True
-                tituloParaIndex = i
-                foundTitulo = True
-                LogMessage "Titulo identificado no paragrafo " & i, LOG_LEVEL_INFO
+            ElseIf i = ementaParaIndex Then
+                .isEmenta = True
+            ElseIf i >= vocativoStartIndex And i <= vocativoEndIndex And vocativoStartIndex > 0 Then
+                .isVocativo = True
+            
+            ' Se nao for nenhum dos acima, e e um paragrafo novo/diferente, tenta identificar os demais elementos
+            Else
+                ' 3. Identifica TITULO DA JUSTIFICATIVA
+                If Not foundJustificativa And IsJustificativaTitleElement(para) Then
+                    .isTituloJustificativa = True
+                    tituloJustificativaIndex = i
+                    foundJustificativa = True
+                    ' Proposicao termina antes da Justificativa
+                    If proposicaoStartIndex > 0 Then
+                        proposicaoEndIndex = i - 1
+                    End If
+                    justificativaStartIndex = i + 1 ' Justificativa comeca logo apos o titulo
+                    LogMessage "Titulo da Justificativa identificado no paragrafo " & i, LOG_LEVEL_INFO
 
-            ' 2. Identifica EMENTA (logo apos o titulo)
-            ElseIf foundTitulo And ementaParaIndex = 0 Then
-                If IsEmentaElement(para, True) Then
-                    .isEmenta = True
-                    ementaParaIndex = i
-                    proposicaoStartIndex = i + 1 ' Proposicao comeca logo apos a ementa
-                    LogMessage "Ementa identificada no paragrafo " & i, LOG_LEVEL_INFO
-                End If
+                ' 4. Identifica DATA (Plenario)
+                ElseIf Not foundData And IsDataElement(para) Then
+                    .isData = True
+                    dataParaIndex = i
+                    foundData = True
+                    ' Justificativa termina antes da Data
+                    If justificativaStartIndex > 0 Then
+                        justificativaEndIndex = i - 1
+                    End If
+                    LogMessage "Data (Plenario) identificada no paragrafo " & i, LOG_LEVEL_INFO
 
-            ' 3. Identifica TITULO DA JUSTIFICATIVA
-            ElseIf Not foundJustificativa And IsJustificativaTitleElement(para) Then
-                .isTituloJustificativa = True
-                tituloJustificativaIndex = i
-                foundJustificativa = True
-                ' Proposicao termina antes da Justificativa
-                If proposicaoStartIndex > 0 Then
-                    proposicaoEndIndex = i - 1
-                End If
-                justificativaStartIndex = i + 1 ' Justificativa comeca logo apos o titulo
-                LogMessage "Titulo da Justificativa identificado no paragrafo " & i, LOG_LEVEL_INFO
-
-            ' 4. Identifica DATA (Plenario)
-            ElseIf Not foundData And IsDataElement(para) Then
-                .isData = True
-                dataParaIndex = i
-                foundData = True
-                ' Justificativa termina antes da Data
-                If justificativaStartIndex > 0 Then
-                    justificativaEndIndex = i - 1
-                End If
-                LogMessage "Data (Plenario) identificada no paragrafo " & i, LOG_LEVEL_INFO
-
-
-
-            ' 6. Identifica TITULO DO ANEXO
-            ElseIf tituloAnexoIndex = 0 And IsTituloAnexoElement(para) Then
-                .isTituloAnexo = True
-                tituloAnexoIndex = i
-                anexoStartIndex = i + 1 ' Anexo comeca logo apos o titulo
-                LogMessage "Titulo do Anexo identificado no paragrafo " & i, LOG_LEVEL_INFO
-            End If
-
-            ' Marca conteudo da PROPOSICAO
-            If proposicaoStartIndex > 0 And proposicaoEndIndex > 0 Then
-                If i >= proposicaoStartIndex And i <= proposicaoEndIndex Then
-                    .isProposicaoContent = True
-                End If
-            End If
-
-            ' Marca conteudo da JUSTIFICATIVA
-            If justificativaStartIndex > 0 And justificativaEndIndex > 0 Then
-                If i >= justificativaStartIndex And i <= justificativaEndIndex Then
-                    .isJustificativaContent = True
+                ' 6. Identifica TITULO DO ANEXO
+                ElseIf tituloAnexoIndex = 0 And IsTituloAnexoElement(para) Then
+                    .isTituloAnexo = True
+                    tituloAnexoIndex = i
+                    anexoStartIndex = i + 1 ' Anexo comeca logo apos o titulo
+                    LogMessage "Titulo do Anexo identificado no paragrafo " & i, LOG_LEVEL_INFO
                 End If
             End If
 
@@ -638,10 +719,30 @@ Public Sub IdentifyDocumentStructure(doc As Document)
         End If
     End If
 
+    ' Marca conteudo de proposicao e justificativa pos-processo usando os limites corretos
+    For i = 1 To cacheSize
+        If i > doc.Paragraphs.count Then Exit For
+        With paragraphCache(i)
+            If proposicaoStartIndex > 0 And proposicaoEndIndex > 0 Then
+                If i >= proposicaoStartIndex And i <= proposicaoEndIndex Then
+                    If Not .isVocativo Then
+                        .isProposicaoContent = True
+                    End If
+                End If
+            End If
+            If justificativaStartIndex > 0 And justificativaEndIndex > 0 Then
+                If i >= justificativaStartIndex And i <= justificativaEndIndex Then
+                    .isJustificativaContent = True
+                End If
+            End If
+        End With
+    Next i
+
     ' Relatorio de identificacao
     LogMessage "=== ESTRUTURA DO DOCUMENTO IDENTIFICADA ===", LOG_LEVEL_INFO
     LogMessage "Titulo: paragrafo " & tituloParaIndex, LOG_LEVEL_INFO
     LogMessage "Ementa: paragrafo " & ementaParaIndex, LOG_LEVEL_INFO
+    LogMessage "Vocativo: paragrafos " & vocativoStartIndex & " a " & vocativoEndIndex, LOG_LEVEL_INFO
     LogMessage "Proposicao: paragrafos " & proposicaoStartIndex & " a " & proposicaoEndIndex, LOG_LEVEL_INFO
     LogMessage "Titulo Justificativa: paragrafo " & tituloJustificativaIndex, LOG_LEVEL_INFO
     LogMessage "Justificativa: paragrafos " & justificativaStartIndex & " a " & justificativaEndIndex, LOG_LEVEL_INFO
@@ -650,7 +751,6 @@ Public Sub IdentifyDocumentStructure(doc As Document)
     LogMessage "Titulo Anexo: paragrafo " & tituloAnexoIndex, LOG_LEVEL_INFO
     LogMessage "Anexo: paragrafos " & anexoStartIndex & " a " & anexoEndIndex, LOG_LEVEL_INFO
     LogMessage "==========================================", LOG_LEVEL_INFO
-
     Exit Sub
 
 ErrorHandler:
@@ -730,6 +830,8 @@ Public Sub ClearParagraphCache()
     ' Limpa tambem os indices de identificacao
     tituloParaIndex = 0
     ementaParaIndex = 0
+    vocativoStartIndex = 0
+    vocativoEndIndex = 0
     proposicaoStartIndex = 0
     proposicaoEndIndex = 0
     tituloJustificativaIndex = 0

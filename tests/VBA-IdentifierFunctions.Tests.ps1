@@ -22,6 +22,10 @@ Describe 'Z7_STDPROPOSERS - VBA Identifier Functions (Modular)' {
             $script:mod4Content | Should Match '(?m)^Public Function GetEmentaRange\(doc As Document\) As Range'
         }
 
+        It 'Declara GetVocativoRange' {
+            $script:mod4Content | Should Match '(?m)^Public Function GetVocativoRange\(doc As Document\) As Range'
+        }
+
         It 'Declara GetProposicaoRange' {
             $script:mod4Content | Should Match '(?m)^Public Function GetProposicaoRange\(doc As Document\) As Range'
         }
@@ -48,6 +52,10 @@ Describe 'Z7_STDPROPOSERS - VBA Identifier Functions (Modular)' {
             $script:mod4Content | Should Match 'If ementaParaIndex <= 0 Or ementaParaIndex > doc\.Paragraphs\.count Then Exit Function'
         }
 
+        It 'GetVocativoRange valida limites dos indices' {
+            $script:mod4Content | Should Match 'If vocativoStartIndex <= 0 Or vocativoEndIndex <= 0 Then Exit Function'
+        }
+
         It 'GetJustificativaRange valida limites dos indices' {
             $script:mod4Content | Should Match 'If justificativaStartIndex <= 0 Or justificativaEndIndex <= 0 Then Exit Function'
         }
@@ -59,14 +67,14 @@ Describe 'Z7_STDPROPOSERS - VBA Identifier Functions (Modular)' {
 
     Context 'Padrao de retorno seguro' {
         It 'Inicializa retorno como Nothing nas funcoes Get*' {
-            $functions = @('GetTituloRange','GetEmentaRange','GetProposicaoRange','GetJustificativaRange','GetDataRange','GetAssinaturaRange')
+            $functions = @('GetTituloRange','GetEmentaRange','GetVocativoRange','GetProposicaoRange','GetJustificativaRange','GetDataRange','GetAssinaturaRange')
             foreach ($f in $functions) {
                 $script:mod4Content | Should Match "(?s)Public Function $f.*?Set $f = Nothing"
             }
         }
 
         It 'Funcoes Get* possuem tratamento de erro' {
-            $functions = @('GetTituloRange','GetEmentaRange','GetProposicaoRange','GetJustificativaRange','GetDataRange','GetAssinaturaRange')
+            $functions = @('GetTituloRange','GetEmentaRange','GetVocativoRange','GetProposicaoRange','GetJustificativaRange','GetDataRange','GetAssinaturaRange')
             foreach ($f in $functions) {
                 $script:mod4Content | Should Match "(?s)Public Function $f.*?ErrorHandler:"
             }

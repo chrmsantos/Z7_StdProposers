@@ -326,6 +326,32 @@ ErrorHandler:
 End Function
 
 '--------------------------------------------------------------------------------
+' GetVocativoRange - Retorna o Range do vocativo (um ou mais paragrafos)
+'--------------------------------------------------------------------------------
+Public Function GetVocativoRange(doc As Document) As Range
+    On Error GoTo ErrorHandler
+
+    Set GetVocativoRange = Nothing
+
+    If vocativoStartIndex <= 0 Or vocativoEndIndex <= 0 Then Exit Function
+    If vocativoStartIndex > vocativoEndIndex Then Exit Function
+    If vocativoStartIndex > doc.Paragraphs.count Then Exit Function
+    If vocativoEndIndex > doc.Paragraphs.count Then Exit Function
+
+    Dim startPos As Long
+    Dim endPos As Long
+
+    startPos = doc.Paragraphs(vocativoStartIndex).Range.Start
+    endPos = doc.Paragraphs(vocativoEndIndex).Range.End
+
+    Set GetVocativoRange = doc.Range(startPos, endPos)
+    Exit Function
+
+ErrorHandler:
+    Set GetVocativoRange = Nothing
+End Function
+
+'--------------------------------------------------------------------------------
 ' GetProposicaoRange - Retorna o Range da proposicao (conjunto de paragrafos)
 '--------------------------------------------------------------------------------
 Public Function GetProposicaoRange(doc As Document) As Range
@@ -520,6 +546,16 @@ Public Function GetElementInfo(doc As Document) As String
         info = info & "Ementa: Paragrafo " & ementaParaIndex & vbCrLf
     Else
         info = info & "Ementa: Nao identificado" & vbCrLf
+    End If
+    Set rng = Nothing
+
+    ' Vocativo - usa GetVocativoRange
+    Set rng = GetVocativoRange(doc)
+    If Not rng Is Nothing Then
+        info = info & "Vocativo: Paragrafos " & vocativoStartIndex & " a " & vocativoEndIndex & _
+                      " (" & (vocativoEndIndex - vocativoStartIndex + 1) & " paragrafos)" & vbCrLf
+    Else
+        info = info & "Vocativo: Nao identificado" & vbCrLf
     End If
     Set rng = Nothing
 
@@ -869,6 +905,14 @@ Public Sub ComentarElementosPropositura()
     Set rng = GetEmentaRange(doc)
     If Not rng Is Nothing Then
         doc.Comments.Add Range:=rng, text:="[Z7] Ementa"
+        commentAddedCount = commentAddedCount + 1
+    End If
+    Set rng = Nothing
+
+    ' Vocativo
+    Set rng = GetVocativoRange(doc)
+    If Not rng Is Nothing Then
+        doc.Comments.Add Range:=rng, text:="[Z7] Vocativo"
         commentAddedCount = commentAddedCount + 1
     End If
     Set rng = Nothing

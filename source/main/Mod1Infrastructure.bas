@@ -77,7 +77,7 @@ Public Const CHAT_IA_SCRIPT_RELATIVE_PATH As String = "\AppData\Local\Z7\Apps\Z7
 '================================================================================
 ' CONSTANTES DE SISTEMA
 '================================================================================
-Public Const Z7_STDPROPOSERS_VERSION As String = "7.9.2"
+Public Const Z7_STDPROPOSERS_VERSION As String = "7.9.3"
 Public Const MIN_SUPPORTED_VERSION As Long = 14
 Public Const REQUIRED_STRING As String = "$NUMERO$/$ANO$"
 Public Const MAX_BACKUP_FILES As Long = 10
@@ -141,6 +141,7 @@ Public Type paragraphCache
     ' Identificadores de elementos estruturais da propositura
     isTitulo As Boolean
     isEmenta As Boolean
+    isVocativo As Boolean
     isProposicaoContent As Boolean
     isTituloJustificativa As Boolean
     isJustificativaContent As Boolean
@@ -227,6 +228,8 @@ Public centeredParaCount As Long
 ' Indices dos elementos identificados no documento (0 = nao encontrado)
 Public tituloParaIndex As Long
 Public ementaParaIndex As Long
+Public vocativoStartIndex As Long
+Public vocativoEndIndex As Long
 Public proposicaoStartIndex As Long
 Public proposicaoEndIndex As Long
 Public tituloJustificativaIndex As Long

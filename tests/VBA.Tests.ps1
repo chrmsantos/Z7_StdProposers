@@ -48,6 +48,7 @@ Describe 'Z7_STDPROPOSERS - VBA Modular Architecture' {
         It 'Mantem as funcoes publicas de ranges estruturais' {
             $script:moduleContent['Mod4Main.bas'] | Should Match '(?m)^Public Function GetTituloRange\(doc As Document\) As Range'
             $script:moduleContent['Mod4Main.bas'] | Should Match '(?m)^Public Function GetEmentaRange\(doc As Document\) As Range'
+            $script:moduleContent['Mod4Main.bas'] | Should Match '(?m)^Public Function GetVocativoRange\(doc As Document\) As Range'
             $script:moduleContent['Mod4Main.bas'] | Should Match '(?m)^Public Function GetProposicaoRange\(doc As Document\) As Range'
             $script:moduleContent['Mod4Main.bas'] | Should Match '(?m)^Public Function GetJustificativaRange\(doc As Document\) As Range'
         }

@@ -2168,35 +2168,8 @@ Public Function FormatSecondParagraph(doc As Document) As Boolean
     Dim actualParaIndex As Long
     Dim secondParaIndex As Long
 
-    ' Identifica apenas o 2 paragrafo (considerando apenas paragrafos com texto)
-    actualParaIndex = 0
-    secondParaIndex = 0
-
-    ' Cache do count para performance
-    Dim paraCount As Long
-    paraCount = doc.Paragraphs.count
-
-    ' Encontra o 2 paragrafo com conteudo (pula vazios)
-    For i = 1 To paraCount
-        If i > paraCount Then Exit For ' Protecao dinamica
-
-        Set para = doc.Paragraphs(i)
-        paraText = Trim(Replace(Replace(para.Range.text, vbCr, ""), vbLf, ""))
-
-        ' Se o paragrafo tem texto ou conteudo visual, conta como paragrafo valido
-        If paraText <> "" Or HasVisualContent(para) Then
-            actualParaIndex = actualParaIndex + 1
-
-            ' Registra o indice do 2 paragrafo
-            If actualParaIndex = 2 Then
-                secondParaIndex = i
-                Exit For ' Ja encontramos o 2 paragrafo
-            End If
-        End If
-
-        ' Protecao expandida: processa ate 20 paragrafos para encontrar o 2
-        If i > 20 Then Exit For
-    Next i
+    ' Usa a ementa identificada pelo sistema de estrutura
+    secondParaIndex = ementaParaIndex
 
     ' Aplica formatacao especifica apenas ao 2 paragrafo
     If secondParaIndex > 0 And secondParaIndex <= doc.Paragraphs.count Then
