@@ -879,7 +879,6 @@ Public Sub IdentifyDocumentStructure(doc As Document)
                     End If
                 End If
             End If
-        End If
         
         ' Encontra o inicio da Proposicao
         Dim startPropSearch As Long
