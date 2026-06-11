@@ -582,38 +582,41 @@ Public Sub IdentifyDocumentStructure(doc As Document)
     foundJustificativa = False
     foundData = False
 
-    ' 1. Identifica Titulo, Ementa e Vocativo sequencialmente
-    ' Encontra o Titulo
-    For i = 1 To cacheSize
-        If i > doc.Paragraphs.count Then Exit For
-        Set para = doc.Paragraphs(i)
-        If IsTituloElement(para) Then
-            tituloParaIndex = i
-            foundTitulo = True
-            Exit For
+    ' 1. Identifica Titulo, Ementa, Data e Assinatura por regras posicionais dos parágrafos com elementos visíveis
+    Dim visibleIndices() As Long
+    Dim visibleCount As Long
+    ReDim visibleIndices(1 To cacheSize)
+    visibleCount = 0
+    
+    Dim idx As Long
+    For idx = 1 To cacheSize
+        If idx > doc.Paragraphs.count Then Exit For
+        If Len(paragraphCache(idx).cleanText) > 0 Or paragraphCache(idx).hasImages Then
+            visibleCount = visibleCount + 1
+            visibleIndices(visibleCount) = idx
         End If
-    Next i
+    Next idx
+
+    ' Atribui índices baseados nas posições relativas dos parágrafos visíveis
+    If visibleCount >= 1 Then
+        tituloParaIndex = visibleIndices(1)
+        foundTitulo = True
+    End If
+    If visibleCount >= 2 Then
+        ementaParaIndex = visibleIndices(2)
+    End If
+    If visibleCount >= 3 Then
+        assinaturaEndIndex = visibleIndices(visibleCount)
+    End If
+    If visibleCount >= 4 Then
+        assinaturaStartIndex = visibleIndices(visibleCount - 1)
+    End If
+    If visibleCount >= 5 Then
+        dataParaIndex = visibleIndices(visibleCount - 2)
+        foundData = True
+    End If
 
     If foundTitulo Then
-        ' Encontra a Ementa (se houver)
-        Dim firstTextIdx As Long
-        firstTextIdx = 0
-        For i = tituloParaIndex + 1 To cacheSize
-            If i > doc.Paragraphs.count Then Exit For
-            Set para = doc.Paragraphs(i)
-            If Len(Trim(para.Range.text)) > 0 Then
-                firstTextIdx = i
-                Exit For
-            End If
-        Next i
-        
-        If firstTextIdx > 0 Then
-            Set para = doc.Paragraphs(firstTextIdx)
-            If IsEmentaElement(para, True) Then
-                ementaParaIndex = firstTextIdx
-            End If
-        End If
-        
         ' Encontra o Vocativo
         Dim vocStart As Long
         vocStart = 0
@@ -649,7 +652,7 @@ Public Sub IdentifyDocumentStructure(doc As Document)
                     End If
                     
                     ' Evita avancar sobre outros elementos estruturais conhecidos
-                    If IsJustificativaTitleElement(para) Or IsDataElement(para) Or IsTituloAnexoElement(para) Then
+                    If IsJustificativaTitleElement(para) Or (dataParaIndex > 0 And i = dataParaIndex) Or IsTituloAnexoElement(para) Then
                         Exit For
                     End If
                     
@@ -704,7 +707,7 @@ Public Sub IdentifyDocumentStructure(doc As Document)
             If i > doc.Paragraphs.count Then Exit For
             Set para = doc.Paragraphs(i)
             If Len(Trim(para.Range.text)) > 0 Then
-                if Not IsJustificativaTitleElement(para) And Not IsDataElement(para) And Not IsTituloAnexoElement(para) Then
+                If Not IsJustificativaTitleElement(para) And (dataParaIndex = 0 Or i <> dataParaIndex) And Not IsTituloAnexoElement(para) Then
                     proposicaoStartIndex = i
                     Exit For
                 End If
@@ -737,6 +740,10 @@ Public Sub IdentifyDocumentStructure(doc As Document)
                 .isTitulo = True
             ElseIf i = ementaParaIndex Then
                 .isEmenta = True
+            ElseIf i = dataParaIndex Then
+                .isData = True
+            ElseIf i = assinaturaStartIndex Or i = assinaturaEndIndex Then
+                .isAssinatura = True
             ElseIf i >= vocativoStartIndex And i <= vocativoEndIndex And vocativoStartIndex > 0 Then
                 .isVocativo = True
             
@@ -754,16 +761,12 @@ Public Sub IdentifyDocumentStructure(doc As Document)
                     justificativaStartIndex = i + 1 ' Justificativa comeca logo apos o titulo
                     LogMessage "Titulo da Justificativa identificado no paragrafo " & i, LOG_LEVEL_INFO
 
-                ' 4. Identifica DATA (Plenario)
-                ElseIf Not foundData And IsDataElement(para) Then
-                    .isData = True
-                    dataParaIndex = i
-                    foundData = True
+                ' 4. Identifica DATA (Plenario) - já foi identificada, mas em caso de loop definimos justificativaEndIndex se i = dataParaIndex
+                ElseIf i = dataParaIndex Then
                     ' Justificativa termina antes da Data
                     If justificativaStartIndex > 0 Then
                         justificativaEndIndex = i - 1
                     End If
-                    LogMessage "Data (Plenario) identificada no paragrafo " & i, LOG_LEVEL_INFO
 
                 ' 6. Identifica TITULO DO ANEXO
                 ElseIf tituloAnexoIndex = 0 And IsTituloAnexoElement(para) Then
@@ -786,41 +789,6 @@ Public Sub IdentifyDocumentStructure(doc As Document)
             DoEvents
         End If
     Next i
-
-    ' 5. Identifica ASSINATURA (os dois primeiros paragrafos nao-vazios apos a data)
-    If dataParaIndex > 0 And assinaturaStartIndex = 0 Then
-        Dim searchIdx As Long
-        Dim foundCount As Long
-        foundCount = 0
-        
-        For searchIdx = dataParaIndex + 1 To cacheSize
-            ' Pula se o paragrafo no cache for vazio ou tiver apenas espacos/quebra
-            Dim checkTxt As String
-            checkTxt = Trim(Replace(Replace(paragraphCache(searchIdx).text, vbCr, ""), vbLf, ""))
-            
-            ' Se nao estiver vazio
-            If Len(checkTxt) > 0 Then
-                foundCount = foundCount + 1
-                If foundCount = 1 Then
-                    assinaturaStartIndex = searchIdx
-                    paragraphCache(searchIdx).isAssinatura = True
-                ElseIf foundCount = 2 Then
-                    assinaturaEndIndex = searchIdx
-                    paragraphCache(searchIdx).isAssinatura = True
-                    Exit For
-                End If
-            End If
-        Next searchIdx
-        
-        ' Fallback caso apenas 1 paragrafo nao-vazio tenha sido encontrado apos a data
-        If assinaturaStartIndex > 0 And assinaturaEndIndex = 0 Then
-            assinaturaEndIndex = assinaturaStartIndex
-        End If
-        
-        If assinaturaStartIndex > 0 And assinaturaEndIndex > 0 Then
-            LogMessage "Assinatura identificada nos paragrafos " & assinaturaStartIndex & " a " & assinaturaEndIndex, LOG_LEVEL_INFO
-        End If
-    End If
 
     ' Se nao encontrou fim da proposicao, define ate antes da justificativa ou data
     If proposicaoStartIndex > 0 And proposicaoEndIndex = 0 Then
