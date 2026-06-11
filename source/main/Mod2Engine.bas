@@ -284,6 +284,38 @@ ErrorHandler:
 End Function
 
 '--------------------------------------------------------------------------------
+' IsExactVocativoString - Verifica se o texto corresponde a um vocativo exato
+'--------------------------------------------------------------------------------
+Public Function IsExactVocativoString(text As String) As Boolean
+    On Error GoTo ErrorHandler
+    
+    IsExactVocativoString = False
+    
+    Dim norm As String
+    norm = NormalizeForComparison(Trim$(Replace(Replace(text, vbCr, ""), vbLf, "")))
+    
+    ' Remove pontuacao no final
+    Do While Len(norm) > 0 And InStr(".,;:", Right(norm, 1)) > 0
+        norm = Left(norm, Len(norm) - 1)
+    Loop
+    norm = Trim$(norm)
+    
+    If norm = "senhor presidente" Or _
+       norm = "senhora vereadora" Or _
+       norm = "senhoras vereadoras" Or _
+       norm = "senhores vereadores" Or _
+       norm = "senhores vereadores(as)" Or _
+       norm = "excelentissimo senhor prefeito municipal" Then
+        IsExactVocativoString = True
+    End If
+    
+    Exit Function
+
+ErrorHandler:
+    IsExactVocativoString = False
+End Function
+
+'--------------------------------------------------------------------------------
 ' IsJustificativaTitleElement - Identifica o titulo "Justificativa"
 '--------------------------------------------------------------------------------
 Public Function IsJustificativaTitleElement(para As Paragraph) As Boolean
@@ -577,6 +609,21 @@ Public Sub IdentifyDocumentStructure(doc As Document)
     Dim foundTitulo As Boolean
     Dim foundJustificativa As Boolean
     Dim foundData As Boolean
+    Dim customDataParaIndex As Long
+    Dim startSearchIdx As Long
+    Dim foundExactVocativo As Boolean
+    Dim tempVocStart As Long
+    Dim tempVocEnd As Long
+    Dim isBlankPara As Boolean
+    Dim foundCustomAssinatura As Boolean
+    Dim p1 As Long
+    Dim p2 As Long
+    Dim p3 As Long
+    Dim textCount As Long
+    Dim isTextPara As Boolean
+    Dim containsAnexo As Boolean
+    Dim nextParaIdx As Long
+    Dim anexoCleanText As String
 
     foundTitulo = False
     foundJustificativa = False
@@ -597,7 +644,7 @@ Public Sub IdentifyDocumentStructure(doc As Document)
         End If
     Next idx
 
-    ' Atribui índices baseados nas posições relativas dos parágrafos visíveis
+    ' Atribui índices baseados nas posições relativas dos parágrafos visíveis (Título e Ementa apenas, Assinatura e Data serão decididas com base nas novas regras abaixo)
     If visibleCount >= 1 Then
         tituloParaIndex = visibleIndices(1)
         foundTitulo = True
@@ -605,91 +652,232 @@ Public Sub IdentifyDocumentStructure(doc As Document)
     If visibleCount >= 2 Then
         ementaParaIndex = visibleIndices(2)
     End If
-    If visibleCount >= 3 Then
-        assinaturaEndIndex = visibleIndices(visibleCount)
+
+    ' Regra especifica para Data (Plenario): o antepenultimo ou o anterior ao antepenultimo paragrafo e a data
+    ' desde que haja paragrafo(s) em branco abaixo e acima deste.
+    customDataParaIndex = 0
+    
+    If cacheSize >= 3 Then
+        ' Verifica o antepenultimo paragrafo (cacheSize - 2)
+        If (Len(paragraphCache(cacheSize - 2).cleanText) > 0) And (Not paragraphCache(cacheSize - 2).hasImages) Then
+            ' Deve haver paragrafo(s) em branco acima (cacheSize - 3) e abaixo (cacheSize - 1)
+            If (Len(paragraphCache(cacheSize - 3).cleanText) = 0) And (Len(paragraphCache(cacheSize - 1).cleanText) = 0) Then
+                customDataParaIndex = cacheSize - 2
+            End If
+        End If
     End If
-    If visibleCount >= 4 Then
-        assinaturaStartIndex = visibleIndices(visibleCount - 1)
+    
+    If customDataParaIndex = 0 And cacheSize >= 4 Then
+        ' Verifica o anterior ao antepenultimo paragrafo (cacheSize - 3)
+        If (Len(paragraphCache(cacheSize - 3).cleanText) > 0) And (Not paragraphCache(cacheSize - 3).hasImages) Then
+            ' Deve haver paragrafo(s) em branco acima (cacheSize - 4) e abaixo (cacheSize - 2)
+            If (Len(paragraphCache(cacheSize - 4).cleanText) = 0) And (Len(paragraphCache(cacheSize - 2).cleanText) = 0) Then
+                customDataParaIndex = cacheSize - 3
+            End If
+        End If
     End If
-    If visibleCount >= 5 Then
+
+    If customDataParaIndex > 0 Then
+        dataParaIndex = customDataParaIndex
+        foundData = True
+    ElseIf visibleCount >= 5 Then
         dataParaIndex = visibleIndices(visibleCount - 2)
         foundData = True
     End If
 
-    If foundTitulo Then
-        ' Encontra o Vocativo
-        Dim vocStart As Long
-        vocStart = 0
+    ' Regra especifica para Assinatura:
+    ' Os três parágrafos textuais posteriores à data, desde que não contenham a palavra "anexo" ou "anexos" (case insensitive), são a Assinatura.
+    foundCustomAssinatura = False
+    p1 = 0
+    p2 = 0
+    p3 = 0
+    
+    If dataParaIndex > 0 Then
+        textCount = 0
         
-        Dim startSearchIdx As Long
-        If ementaParaIndex > 0 Then
-            startSearchIdx = ementaParaIndex + 1
-        Else
-            startSearchIdx = tituloParaIndex + 1
-        End If
-        
-        For i = startSearchIdx To cacheSize
+        For i = dataParaIndex + 1 To cacheSize
             If i > doc.Paragraphs.count Then Exit For
-            Set para = doc.Paragraphs(i)
-            If Len(Trim(para.Range.text)) > 0 Then
-                vocStart = i
+            
+            isTextPara = (Len(paragraphCache(i).cleanText) > 0) And (Not paragraphCache(i).hasImages)
+            
+            If isTextPara Then
+                textCount = textCount + 1
+                If textCount = 1 Then
+                    p1 = i
+                ElseIf textCount = 2 Then
+                    p2 = i
+                ElseIf textCount = 3 Then
+                    p3 = i
+                    Exit For
+                End If
+            End If
+        Next i
+        
+        If textCount = 3 Then
+            ' Verifica se nenhum deles contem "anexo" ou "anexos"
+            containsAnexo = (InStr(NormalizeForComparison(paragraphCache(p1).text), "anexo") > 0) Or _
+                            (InStr(NormalizeForComparison(paragraphCache(p2).text), "anexo") > 0) Or _
+                            (InStr(NormalizeForComparison(paragraphCache(p3).text), "anexo") > 0)
+                            
+            If Not containsAnexo Then
+                assinaturaStartIndex = p1
+                assinaturaEndIndex = p3
+                foundCustomAssinatura = True
+            End If
+        End If
+    End If
+    
+    ' Se nao encontrou pela regra especifica, usa o fallback posicional anterior
+    If Not foundCustomAssinatura Then
+        If visibleCount >= 3 Then
+            assinaturaEndIndex = visibleIndices(visibleCount)
+        End If
+        If visibleCount >= 4 Then
+            assinaturaStartIndex = visibleIndices(visibleCount - 1)
+        End If
+    End If
+
+    ' Regra especifica para Anexos:
+    ' O parágrafo posterior à assinatura que contenha apenas "anexo" ou "anexos" (case insensitive) é o Anexo.
+    If assinaturaEndIndex > 0 Then
+        nextParaIdx = 0
+        
+        For i = assinaturaEndIndex + 1 To cacheSize
+            If i > doc.Paragraphs.count Then Exit For
+            
+            If (Len(paragraphCache(i).cleanText) > 0) And (Not paragraphCache(i).hasImages) Then
+                nextParaIdx = i
                 Exit For
             End If
         Next i
         
-        If vocStart > 0 Then
-            ' Apenas identifica como vocativo se realmente corresponder aos padroes
-            If IsVocativoElement(doc.Paragraphs(vocStart)) Then
-                vocativoStartIndex = vocStart
-                vocativoEndIndex = vocStart
+        If nextParaIdx > 0 Then
+            anexoCleanText = NormalizeForComparison(Trim$(Replace(Replace(paragraphCache(nextParaIdx).text, vbCr, ""), vbLf, "")))
+            
+            Do While Len(anexoCleanText) > 0 And InStr(".,;:", Right(anexoCleanText, 1)) > 0
+                anexoCleanText = Left(anexoCleanText, Len(anexoCleanText) - 1)
+            Loop
+            anexoCleanText = Trim$(anexoCleanText)
+            
+            If anexoCleanText = "anexo" Or anexoCleanText = "anexos" Then
+                tituloAnexoIndex = nextParaIdx
+                anexoStartIndex = nextParaIdx + 1
+                anexoEndIndex = cacheSize
+            End If
+        End If
+    End If
+
+    If foundTitulo Then
+        ' Encontra o Vocativo (incluindo multiplos vocativos sequenciais ou nao)
+            If ementaParaIndex > 0 Then
+                startSearchIdx = ementaParaIndex + 1
+            Else
+                startSearchIdx = tituloParaIndex + 1
+            End If
+            
+            foundExactVocativo = False
+            tempVocStart = 0
+            tempVocEnd = 0
+            
+            For i = startSearchIdx To cacheSize
+                If i > doc.Paragraphs.count Then Exit For
+                Set para = doc.Paragraphs(i)
                 
-                For i = vocStart To cacheSize
-                    If i > doc.Paragraphs.count Then Exit For
-                    Set para = doc.Paragraphs(i)
-                    
-                    If Len(Trim(para.Range.text)) = 0 Then
-                        Exit For
-                    End If
-                    
-                    ' Evita avancar sobre outros elementos estruturais conhecidos
+                isBlankPara = (Len(paragraphCache(i).cleanText) = 0) And (Not paragraphCache(i).hasImages)
+                
+                If Not isBlankPara Then
+                    ' Se for outro elemento estrutural conhecido, encerra a busca de vocativos exatos
                     If IsJustificativaTitleElement(para) Or (dataParaIndex > 0 And i = dataParaIndex) Or IsTituloAnexoElement(para) Then
                         Exit For
                     End If
                     
-                    ' Para a leitura se a linha nao parecer com vocativo (ex: contem numeros ou termos de proposicao)
-                    Dim nextNorm As String
-                    nextNorm = NormalizeForComparison(Trim$(Replace(Replace(para.Range.text, vbCr, ""), vbLf, "")))
-                    Do While Len(nextNorm) > 0 And InStr(".,;:", Right(nextNorm, 1)) > 0
-                        nextNorm = Left(nextNorm, Len(nextNorm) - 1)
-                    Loop
-                    nextNorm = Trim$(nextNorm)
-                    
-                    If Len(nextNorm) > 80 Then Exit For
-                    
-                    ' Se contem digitos, nao e vocativo
-                    Dim hasDigits As Boolean
-                    hasDigits = False
-                    For tempJ = 1 To Len(nextNorm)
-                        If Mid(nextNorm, tempJ, 1) Like "[0-9]" Then
-                            hasDigits = True
-                            Exit For
+                    ' Se for um vocativo exato da lista
+                    If IsExactVocativoString(para.Range.text) Then
+                        If tempVocStart = 0 Then
+                            tempVocStart = i
                         End If
-                    Next tempJ
-                    If hasDigits Then Exit For
-                    
-                    ' Se parecer com proposicao, para
-                    If Left(nextNorm, 8) = "requeiro" Or _
-                       Left(nextNorm, 6) = "indico" Or _
-                       Left(nextNorm, 8) = "solicito" Or _
-                       Left(nextNorm, 12) = "considerando" Or _
-                       Left(nextNorm, 3) = "art" Or _
-                       Left(nextNorm, 7) = "decreto" Or _
-                       Left(nextNorm, 9) = "resolucao" Then
+                        tempVocEnd = i
+                        foundExactVocativo = True
+                    Else
+                        ' Se for qualquer outro paragrafo com texto (por exemplo, inicio da proposicao),
+                        ' encerra a busca de vocativos exatos
                         Exit For
                     End If
-                    
-                    vocativoEndIndex = i
+                End If
+            Next i
+            
+            If foundExactVocativo Then
+                vocativoStartIndex = tempVocStart
+                vocativoEndIndex = tempVocEnd
+            Else
+                ' Fallback para deteccao heuristica tradicional
+                Dim vocStart As Long
+                vocStart = 0
+                
+                For i = startSearchIdx To cacheSize
+                    If i > doc.Paragraphs.count Then Exit For
+                    Set para = doc.Paragraphs(i)
+                    If Len(Trim(para.Range.text)) > 0 Then
+                        vocStart = i
+                        Exit For
+                    End If
                 Next i
+                
+                If vocStart > 0 Then
+                    ' Apenas identifica como vocativo se realmente corresponder aos padroes
+                    If IsVocativoElement(doc.Paragraphs(vocStart)) Then
+                        vocativoStartIndex = vocStart
+                        vocativoEndIndex = vocStart
+                        
+                        For i = vocStart To cacheSize
+                            If i > doc.Paragraphs.count Then Exit For
+                            Set para = doc.Paragraphs(i)
+                            
+                            If Len(Trim(para.Range.text)) = 0 Then
+                                Exit For
+                            End If
+                            
+                            ' Evita avancar sobre outros elementos estruturais conhecidos
+                            If IsJustificativaTitleElement(para) Or (dataParaIndex > 0 And i = dataParaIndex) Or IsTituloAnexoElement(para) Then
+                                Exit For
+                            End If
+                            
+                            ' Para a leitura se a linha nao parecer com vocativo (ex: contem numeros ou termos de proposicao)
+                            Dim nextNorm As String
+                            nextNorm = NormalizeForComparison(Trim$(Replace(Replace(para.Range.text, vbCr, ""), vbLf, "")))
+                            Do While Len(nextNorm) > 0 And InStr(".,;:", Right(nextNorm, 1)) > 0
+                                nextNorm = Left(nextNorm, Len(nextNorm) - 1)
+                            Loop
+                            nextNorm = Trim$(nextNorm)
+                            
+                            If Len(nextNorm) > 80 Then Exit For
+                            
+                            ' Se contem digitos, nao e vocativo
+                            Dim hasDigits As Boolean
+                            hasDigits = False
+                            For tempJ = 1 To Len(nextNorm)
+                                If Mid(nextNorm, tempJ, 1) Like "[0-9]" Then
+                                    hasDigits = True
+                                    Exit For
+                                End If
+                            Next tempJ
+                            If hasDigits Then Exit For
+                            
+                            ' Se parecer com proposicao, para
+                            If Left(nextNorm, 8) = "requeiro" Or _
+                               Left(nextNorm, 6) = "indico" Or _
+                               Left(nextNorm, 8) = "solicito" Or _
+                               Left(nextNorm, 12) = "considerando" Or _
+                               Left(nextNorm, 3) = "art" Or _
+                               Left(nextNorm, 7) = "decreto" Or _
+                               Left(nextNorm, 9) = "resolucao" Then
+                                Exit For
+                            End If
+                            
+                            vocativoEndIndex = i
+                        Next i
+                    End If
+                End If
             End If
         End If
         
@@ -746,6 +934,8 @@ Public Sub IdentifyDocumentStructure(doc As Document)
                 .isAssinatura = True
             ElseIf i >= vocativoStartIndex And i <= vocativoEndIndex And vocativoStartIndex > 0 Then
                 .isVocativo = True
+            ElseIf i = tituloAnexoIndex Then
+                .isTituloAnexo = True
             
             ' Se nao for nenhum dos acima, e e um paragrafo novo/diferente, tenta identificar os demais elementos
             Else
