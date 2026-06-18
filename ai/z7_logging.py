@@ -6,7 +6,6 @@ import sys
 import time
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
-from typing import Optional
 
 __all__ = [
     "is_frozen",

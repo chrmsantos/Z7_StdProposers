@@ -4,8 +4,8 @@ from pathlib import Path
 import z7_theme
 from z7_logging import configure_component_logger, get_data_dir, log_exception
 import os
-import shutil
 import sys
+import shutil
 import threading
 import urllib.request
 import urllib.error
@@ -245,7 +245,7 @@ def check_for_updates_ui(parent_root: tk.Tk) -> None:
                 
         except Exception as e:
             checking_dialog.destroy()
-            parent_root.after(0, lambda: z7_theme.show_error("Erro de Conectividade", f"Falha ao buscar atualizações:\n{e}", parent=parent_root))
+            parent_root.after(0, lambda err=str(e): z7_theme.show_error("Erro de Conectividade", f"Falha ao buscar atualizações:\n{err}", parent=parent_root))
             
     threading.Thread(target=run_check, daemon=True).start()
 
@@ -338,19 +338,26 @@ def start_download_and_update(parent_root: tk.Tk, latest_version: str, release_d
                 if not dest_file.exists():
                     update_progress(current_item / total_items, f"Verificando {local_name}...")
                     url = f"{raw_base}/{repo_path}"
+                    
+                    local_source = None
+                    if local_name == "import_word.exe":
+                        local_source = install_dir / "scripts" / "import_word.exe"
+                    elif local_name == "Normal.dotm":
+                        local_source = install_dir / "dist" / "Normal.dotm"
+                    elif local_name == "Word.officeUI":
+                        local_source = install_dir / "dist" / "Word.officeUI"
+
                     try:
                         req = urllib.request.Request(url, headers=headers)
                         with urllib.request.urlopen(req, timeout=15) as resp, open(dest_file, "wb") as f:
                             f.write(resp.read())
                     except Exception as download_err:
                         LOGGER.warning(f"Failed to download raw {local_name}: {download_err}")
-                        local_source = None
-                        if local_name == "import_word.exe":
-                            local_source = install_dir / "scripts" / "import_word.exe"
-                        elif local_name == "Normal.dotm":
-                            local_source = install_dir / "dist" / "Normal.dotm"
-                        elif local_name == "Word.officeUI":
-                            local_source = install_dir / "dist" / "Word.officeUI"
+                        if local_source and local_source.exists():
+                            shutil.copy2(local_source, dest_file)
+                            LOGGER.info(f"Copia local do fallback {local_name} realizada com sucesso a partir de {local_source}")
+                        else:
+                            LOGGER.error(f"Falha critica: arquivo de fallback {local_name} nao pode ser obtido")
                         
             # Detecta documentos atualmente abertos para reabri-los após a atualização
             docs_to_reopen = []
@@ -504,9 +511,10 @@ try {{
             parent_root.after(1000, lambda: (dl_dialog.destroy(), parent_root.destroy(), sys.exit(0)))
             
         except Exception as e:
+            err_msg = str(e)
             def show_err():
                 dl_dialog.destroy()
-                z7_theme.show_error("Erro de Instalação", f"Ocorreu um erro ao preparar os arquivos:\n{e}", parent=parent_root)
+                z7_theme.show_error("Erro de Instalação", f"Ocorreu um erro ao preparar os arquivos:\n{err_msg}", parent=parent_root)
             parent_root.after(0, show_err)
 
     threading.Thread(target=run_downloads, daemon=True).start()

@@ -1,4 +1,3 @@
-import os
 import sys
 import unittest
 from pathlib import Path
@@ -14,8 +13,8 @@ if str(SCRIPTS_DIR) not in sys.path:
 if str(AI_DIR) not in sys.path:
     sys.path.insert(0, str(AI_DIR))
 
-import tkinter as tk
-import installer
+import tkinter as tk  # noqa: E402
+import installer  # noqa: E402
 
 
 class TestGetLatestGithubRelease(unittest.TestCase):

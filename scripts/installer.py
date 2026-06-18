@@ -6,7 +6,6 @@ import time
 import threading
 import urllib.request
 import urllib.error
-import unicodedata
 import subprocess
 import tkinter as tk
 from pathlib import Path
@@ -28,7 +27,10 @@ except ImportError:
         def warning(self, msg, *args): print(f"WARNING: {msg % args if args else msg}")
         def error(self, msg, *args): print(f"ERROR: {msg % args if args else msg}")
     LOGGER = MockLogger()
-    log_exception = lambda l, m, e: print(f"EXCEPTION: {m} - {e}")
+    def log_exception(logger, msg, exc, *, reraise=False):
+        print(f"EXCEPTION: {msg} - {exc}")
+        if reraise:
+            raise exc
 else:
     LOGGER = configure_component_logger("installer")
 
@@ -126,7 +128,7 @@ def main() -> None:
     LOGGER.info("Starting standalone installer wizard")
     
     root = tk.Tk()
-    root.title(f"Instalador do Z7 StdProposers")
+    root.title("Instalador do Z7 StdProposers")
     root.geometry("600x420")
     root.resizable(False, False)
     root.attributes('-topmost', True)
@@ -148,7 +150,6 @@ def main() -> None:
     theme.widgets['info_lbl'] = info_lbl
     
     # Card Central
-    colors = z7_theme.get_theme_colors(theme.mode) if 'z7_theme' in sys.modules else None
     card_frame = tk.Frame(root, relief=tk.SOLID, bd=1, highlightthickness=1)
     card_frame.pack(fill=tk.BOTH, expand=True, padx=40, pady=(0, 25))
     theme.widgets['card_frame'] = card_frame
@@ -474,6 +475,7 @@ def main() -> None:
             root.after(500, success_action)
             
         except Exception as err:
+            err_msg = str(err)
             LOGGER.error("Erro critico durante o processo de instalacao: %s", err, exc_info=True)
             
             # Rollback total de segurança
@@ -513,9 +515,9 @@ def main() -> None:
                 root.destroy()
                 try:
                     import z7_theme
-                    z7_theme.show_error("Falha na Instalação", f"A instalação falhou. As configurações anteriores foram restauradas.\n\nErro: {err}", parent=None)
+                    z7_theme.show_error("Falha na Instalação", f"A instalação falhou. As configurações anteriores foram restauradas.\n\nErro: {err_msg}", parent=None)
                 except Exception:
-                    tk.messagebox.showerror("Falha na Instalação", f"A instalação falhou. As configurações anteriores foram restauradas.\n\nErro: {err}")
+                    tk.messagebox.showerror("Falha na Instalação", f"A instalação falhou. As configurações anteriores foram restauradas.\n\nErro: {err_msg}")
                 
                 # Reabre os documentos no Word se foram fechados
                 LOGGER.info("Reabrindo Microsoft Word apos falha. Documentos a reabrir: %s", docs_to_reopen)

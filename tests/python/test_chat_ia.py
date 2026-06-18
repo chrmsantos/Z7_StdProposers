@@ -1,5 +1,4 @@
 import sys
-import threading
 import unittest
 from pathlib import Path
 from unittest import mock
@@ -65,7 +64,6 @@ class TestChatIaDocTextLoading(unittest.TestCase):
 
     def test_load_doc_text_sets_fallback_on_error(self):
         with mock.patch.dict(sys.modules, _STUBS):
-            mod = _import_chat_ia()
             app = mock.MagicMock()
             app.doc_text = ""
             app._doc_truncated = False

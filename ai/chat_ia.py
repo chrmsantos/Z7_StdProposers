@@ -1,12 +1,10 @@
-import os
 import threading
 import tkinter as tk
 from tkinter import scrolledtext
-from pathlib import Path
 
 import z7_theme
 from z7_logging import configure_component_logger, log_exception
-from z7_gemini_key import get_api_key, delete_api_key
+from z7_gemini_key import get_api_key
 
 LOGGER = configure_component_logger("chat_ia")
 
@@ -644,7 +642,6 @@ class ChatApp:
         import pythoncom
         pythoncom.CoInitialize()
         try:
-            import win32com.client
             import google.genai as genai
             from google.genai import types
 
@@ -721,7 +718,7 @@ class ChatApp:
                 self.root.after(0, lambda: self.append_message("Sistema", "Sua chave da API parece inválida ou expirou. Abra as Configurações da IA para atualizar ou remover a chave."))
             else:
                 self.root.after(0, lambda: self.update_status("Erro na inicialização."))
-                self.root.after(0, lambda: self.append_message("Sistema", f"Erro crítico: {str(e)}"))
+                self.root.after(0, lambda err=str(e): self.append_message("Sistema", f"Erro crítico: {err}"))
         finally:
             pythoncom.CoUninitialize()
 
@@ -784,7 +781,7 @@ class ChatApp:
 
 def main() -> None:
     root = tk.Tk()
-    app = ChatApp(root)
+    ChatApp(root)
     root.mainloop()
 
 if __name__ == "__main__":

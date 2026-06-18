@@ -3,7 +3,6 @@ import tkinter as tk
 from pathlib import Path
 from typing import Optional
 
-import z7_theme
 from z7_logging import configure_component_logger, get_data_dir, log_exception
 
 LOGGER = configure_component_logger("z7_gemini_key")
