@@ -15,7 +15,7 @@ LOGGER = configure_component_logger("config_prompt")
 
 GITHUB_REPO_URL = "https://github.com/chrmsantos/Z7_StdProposers"
 
-_APP_VERSION = "7.9.7"
+_APP_VERSION = "7.9.8"
 _APP_AUTHOR  = "CMS"
 _ORG         = "Câmara Municipal de Santa Bárbara d'Oeste"
 _LICENSE     = "GPL-3.0"

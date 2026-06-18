@@ -171,11 +171,11 @@ Public Sub PadronizarDocumentoMain()
         LogMessage "Aviso: Algumas formatacoes de lista podem nao ter sido restauradas", LOG_LEVEL_WARNING
     End If
 
-    ' Formata paragrafos iniciados com numero (aplica recuo de lista numerada)
+    ' Rotina desabilitada: remocao de todas as formatacoes especificamente definidas para listas numeradas
     IncrementProgress "Ajustando numeracao"
-    If Not FormatNumberedParagraphsIndent(doc) Then
-        LogMessage "Aviso: Falha ao formatar recuos de paragrafos numerados", LOG_LEVEL_WARNING
-    End If
+    ' If Not FormatNumberedParagraphsIndent(doc) Then
+    '     LogMessage "Aviso: Falha ao formatar recuos de paragrafos numerados", LOG_LEVEL_WARNING
+    ' End If
 
     ' Formata paragrafos iniciados com marcador (aplica recuo de lista com marcadores)
     IncrementProgress "Ajustando marcadores"
