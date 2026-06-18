@@ -15,7 +15,7 @@ LOGGER = configure_component_logger("config_prompt")
 
 GITHUB_REPO_URL = "https://github.com/chrmsantos/Z7_StdProposers"
 
-_APP_VERSION = "7.9.6"
+_APP_VERSION = "7.9.7"
 _APP_AUTHOR  = "CMS"
 _ORG         = "Câmara Municipal de Santa Bárbara d'Oeste"
 _LICENSE     = "GPL-3.0"
@@ -29,12 +29,19 @@ Considere como inconsistências:
 2. Contradições entre nomes de pessoas, lugares, logradouros ou endereços;
 3. Contradições entre tipos de moção ou natureza do ato legislativo;
 4. Contradições lógicas ou semânticas internas ao texto;
-5. Qualquer incoerência que comprometa a validade ou o sentido jurídico do documento.
+5. Qualquer incoerência que comprometa a validade ou o sentido jurídico do documento;
+6. Erros gramaticais graves (por exemplo, falhas graves de concordância nominal ou verbal, erros ortográficos crassos, desvios sérios de regência, ou problemas de pontuação que prejudiquem a clareza e compreensão da matéria);
+7. Falha ou ausência de referências normativas obrigatórias de acordo com o tipo de propositura:
+   - Se a propositura for uma Indicação, o texto deverá fazer referência expressa ao "Art. 108 do Regimento Interno";
+   - Se for um Requerimento de Informações, o texto deverá fazer referência expressa ao "Art. 10, Inciso X, da Lei Orgânica do município de Santa Bárbara d’Oeste, combinado com o Art. 63, Inciso IX, do mesmo diploma legal";
+   - Se for um Requerimento de Pesar, o texto deverá fazer referência expressa ao "Art. 102, Inciso IV, do Regimento Interno";
+   - Se for uma Moção, o texto deverá fazer referência expressa ao "Art. 92, do Capítulo IV, Título V, do Regimento Interno".
 
 Não reporte como problemas:
 - Pequenas divergências de grafia ou acentuação;
 - Diferenças na ordem de palavras que não alterem o sentido;
-- Pequenos erros formais ou gramaticais que não criem contradição lógica.
+- Pequenos erros formais ou desvios gramaticais leves que não comprometam a estrutura ou a lógica do texto (erros gramaticais graves, contudo, devem ser apontados);
+- As strings "$ANO$" e "$DATAATUALEXTENSO$" (que devem ser ignoradas no processo de verificação de consistência de datas, não devendo ser comparadas com outras datas no restante do documento).
 
 Se encontrar inconsistências, liste-as de forma clara, sucinta e objetiva, indicando os trechos conflitantes e explicando o problema.
 Se NÃO encontrar inconsistências, responda APENAS com: "Sem inconsistências detectadas no documento."
@@ -681,8 +688,8 @@ def main() -> None:
     screen_width = root.winfo_screenwidth()
     screen_height = root.winfo_screenheight()
     
-    chat_width = int(screen_width * 2 / 3)
-    chat_height = int(screen_height * 0.92)
+    chat_width = int(screen_width * 2 / 3 * 1.15)
+    chat_height = int(screen_height * 0.92 * 0.90)
     chat_left = 0
     chat_top = int(screen_height * 0.02)
     

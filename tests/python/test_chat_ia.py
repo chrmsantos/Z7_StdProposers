@@ -273,5 +273,63 @@ class TestChatIaContextPending(unittest.TestCase):
             self.assertEqual(call_args, "Pergunta sem contexto")
 
 
+class TestChatIaDateInclusion(unittest.TestCase):
+    def test_get_today_date_text_format(self):
+        with mock.patch.dict(sys.modules, _STUBS):
+            mod = _import_chat_ia()
+            date_text = mod.get_today_date_text()
+            self.assertTrue(date_text.startswith("Hoje é "))
+            self.assertTrue(date_text.endswith("."))
+            parts = date_text.split(" ")
+            self.assertEqual(len(parts), 7) # ['Hoje', 'é', 'DD', 'de', 'MM', 'de', 'AAAA.']
+            self.assertEqual(parts[0], "Hoje")
+            self.assertEqual(parts[1], "é")
+            self.assertEqual(parts[3], "de")
+            self.assertEqual(parts[5], "de")
+
+    def test_system_instruction_contains_date(self):
+        with mock.patch.dict(sys.modules, _STUBS):
+            mod = _import_chat_ia()
+            app = mock.MagicMock()
+            app.doc_text = "Texto"
+            app._doc_truncated = False
+            app.root = mock.MagicMock()
+            app.client = _genai_stub.Client()
+            app._model = "gemini-3.5-flash"
+            app.chat_session = None
+            
+            with mock.patch.object(mod, 'get_api_key', return_value="fake-key"):
+                mod.ChatApp._init_ai_thread(app)
+            
+            # Verifica se chats.create foi chamado com a system_instruction contendo a data
+            create_call = app.client.chats.create.call_args
+            self.assertIsNotNone(create_call)
+            config = create_call.kwargs.get('config')
+            self.assertIsNotNone(config)
+            sys_inst = config.system_instruction
+            self.assertTrue(sys_inst.startswith("Hoje é "))
+
+    def test_task_prompt_contains_ignore_instruction(self):
+        with mock.patch.dict(sys.modules, _STUBS):
+            mod = _import_chat_ia()
+            app = mock.MagicMock()
+            app.doc_text = "Texto do documento."
+            app.chat_session = _chat_session_stub
+            app.root = mock.MagicMock()
+            _chat_session_stub.reset_mock()
+            
+            with mock.patch('config_prompt.load_prompt', return_value="Base Prompt"):
+                mod.ChatApp._run_task_thread(app, "grammar")
+                
+            # Verifica se send_message foi chamado com o prompt contendo a instrução de ignorar, gramatical e normativa
+            call_args = _chat_session_stub.send_message.call_args[0][0]
+            self.assertIn("devem ser ignoradas no processo de verificação de consistência", call_args)
+            self.assertIn("$ANO$", call_args)
+            self.assertIn("$DATAATUALEXTENSO$", call_args)
+            self.assertIn("apontar erros gramaticais graves", call_args)
+            self.assertIn("referências normativas do documento", call_args)
+            self.assertIn("Art. 108 do Regimento Interno", call_args)
+
+
 if __name__ == "__main__":
     unittest.main()

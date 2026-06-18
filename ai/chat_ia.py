@@ -13,11 +13,23 @@ LOGGER = configure_component_logger("chat_ia")
 _DEFAULT_MODEL = 'gemini-3.5-flash'
 _MAX_CONTEXT_CHARS = 150_000
 
-_APP_VERSION = "7.9.6"
+_APP_VERSION = "7.9.7"
 _APP_AUTHOR  = "CMS"
 _ORG         = "Câmara Municipal de Santa Bárbara d'Oeste"
 _LICENSE     = "GPL-3.0"
 _MOTTO       = "Dharma, virtude e gratidão."
+
+def get_today_date_text() -> str:
+    """Retorna a data atual formatada como 'Hoje é DD de MM de AAAA.'"""
+    import datetime
+    now = datetime.datetime.now()
+    months = {
+        1: "janeiro", 2: "fevereiro", 3: "março", 4: "abril",
+        5: "maio", 6: "junho", 7: "julho", 8: "agosto",
+        9: "setembro", 10: "outubro", 11: "novembro", 12: "dezembro"
+    }
+    month_name = months[now.month]
+    return f"Hoje é {now.day} de {month_name} de {now.year}."
 
 # ==========================================
 # Classe Principal do Chat
@@ -32,8 +44,8 @@ class ChatApp:
         screen_width = self.root.winfo_screenwidth()
         screen_height = self.root.winfo_screenheight()
         
-        chat_width = int(screen_width * 2 / 3)
-        chat_height = int(screen_height * 0.92)
+        chat_width = int(screen_width * 2 / 3 * 1.15)
+        chat_height = int(screen_height * 0.92 * 0.90)
         chat_left = 0
         chat_top = int(screen_height * 0.02)
         
@@ -506,7 +518,22 @@ class ChatApp:
             else:
                 base_prompt = load_consistency_prompt()
                 
-            prompt = f"{base_prompt}\n\n---INICIO DO DOCUMENTO---\n{self.doc_text}\n---FIM DO DOCUMENTO---\n"
+            today_prefix = get_today_date_text()
+            ignore_instruction = (
+                "As strings \"$ANO$\" e \"$DATAATUALEXTENSO$\" devem ser ignoradas no processo de verificação de consistência "
+                "de datas, não devendo ser comparadas com outras datas no restante do documento."
+            )
+            grammar_instruction = (
+                "A verificação de consistência deve também verificar e apontar erros gramaticais graves."
+            )
+            normative_instruction = (
+                "A verificação de consistência deverá verificar as referências normativas do documento sob os seguintes requisitos:\n"
+                "- Se o documento/propositura for uma indicação, o texto deverá fazer referência expressa ao Art. 108 do Regimento Interno;\n"
+                "- Se o documento/propositura for um Requerimento de Informações, o texto deverá fazer referência expressa ao Art. 10, Inciso X, da Lei Orgânica do município de Santa Bárbara d’Oeste, combinado com o Art. 63, Inciso IX, do mesmo diploma legal;\n"
+                "- Se o documento/propositura for um Requerimento de Pesar, o texto deverá fazer referência expressa ao Art. 102, Inciso IV, do Regimento Interno;\n"
+                "- Se o documento/propositura for uma Moção, o texto deverá fazer referência expressa ao Art. 92, do Capítulo IV, Título V, do Regimento Interno."
+            )
+            prompt = f"{today_prefix}\n{ignore_instruction}\n{grammar_instruction}\n{normative_instruction}\n\n{base_prompt}\n\n---INICIO DO DOCUMENTO---\n{self.doc_text}\n---FIM DO DOCUMENTO---\n"
             
             LOGGER.info(f"Sending {task_type} task to Gemini chat")
             
@@ -533,7 +560,8 @@ class ChatApp:
     def _new_conversation_thread(self) -> None:
         try:
             from google.genai import types
-            system_instruction = "Você é um assistente especialista em legislação prestativo e polido. Auxilie o usuário alterando, revisando ou tirando dúvidas."
+            today_prefix = get_today_date_text()
+            system_instruction = f"{today_prefix} Você é um assistente especialista em legislação prestativo e polido. Auxilie o usuário alterando, revisando ou tirando dúvidas."
 
             # Pré-popula histórico com contexto do documento sem chamada de API
             self._reload_doc_text()
@@ -641,7 +669,8 @@ class ChatApp:
                 log_exception(LOGGER, "Failed to load selected model for chat_ia", e)
                 self._model = _DEFAULT_MODEL
 
-            system_instruction = "Você é um assistente especialista em legislação prestativo e polido. Auxilie o usuário alterando, revisando ou tirando dúvidas."
+            today_prefix = get_today_date_text()
+            system_instruction = f"{today_prefix} Você é um assistente especialista em legislação prestativo e polido. Auxilie o usuário alterando, revisando ou tirando dúvidas."
 
             # --- Pré-popula o histórico com o contexto do documento (sem chamada de API) ---
             # Usar history=[] evita um round-trip de rede no início, eliminando a principal

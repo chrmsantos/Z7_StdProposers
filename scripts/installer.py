@@ -32,7 +32,7 @@ except ImportError:
 else:
     LOGGER = configure_component_logger("installer")
 
-_APP_VERSION = "7.9.6"
+_APP_VERSION = "7.9.7"
 GITHUB_REPO_URL = "https://github.com/chrmsantos/Z7_StdProposers"
 
 class InstallerTheme:
