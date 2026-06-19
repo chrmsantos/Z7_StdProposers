@@ -137,8 +137,6 @@ class ChatApp:
         fg_muted  = colors["fg_muted"]
         text_bg   = colors["text_bg"]
         border    = colors["border"]
-        btn_sec_hover    = colors["btn_sec_hover"]
-        btn_sec_bg       = colors["btn_sec_bg"]
         btn_primary_bg   = colors["btn_primary_bg"]
         user_tag_color   = colors["user_tag"]
         ai_tag_color     = colors["ai_tag"]
@@ -148,18 +146,6 @@ class ChatApp:
         # Header
         self.top_frame.configure(bg=bg)
         self.title_lbl.configure(bg=bg, fg=fg)
-        self.action_frame.configure(bg=bg)
-        self.header_sep.configure(bg=border)
-
-        # Action buttons (top)
-        for btn in [self.new_conv_btn, self.copy_btn]:
-            btn.configure(bg=btn_sec_bg, fg=fg, activebackground=btn_sec_hover, activeforeground=fg)
-
-        # Analysis buttons (bottom bar)
-        self.analysis_frame.configure(bg=bg)
-        self.analysis_sep.configure(bg=border)
-        for btn in [self.grammar_btn, self.consistency_btn]:
-            btn.configure(bg=btn_sec_bg, fg=fg, activebackground=btn_sec_hover, activeforeground=fg)
 
         # Chat area
         self.chat_border.configure(bg=border)
@@ -272,26 +258,7 @@ class ChatApp:
         )
         self.status_lbl.pack()
 
-        self.action_frame = tk.Frame(self.top_frame)
-        self.action_frame.pack(side=tk.TOP, anchor="w", pady=(0, 14))
 
-        self.new_conv_btn = tk.Button(
-            self.action_frame, text="↺  Nova Conversa",
-            font=("Segoe UI", 9), relief=tk.FLAT, cursor="hand2",
-            padx=10, pady=5, command=self.new_conversation
-        )
-        self.new_conv_btn.pack(side=tk.LEFT, padx=(0, 6))
-
-        self.copy_btn = tk.Button(
-            self.action_frame, text="⎘  Copiar Resposta",
-            font=("Segoe UI", 9), relief=tk.FLAT, cursor="hand2",
-            padx=10, pady=5, command=self.copy_last_reply
-        )
-        self.copy_btn.pack(side=tk.LEFT)
-
-        # Linha separadora sob o cabeçalho
-        self.header_sep = tk.Frame(self.root, height=1)
-        self.header_sep.pack(fill=tk.X)
 
         # ── Rod apé (empacotado BOTTOM primeiro: fica na base absoluta) ────────────────
         _footer_text = f"{_ORG}  ·  {_APP_AUTHOR}  ·  {_LICENSE}  ·  {_MOTTO}"
@@ -330,28 +297,6 @@ class ChatApp:
         self.input_sep = tk.Frame(self.root, height=1)
         self.input_sep.pack(side=tk.BOTTOM, fill=tk.X)
 
-        # ── Botões de análise rápida (acima do input, abaixo do chat) ────────
-        self.analysis_frame = tk.Frame(self.root)
-        self.analysis_frame.pack(side=tk.BOTTOM, fill=tk.X, padx=24, pady=(6, 6))
-
-        self.grammar_btn = tk.Button(
-            self.analysis_frame, text="📝  Corrigir Gramática",
-            font=("Segoe UI", 9), relief=tk.FLAT, cursor="hand2",
-            padx=10, pady=5, command=self.run_grammar_check
-        )
-        self.grammar_btn.pack(side=tk.LEFT, padx=(0, 8))
-
-        self.consistency_btn = tk.Button(
-            self.analysis_frame, text="🔍  Verificar Consistência",
-            font=("Segoe UI", 9), relief=tk.FLAT, cursor="hand2",
-            padx=10, pady=5, command=self.run_consistency_check
-        )
-        self.consistency_btn.pack(side=tk.LEFT)
-
-        # Linha separadora acima dos botões de análise
-        self.analysis_sep = tk.Frame(self.root, height=1)
-        self.analysis_sep.pack(side=tk.BOTTOM, fill=tk.X)
-
         # ── Área de chat ──────────────────────────────────────────────────────
         self.chat_border = tk.Frame(self.root, bd=1, relief=tk.SOLID)
         self.chat_border.pack(expand=True, fill=tk.BOTH, padx=24, pady=(8, 0))
@@ -362,20 +307,6 @@ class ChatApp:
             padx=15, pady=12, state=tk.DISABLED, bd=0
         )
         self.chat_area.pack(expand=True, fill=tk.BOTH)
-
-        # Ajusta a largura da janela para acomodar os botões lado a lado
-        self.root.update_idletasks()
-        btn_row_w = (
-            self.grammar_btn.winfo_reqwidth()
-            + 8
-            + self.consistency_btn.winfo_reqwidth()
-            + 48  # padx da janela
-            + 20  # margem de conforto
-        )
-        if self.root.winfo_width() < btn_row_w:
-            h = self.root.winfo_height()
-            self.chat_width_px = btn_row_w
-            self.root.geometry(f"{btn_row_w}x{h}+0+{self.root.winfo_y()}")
 
     def append_message(self, role: str, message: str) -> None:
         self.chat_area.config(state=tk.NORMAL)
