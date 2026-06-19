@@ -737,6 +737,8 @@ class ChatApp:
     def _on_ai_ready(self) -> None:
         self.update_status("Pronto para conversar")
         self.append_message("AI", getattr(self, 'initial_greeting', "Olá! Como posso ajudar?"))
+        if self.doc_text and self.doc_text.strip() and "nenhum documento" not in self.doc_text.lower():
+            self.run_consistency_check()
 
     def send_message(self) -> None:
         if self.is_generating or not self.chat_session:
