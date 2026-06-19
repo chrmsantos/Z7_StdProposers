@@ -42,8 +42,8 @@ class ChatApp:
         screen_width = self.root.winfo_screenwidth()
         screen_height = self.root.winfo_screenheight()
         
-        chat_width = int(screen_width * 2 / 3 * 1.15)
-        chat_height = int(screen_height * 0.92 * 0.90)
+        chat_width = int(screen_width * 2 / 3 * 1.15 * 1.10)
+        chat_height = int(screen_height * 0.92 * 0.90 * 1.05)
         chat_left = 0
         chat_top = int(screen_height * 0.02)
         
@@ -163,13 +163,25 @@ class ChatApp:
 
         # Chat area
         self.chat_border.configure(bg=border)
-        self.chat_area.configure(bg=text_bg, fg=fg, insertbackground=fg)
+        select_bg = "#4f46e5" if self.mode == "dark" else "#c4b5fd"
+        select_fg = "#ffffff" if self.mode == "dark" else "#1e1b4b"
+        self.chat_area.configure(
+            bg=text_bg, fg=fg, insertbackground=fg,
+            selectbackground=select_bg, selectforeground=select_fg,
+            inactiveselectbackground=select_bg
+        )
+        self.chat_area.tag_config("sel", background=select_bg, foreground=select_fg)
+        self.chat_area.tag_raise("sel")
 
         # Input area
         self.input_outer.configure(bg=bg)
         self.input_sep.configure(bg=border)
         self.input_border.configure(bg=border)
-        self.input_text.configure(bg=text_bg, fg=fg, insertbackground=fg)
+        self.input_text.configure(
+            bg=text_bg, fg=fg, insertbackground=fg,
+            selectbackground=select_bg, selectforeground=select_fg,
+            inactiveselectbackground=select_bg
+        )
         self.send_btn.configure(
             bg=btn_primary_bg, fg="white",
             activebackground=colors["btn_primary_hover"], activeforeground="white"
@@ -298,7 +310,7 @@ class ChatApp:
         self.input_border.pack(side=tk.LEFT, expand=True, fill=tk.BOTH)
 
         self.input_text = tk.Text(
-            self.input_border, wrap=tk.WORD, height=3,
+            self.input_border, wrap=tk.WORD, height=2,
             font=("Segoe UI", 11), relief=tk.FLAT,
             padx=12, pady=10, bd=0
         )

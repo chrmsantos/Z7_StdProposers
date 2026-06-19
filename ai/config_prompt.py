@@ -696,8 +696,8 @@ def main() -> None:
     screen_width = root.winfo_screenwidth()
     screen_height = root.winfo_screenheight()
     
-    chat_width = int(screen_width * 2 / 3 * 1.15)
-    chat_height = int(screen_height * 0.92 * 0.90)
+    chat_width = int(screen_width * 2 / 3 * 1.15 * 1.10)
+    chat_height = int(screen_height * 0.92 * 0.90 * 1.05)
     chat_left = 0
     chat_top = int(screen_height * 0.02)
     
