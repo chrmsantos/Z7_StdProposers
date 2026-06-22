@@ -327,6 +327,7 @@ class TestChatIaDateInclusion(unittest.TestCase):
             self.assertIn("apontar erros gramaticais graves", call_args)
             self.assertIn("referências normativas do documento", call_args)
             self.assertIn("Art. 108 do Regimento Interno", call_args)
+            self.assertIn("Se houver perguntas no documento, a verificação de consistência deve verificar se elas são consistentes e coerentes ao contexto do documento.", call_args)
 
 
 if __name__ == "__main__":

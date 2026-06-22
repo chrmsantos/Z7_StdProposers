@@ -36,6 +36,8 @@ Considere como inconsistências:
    - Se for um Requerimento de Informações, o texto deverá fazer referência expressa ao "Art. 10, Inciso X, da Lei Orgânica do município de Santa Bárbara d’Oeste, combinado com o Art. 63, Inciso IX, do mesmo diploma legal";
    - Se for um Requerimento de Pesar, o texto deverá fazer referência expressa ao "Art. 102, Inciso IV, do Regimento Interno";
    - Se for uma Moção, o texto deverá fazer referência expressa ao "Art. 92, do Capítulo IV, Título V, do Regimento Interno".
+8. Perguntas no documento que não sejam consistentes ou coerentes ao contexto do documento.
+
 
 Não reporte como problemas:
 - Pequenas divergências de grafia ou acentuação;

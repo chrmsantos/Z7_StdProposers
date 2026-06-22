@@ -474,7 +474,10 @@ class ChatApp:
                 "- Se o documento/propositura for um Requerimento de Pesar, o texto deverá fazer referência expressa ao Art. 102, Inciso IV, do Regimento Interno;\n"
                 "- Se o documento/propositura for uma Moção, o texto deverá fazer referência expressa ao Art. 92, do Capítulo IV, Título V, do Regimento Interno."
             )
-            prompt = f"{today_prefix}\n{ignore_instruction}\n{grammar_instruction}\n{normative_instruction}\n\n{base_prompt}\n\n---INICIO DO DOCUMENTO---\n{self.doc_text}\n---FIM DO DOCUMENTO---\n"
+            questions_instruction = (
+                "Se houver perguntas no documento, a verificação de consistência deve verificar se elas são consistentes e coerentes ao contexto do documento."
+            )
+            prompt = f"{today_prefix}\n{ignore_instruction}\n{grammar_instruction}\n{normative_instruction}\n{questions_instruction}\n\n{base_prompt}\n\n---INICIO DO DOCUMENTO---\n{self.doc_text}\n---FIM DO DOCUMENTO---\n"
             
             LOGGER.info(f"Sending {task_type} task to Gemini chat")
             

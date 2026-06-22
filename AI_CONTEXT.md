@@ -2,7 +2,7 @@
 
 > Note to AI Agents: read this document before modifying the VBA pipeline or Python integration.
 >
-> Last updated: 2026-05-20 (v7.7.7 stable — build fix: `[System.IO.Compression.ZipFile]` replaces `Compress-Archive` for nested `.zip` support in `build_exe.ps1`).
+> Last updated: 2026-06-22 (v7.9.8 — added blank paragraph numbering removal and question consistency checking instructions to the AI prompts).
 
 ## 1. Project Overview
 
@@ -21,15 +21,15 @@ The active VBA architecture is consolidated into four modules:
 
 - `Mod1Infrastructure.bas`: constants, global state, paths, safe wrappers, backup/system helpers.
 - `Mod2Engine.bas`: structure detection heuristics, cache system, image/list handling and restoration helpers.
-- `Mod3Pipeline.bas`: core formatting pipeline (double-pass), normalization/cleanup routines, logging primitives.
-- `Mod4Main.bas`: macro entrypoints (`PadronizarDocumentoMain`, public API helpers, Gemini integration bridge).
+- `Mod3Pipeline.bas`: core formatting pipeline (double-pass), normalization/cleanup routines (including blank paragraph numbering removal), logging primitives.
+- `Mod4Main.bas`: macro entrypoints (`PadronizarDocumentoMain`, public API helpers, Gemini integration bridge calling the blank paragraph cleanup).
 
 ### 2.2 Python (Gemini integration)
 
 Main files in `ai/`:
 
-- `chat_ia.py`: chat UI with Word document context. `_context_pending` flag: if the initial Gemini call fails (e.g. 503), the full document text is prepended to the user's first message instead. Heavy imports deferred via lazy loading (opens UI instantly, ~2.5 s savings). Now includes grammar correction and consistency verification directly in the UI.
-- `config_prompt.py`: UI for prompt editing. Hosts `DEFAULT_CONSISTENCY_PROMPT` (controls consistency check output verbosity).
+- `chat_ia.py`: chat UI with Word document context. `_context_pending` flag: if the initial Gemini call fails (e.g. 503), the full document text is prepended to the user's first message instead. Heavy imports deferred via lazy loading (opens UI instantly, ~2.5 s savings). Now includes grammar correction and consistency verification directly in the UI, including dynamic validation of question consistency and coherence in relation to the document context.
+- `config_prompt.py`: UI for prompt editing. Hosts `DEFAULT_PROMPT` (grammar and general consistency prompt, including question checking rules) and `DEFAULT_CONSISTENCY_PROMPT` (controls consistency check output classification rules).
 - `z7_logging.py`: shared structured logger; uses `RotatingFileHandler` (2 MB / 3 backups).
 - `build_exe.ps1`: PyInstaller build workflow for `.exe` artifacts.
 

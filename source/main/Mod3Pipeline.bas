@@ -5,8 +5,6 @@ Option Explicit
 ' =============================================================================
 ' Z7_STDPROPOSERS - Sistema de Padronizacao de Proposituras Legislativas
 ' =============================================================================
-' Versao: 7.7.7-rc2
-' Data: 2026-05-19
 ' Licenca: GNU GPLv3 (https://www.gnu.org/licenses/gpl-3.0.html)
 ' Autor: Christian Martin dos Santos (chrmsantos@protonmail.com)
 ' =============================================================================
@@ -7363,4 +7361,51 @@ Public Sub ReplaceNoWithNoExceptTitle(doc As Document)
 ErrorHandler:
     LogMessage "Erro ao substituir 'Nº' por 'n°': " & Err.Description, LOG_LEVEL_WARNING
 End Sub
+
+
+'================================================================================
+' REMOVE NUMBERING FROM BLANK PARAGRAPHS - Remove formatacao de numero/lista de paragrafos vazios
+'================================================================================
+Public Function RemoveNumberingFromBlankParagraphs(doc As Document) As Boolean
+    On Error GoTo ErrorHandler
+
+    Dim para As Paragraph
+    Dim paraText As String
+    Dim removedCount As Long
+    Dim totalParas As Long
+    Dim i As Long
+
+    removedCount = 0
+    totalParas = doc.Paragraphs.count
+
+    LogMessage "Removendo formatacao de numero de paragrafos em branco...", LOG_LEVEL_INFO
+
+    For i = 1 To totalParas
+        If i Mod 50 = 0 Then DoEvents ' Responsividade
+
+        Set para = doc.Paragraphs(i)
+        
+        ' Verifica se o paragrafo esta vazio (apenas quebra de paragrafo e espacos)
+        paraText = Trim(Replace(Replace(para.Range.text, vbCr, ""), vbLf, ""))
+
+        If paraText = "" Then
+            ' ListType = 0 (wdListNoNumbering) indica que nao tem lista
+            If para.Range.ListFormat.ListType <> 0 Then
+                para.Range.ListFormat.RemoveNumbers
+                removedCount = removedCount + 1
+            End If
+        End If
+    Next i
+
+    If removedCount > 0 Then
+        LogMessage "Formatacao de numero removida de " & removedCount & " paragrafo(s) em branco", LOG_LEVEL_INFO
+    End If
+
+    RemoveNumberingFromBlankParagraphs = True
+    Exit Function
+
+ErrorHandler:
+    LogMessage "Erro ao remover formatacao de numero de paragrafos em branco: " & Err.Description, LOG_LEVEL_WARNING
+    RemoveNumberingFromBlankParagraphs = False
+End Function
 
