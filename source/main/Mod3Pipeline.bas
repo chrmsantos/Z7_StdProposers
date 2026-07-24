@@ -86,6 +86,7 @@ Option Explicit
 '
 ' [MOD.CLEAN]    LIMPEZA DE FORMATACAO .............................. ~L5775
 '                - ClearAllFormatting, RemovePageNumberLines
+'                - RemoveUnderscoreOnlyParagraphs
 '                - CleanupDocumentStructure, RemoveTabMarks
 '
 ' [MOD.TITLE]    FORMATACAO DE TITULO ............................... ~L6356
@@ -1156,6 +1157,7 @@ Public Function PreviousFormatting(doc As Document) As Boolean
 
     LogStepStart "Limpeza estrutural"
     RemovePageNumberLines doc
+    RemoveUnderscoreOnlyParagraphs doc
     CleanDocumentStructure doc
     RemoveAllTabMarks doc
     LogStepComplete "Limpeza estrutural"
@@ -1223,6 +1225,10 @@ Public Function PreviousFormatting(doc As Document) As Boolean
     ApplyTextReplacements doc
     LogStepComplete "Aplicacao de substituicoes de texto"
 
+    LogStepStart "Capitalizacao do inicio de paragrafos"
+    CapitalizeFirstLetterOfParagraphs doc
+    LogStepComplete "Capitalizacao do inicio de paragrafos"
+
     LogStepStart "Remocao de marca d'agua e insercao de carimbo"
     RemoveWatermark doc
     InsertHeaderstamp doc
@@ -1279,6 +1285,10 @@ Public Function PreviousFormatting(doc As Document) As Boolean
     LogStepStart "Aplicacao de formatacao final universal"
     ApplyUniversalFinalFormatting doc
     LogStepComplete "Aplicacao de formatacao final universal"
+
+    LogStepStart "Remocao de dois pontos da justificativa"
+    RemoveJustificativaColon doc
+    LogStepComplete "Remocao de dois pontos da justificativa"
 
     LogStepStart "Adicao de espacamento especial (ementa, justificativa, data)"
     AddSpecialElementsSpacing doc
@@ -3728,8 +3738,8 @@ Public Function RemovePageNumberLines(doc As Document) As Boolean
         paraText = para.Range.text
         cleanText = Trim(Replace(Replace(paraText, vbCr, ""), vbLf, ""))
 
-        ' Verifica se a linha termina com o padrao desejado
-        If IsPageNumberLine(cleanText) Then
+        ' Verifica se a linha termina com o padrao desejado ou e pagina de requerimento
+        If IsPageNumberLine(cleanText) Or IsRequerimentoPageLine(cleanText) Then
             ' Verifica se existe uma proxima linha
             Dim hasNextLine As Boolean
             Dim nextLineIsEmpty As Boolean
@@ -3783,6 +3793,57 @@ ErrorHandler:
     LogMessage "Erro ao remover linhas de paginacao: " & Err.Description, LOG_LEVEL_WARNING
     RemovePageNumberLines = False
 End Function
+
+'================================================================================
+' REMOVE PARAGRAFOS COMPOSTOS UNICAMENTE POR UNDERLINES (_)
+' Paragrafos cujo texto limpo seja uma sequencia de um ou mais caracteres "_"
+' (underline/underscore) sao removidos integralmente.
+'================================================================================
+Public Sub RemoveUnderscoreOnlyParagraphs(doc As Document)
+    On Error GoTo ErrorHandler
+
+    Dim i As Long
+    Dim para As Paragraph
+    Dim cleanText As String
+    Dim removedCount As Long
+    Dim isUnderscoreOnly As Boolean
+    Dim j As Long
+
+    removedCount = 0
+
+    ' Percorre de tras para frente para nao afetar indices ao deletar
+    For i = doc.Paragraphs.count To 1 Step -1
+        If i > doc.Paragraphs.count Then Exit For ' Protecao dinamica
+
+        Set para = doc.Paragraphs(i)
+        cleanText = Trim(Replace(Replace(para.Range.text, vbCr, ""), vbLf, ""))
+
+        ' Verifica se o paragrafo possui texto e e composto unicamente por underlines
+        If Len(cleanText) > 0 Then
+            isUnderscoreOnly = True
+            For j = 1 To Len(cleanText)
+                If Mid(cleanText, j, 1) <> "_" Then
+                    isUnderscoreOnly = False
+                    Exit For
+                End If
+            Next j
+
+            If isUnderscoreOnly Then
+                para.Range.Delete
+                removedCount = removedCount + 1
+            End If
+        End If
+    Next i
+
+    If removedCount > 0 Then
+        documentDirty = True
+        LogMessage "Paragrafos de underline removidos: " & removedCount, LOG_LEVEL_INFO
+    End If
+
+    Exit Sub
+ErrorHandler:
+    LogMessage "Erro ao remover paragrafos de underline: " & Err.Description, LOG_LEVEL_WARNING
+End Sub
 
 '================================================================================
 ' LIMPEZA DA ESTRUTURA DO DOCUMENTO
@@ -4678,8 +4739,37 @@ NextVariant:
         LogMessage "Substituicao aplicada: 'retorne a esta Casa de Leis com as seguintes respostas' -> 'retorne a esta Casa de Leis com as seguintes informacoes' (" & casaLeisRespostasCount & "x)", LOG_LEVEL_INFO
     End If
 
+    ' Substitui " Jd " por " Jd. "
+    Dim jdCount As Long
+    jdCount = ExecuteFindReplace(doc, " Jd ", " Jd. ", True)
+    If jdCount > 0 Then
+        LogMessage "Substituicao aplicada: ' Jd ' -> ' Jd. ' (" & jdCount & "x)", LOG_LEVEL_INFO
+    End If
+
+    ' Substitui " aos nº " / " aos n° " por " ao nº " / " ao n° "
+    Dim aosNoCount As Long
+    aosNoCount = ExecuteFindReplace(doc, " aos n" & Chr(186) & " ", " ao n" & Chr(186) & " ", True)
+    aosNoCount = aosNoCount + ExecuteFindReplace(doc, " aos n" & Chr(176) & " ", " ao n" & Chr(176) & " ", True)
+    If aosNoCount > 0 Then
+        LogMessage "Substituicao aplicada: ' aos nº ' -> ' ao nº ' (" & aosNoCount & "x)", LOG_LEVEL_INFO
+    End If
+
+    ' Substitui " nos nº " / " nos n° " por " no nº " / " no n° "
+    Dim nosNoCount As Long
+    nosNoCount = ExecuteFindReplace(doc, " nos n" & Chr(186) & " ", " no n" & Chr(186) & " ", True)
+    nosNoCount = nosNoCount + ExecuteFindReplace(doc, " nos n" & Chr(176) & " ", " no n" & Chr(176) & " ", True)
+    If nosNoCount > 0 Then
+        LogMessage "Substituicao aplicada: ' nos nº ' -> ' no nº ' (" & nosNoCount & "x)", LOG_LEVEL_INFO
+    End If
+
     ' Substitui Nº por n° exceto no titulo
     ReplaceNoWithNoExceptTitle doc
+
+    ' Substitui parágrafos contendo unicamente a string 'tikinho tk"'
+    ReplaceTikinhoTkParagraphs doc
+    
+    ' Garante espaço não separável após nº/n° antes de algarismos
+    EnsureNonBreakingSpaceAfterNo doc
 
     ApplyTextReplacements = True
     Exit Function
@@ -4696,6 +4786,78 @@ ErrorHandler:
     End If
     ' Continua execucao - erros de substituicao nao sao criticos
     ApplyTextReplacements = True
+End Function
+
+'================================================================================
+' CAPITALIZAR INICIO DE PARAGRAFOS
+' Garantia: Qualquer paragrafo iniciado com a primeira letra em minuscula
+' deve ter a primeira letra substituida por maiuscula (ex: "nos termos..." -> "Nos termos...").
+'================================================================================
+Public Function CapitalizeFirstLetterOfParagraphs(doc As Document) As Long
+    On Error GoTo ErrorHandler
+
+    CapitalizeFirstLetterOfParagraphs = 0
+    If doc Is Nothing Then Exit Function
+
+    Dim para As Paragraph
+    Dim paraText As String
+    Dim textLen As Long
+    Dim k As Long
+    Dim ch As String
+    Dim capitalizedCount As Long
+    Dim paraCounter As Long
+
+    capitalizedCount = 0
+    paraCounter = 0
+
+    For Each para In doc.Paragraphs
+        paraCounter = paraCounter + 1
+        If paraCounter Mod 30 = 0 Then DoEvents
+
+        ' Pula paragrafos sem conteudo visual (imagem/shape)
+        If HasVisualContent(para) Then GoTo NextParagraph
+
+        paraText = para.Range.text
+        textLen = Len(paraText)
+        If textLen = 0 Then GoTo NextParagraph
+
+        ' Procura a primeira letra alfabetica do paragrafo
+        For k = 1 To textLen
+            ch = Mid$(paraText, k, 1)
+
+            ' Verifica se eh caractere de letra (LCase != UCase)
+            If LCase$(ch) <> UCase$(ch) Then
+                ' Se a letra for minuscula
+                If ch = LCase$(ch) Then
+                    On Error Resume Next
+                    Dim charRng As Range
+                    Set charRng = doc.Range(para.Range.Start + (k - 1), para.Range.Start + k)
+                    charRng.text = UCase$(ch)
+                    If Err.Number = 0 Then
+                        capitalizedCount = capitalizedCount + 1
+                        documentDirty = True
+                    End If
+                    Err.Clear
+                    On Error GoTo ErrorHandler
+                End If
+                ' Interrompe busca no paragrafo ao encontrar a primeira letra
+                Exit For
+            End If
+        Next k
+
+NextParagraph:
+    Next para
+
+    If capitalizedCount > 0 Then
+        LogMessage "Capitalizacao aplicada: " & capitalizedCount & " paragrafo(s) iniciado(s) com minuscula corrigidos", LOG_LEVEL_INFO
+    End If
+
+    CapitalizeFirstLetterOfParagraphs = capitalizedCount
+    Exit Function
+
+ErrorHandler:
+    LogMessage "Erro ao capitalizar inicio de paragrafos: " & Err.Description, LOG_LEVEL_WARNING
+    CapitalizeFirstLetterOfParagraphs = capitalizedCount
 End Function
 
 '================================================================================
@@ -5026,6 +5188,7 @@ End Sub
 
 '================================================================================
 ' FORMAT VEREADOR PARAGRAPHS - Formata paragrafo com "vereador" e adjacentes
+' Antes de formatar, remove paragrafos em branco imediatamente acima do "Vereador".
 '================================================================================
 Public Sub FormatVereadorParagraphs(doc As Document)
     On Error GoTo ErrorHandler
@@ -5036,17 +5199,43 @@ Public Sub FormatVereadorParagraphs(doc As Document)
     Dim prevPara As Paragraph
     Dim NextPara As Paragraph
     Dim i As Long
+    Dim j As Long
     Dim formattedCount As Long
+    Dim blankRemovedCount As Long
 
     formattedCount = 0
+    blankRemovedCount = 0
 
     ' Procura por paragrafos com "vereador"
     For i = 1 To doc.Paragraphs.count
+        If i > doc.Paragraphs.count Then Exit For ' Protecao dinamica apos remocoes
+
         Set para = doc.Paragraphs(i)
 
         ' OBS: O paragrafo pode conter pontuacao/travessoes/hifens.
         ' A deteccao abaixo ignora tudo que nao for letra e valida se sobrou apenas "vereador".
         If IsVereadorPattern(para.Range.text) Then
+
+            ' Remove paragrafos em branco imediatamente acima do "Vereador".
+            ' Percorre de tras para frente (i-1, i-2, ...) enquanto o paragrafo
+            ' for vazio e sem conteudo visual, ajustando o indice i apos cada remocao.
+            Do While i > 1
+                Set prevPara = doc.Paragraphs(i - 1)
+                Dim prevClean As String
+                prevClean = Trim(Replace(Replace(prevPara.Range.text, vbCr, ""), vbLf, ""))
+                If prevClean = "" And Not HasVisualContent(prevPara) Then
+                    prevPara.Range.Delete
+                    i = i - 1  ' Ajusta indice: o "Vereador" subiu uma posicao
+                    blankRemovedCount = blankRemovedCount + 1
+                Else
+                    Exit Do
+                End If
+            Loop
+
+            ' Reobtem a referencia ao paragrafo "Vereador" apos possiveis remocoes
+            If i > doc.Paragraphs.count Then Exit For
+            Set para = doc.Paragraphs(i)
+
             ApplyVereadorParagraphFormatting para
 
             ' Formata linha ACIMA (se existir): centraliza, zera recuo, aplica caixa alta e negrito (somente se nao houver conteudo visual)
@@ -5086,6 +5275,11 @@ Public Sub FormatVereadorParagraphs(doc As Document)
             LogMessage "Paragrafo 'Vereador' formatado (sem negrito) com linhas adjacentes centralizadas (posicao: " & i & ")", LOG_LEVEL_INFO
         End If
     Next i
+
+    If blankRemovedCount > 0 Then
+        documentDirty = True
+        LogMessage "Paragrafos em branco acima de 'Vereador' removidos: " & blankRemovedCount, LOG_LEVEL_INFO
+    End If
 
     If formattedCount > 0 Then
         LogMessage "Formatacao 'Vereador': " & formattedCount & " ocorrencias formatadas", LOG_LEVEL_INFO
@@ -5145,6 +5339,147 @@ Public Sub SubstituiVereadoraPorSenhoraVereadora(doc As Document)
 
 ErrorHandler:
     LogMessage "Erro ao substituir Vereadora por Senhora Vereadora: " & Err.Description, LOG_LEVEL_ERROR
+End Sub
+
+'================================================================================
+' TIKINHO TK - SUBSTITUICAO DE PARAGRAFO
+'================================================================================
+Private Function IsTikinhoTk(ByVal text As String) As Boolean
+    Dim t As String
+    t = LCase$(Trim$(text))
+    t = Replace(Replace(t, vbCr, ""), vbLf, "")
+    t = Trim$(t)
+    
+    If t = "tikinho tk""" Then
+        IsTikinhoTk = True
+        Exit Function
+    End If
+    If t = "'tikinho tk""'" Then
+        IsTikinhoTk = True
+        Exit Function
+    End If
+    If t = "tikinho tk" Then
+        IsTikinhoTk = True
+        Exit Function
+    End If
+    If t = "'tikinho tk'" Then
+        IsTikinhoTk = True
+        Exit Function
+    End If
+    If t = """tikinho tk""" Then
+        IsTikinhoTk = True
+        Exit Function
+    End If
+    
+    ' Unicode smart quotes etc.
+    Dim stripped As String
+    stripped = t
+    stripped = Replace(stripped, "'", "")
+    stripped = Replace(stripped, """", "")
+    stripped = Replace(stripped, ChrW(8216), "")
+    stripped = Replace(stripped, ChrW(8217), "")
+    stripped = Replace(stripped, ChrW(8220), "")
+    stripped = Replace(stripped, ChrW(8221), "")
+    stripped = Trim$(stripped)
+    
+    If stripped = "tikinho tk" Then
+        IsTikinhoTk = True
+        Exit Function
+    End If
+    
+    IsTikinhoTk = False
+End Function
+
+Public Sub ReplaceTikinhoTkParagraphs(doc As Document)
+    On Error GoTo ErrorHandler
+    
+    Dim i As Long
+    Dim para As Paragraph
+    Dim paraText As String
+    Dim rng As Range
+    Dim replacedCount As Long
+    
+    replacedCount = 0
+    For i = 1 To doc.Paragraphs.count
+        Set para = doc.Paragraphs(i)
+        paraText = para.Range.text
+        
+        If IsTikinhoTk(paraText) Then
+            Set rng = para.Range
+            If rng.Characters.count > 1 Then
+                rng.MoveEnd wdCharacter, -1 ' Nao remove a marca de paragrafo
+            End If
+            SafeReplaceText rng, "TIKINHO TK"
+            replacedCount = replacedCount + 1
+        End If
+    Next i
+    
+    If replacedCount > 0 Then
+        documentDirty = True
+        LogMessage "Substituicao de paragrafo 'tikinho tk' realizada (" & replacedCount & "x)", LOG_LEVEL_INFO
+    End If
+    
+    Exit Sub
+ErrorHandler:
+    LogMessage "Erro ao substituir paragrafos tikinho tk: " & Err.Description, LOG_LEVEL_WARNING
+End Sub
+
+Public Sub RemoveJustificativaColon(doc As Document)
+    On Error GoTo ErrorHandler
+    
+    Dim i As Long
+    Dim para As Paragraph
+    Dim paraText As String
+    Dim rng As Range
+    Dim replacedCount As Long
+    Dim normalizedCount As Long
+    
+    replacedCount = 0
+    normalizedCount = 0
+    For i = 1 To doc.Paragraphs.count
+        Set para = doc.Paragraphs(i)
+        paraText = para.Range.text
+        
+        Dim cleanText As String
+        cleanText = Trim$(paraText)
+        cleanText = Replace(Replace(cleanText, vbCr, ""), vbLf, "")
+        cleanText = Trim$(cleanText)
+        
+        ' Remove colon: "Justificativa:" ou "Justificacao:" -> "Justificativa"
+        If LCase$(cleanText) = "justificativa:" Or LCase$(cleanText) = "justificacao:" Then
+            Set rng = para.Range
+            If rng.Characters.count > 1 Then
+                rng.MoveEnd wdCharacter, -1
+            End If
+            SafeReplaceText rng, "Justificativa"
+            replacedCount = replacedCount + 1
+        ' Normaliza caixa: "JUSTIFICATIVA" ou "justificativa" -> "Justificativa"
+        ' (apenas quando o texto nao esta ja na forma correta)
+        ElseIf LCase$(cleanText) = "justificativa" Or LCase$(cleanText) = "justificacao" Then
+            If cleanText <> "Justificativa" Then
+                Set rng = para.Range
+                If rng.Characters.count > 1 Then
+                    rng.MoveEnd wdCharacter, -1
+                End If
+                SafeReplaceText rng, "Justificativa"
+                normalizedCount = normalizedCount + 1
+            End If
+        End If
+    Next i
+    
+    If replacedCount > 0 Then
+        documentDirty = True
+        LogMessage "Remocao de dois pontos do titulo de Justificativa: " & replacedCount & "x", LOG_LEVEL_INFO
+    End If
+    
+    If normalizedCount > 0 Then
+        documentDirty = True
+        LogMessage "Normalizacao de caixa do titulo de Justificativa: " & normalizedCount & "x", LOG_LEVEL_INFO
+    End If
+    
+    Exit Sub
+ErrorHandler:
+    LogMessage "Erro ao remover dois pontos da Justificativa: " & Err.Description, LOG_LEVEL_WARNING
 End Sub
 
 '================================================================================
@@ -6929,15 +7264,15 @@ Public Function RestoreViewSettings(doc As Document) As Boolean
         .TableGridlines = originalViewSettings.TableGridlines
         ' .EnlargeFontsLessThan removida para compatibilidade
 
-        ' ZOOM e mantido em 120% - unica configuracao que permanece alterada
-        .Zoom.Percentage = 120
+        ' ZOOM e mantido em 130% - unica configuracao que permanece alterada
+        .Zoom.Percentage = 130
     End With
 
     ' Configuracoes especificas do Window (para reguas)
     docWindow.DisplayRulers = originalViewSettings.ShowHorizontalRuler
     docWindow.DisplayVerticalRuler = originalViewSettings.ShowVerticalRuler
 
-    LogMessage "Configuracoes de visualizacao originais restauradas (zoom mantido em 120%)"
+    LogMessage "Configuracoes de visualizacao originais restauradas (zoom mantido em 130%)"
     RestoreViewSettings = True
     Exit Function
 
@@ -7408,4 +7743,40 @@ ErrorHandler:
     LogMessage "Erro ao remover formatacao de numero de paragrafos em branco: " & Err.Description, LOG_LEVEL_WARNING
     RemoveNumberingFromBlankParagraphs = False
 End Function
+
+
+'================================================================================
+' ENSURE NON BREAKING SPACE AFTER NO - Garante espaco nao separavel apos nº/n°
+'================================================================================
+Public Sub EnsureNonBreakingSpaceAfterNo(doc As Document)
+    On Error GoTo ErrorHandler
+    
+    Dim i As Long
+    Dim digit As String
+    Dim noOrdinalLower As String: noOrdinalLower = "n" & Chr(186)
+    Dim noOrdinalUpper As String: noOrdinalUpper = "N" & Chr(186)
+    Dim noDegreeLower As String: noDegreeLower = "n" & Chr(176)
+    Dim noDegreeUpper As String: noDegreeUpper = "N" & Chr(176)
+    Dim nbsp As String: nbsp = Chr(160)
+    
+    For i = 0 To 9
+        digit = CStr(i)
+        
+        ' 1. nº seguida de algarismo sem espaco -> com espaco nao separavel
+        ExecuteFindReplace doc, noOrdinalLower & digit, noOrdinalLower & nbsp & digit, True
+        ExecuteFindReplace doc, noOrdinalUpper & digit, noOrdinalUpper & nbsp & digit, True
+        ExecuteFindReplace doc, noDegreeLower & digit, noDegreeLower & nbsp & digit, True
+        ExecuteFindReplace doc, noDegreeUpper & digit, noDegreeUpper & nbsp & digit, True
+        
+        ' 2. nº seguida de algarismo com espaco comum -> com espaco nao separavel
+        ExecuteFindReplace doc, noOrdinalLower & " " & digit, noOrdinalLower & nbsp & digit, True
+        ExecuteFindReplace doc, noOrdinalUpper & " " & digit, noOrdinalUpper & nbsp & digit, True
+        ExecuteFindReplace doc, noDegreeLower & " " & digit, noDegreeLower & nbsp & digit, True
+        ExecuteFindReplace doc, noDegreeUpper & " " & digit, noDegreeUpper & nbsp & digit, True
+    Next i
+    
+    Exit Sub
+ErrorHandler:
+    LogMessage "Erro ao garantir espaco nao separavel apos nº: " & Err.Description, LOG_LEVEL_WARNING
+End Sub
 

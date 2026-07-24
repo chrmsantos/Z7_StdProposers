@@ -36,11 +36,11 @@ class TestGetLatestGithubRelease(unittest.TestCase):
 
 class TestInstallerTheme(unittest.TestCase):
     def setUp(self):
-        self.root = tk.Tk()
+        self.root = mock.MagicMock()
         self.theme = installer.InstallerTheme(self.root)
 
     def tearDown(self):
-        self.root.destroy()
+        pass
 
     def test_init_sets_mode_and_widgets(self):
         self.assertIn(self.theme.mode, ["light", "dark"])
@@ -68,14 +68,13 @@ class TestInstallerTheme(unittest.TestCase):
 
 
 class TestInstallerMainFlow(unittest.TestCase):
+    @mock.patch("tkinter.Tk")
     @mock.patch("threading.Thread")
     @mock.patch("installer.get_latest_github_release")
-    def test_main_initializes_gui(self, mock_get_release, mock_thread):
-        # Substitui mainloop por no-op para evitar travamento da GUI
-        with mock.patch.object(tk.Tk, "mainloop", lambda self: None):
-            # Substitui update para evitar erros de renderizacao assincrona
-            with mock.patch.object(tk.Tk, "update", lambda self: None):
-                installer.main()
+    def test_main_initializes_gui(self, mock_get_release, mock_thread, mock_tk):
+        mock_root = mock.MagicMock()
+        mock_tk.return_value = mock_root
+        installer.main()
 
 
 

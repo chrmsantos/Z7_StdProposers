@@ -890,6 +890,11 @@ Public Sub ComentarElementosPropositura()
         Exit Sub
     End If
 
+    ' Cria backup do documento antes de qualquer modificacao
+    If Not CreateDocumentBackup(doc) Then
+        LogMessage "Falha ao criar backup - continuando sem backup", LOG_LEVEL_WARNING
+    End If
+
     ' Indexa os paragrafos primeiro para garantir a identificacao dos indices
     BuildParagraphCache doc
 

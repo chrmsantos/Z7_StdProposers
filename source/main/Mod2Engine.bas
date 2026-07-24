@@ -2844,7 +2844,7 @@ Public Function IsPageNumberLine(text As String) As Boolean
     Dim patterns() As String
     ReDim patterns(0 To 1)
     patterns(0) = "$numero$/$ano$/pagina"
-    patterns(1) = "$numero$/$ano$/pagina"
+    patterns(1) = "$numero$/$ano$/página"
 
     Dim pattern As String
     Dim i As Long
@@ -2878,6 +2878,81 @@ Public Function IsPageNumberLine(text As String) As Boolean
 
 ErrorHandler:
     IsPageNumberLine = False
+End Function
+
+
+'================================================================================
+' IS REQUERIMENTO PAGE LINE - Verifica se texto e exclusivamente a linha de pagina
+' de um requerimento no formato "REQUERIMENTO n° $NUMERO$/$ANO$/Página X" ou
+' "REQUERIMENTO n° $NUMERO$/$ANO$/Página XX" (com tolerâncias de grafia).
+'================================================================================
+Public Function IsRequerimentoPageLine(text As String) As Boolean
+    On Error GoTo ErrorHandler
+    IsRequerimentoPageLine = False
+    
+    Dim lowerText As String
+    lowerText = LCase(Trim(text))
+    
+    ' A string deve ter pelo menos o tamanho de "requerimento $numero$/$ano$/pagina X"
+    If Len(lowerText) < 30 Then Exit Function
+    
+    ' O paragrafo deve comecar com "requerimento"
+    If Left(lowerText, 12) <> "requerimento" Then Exit Function
+    
+    ' Procura pela presenca de "$numero$/$ano$/p"
+    Dim pPos As Long
+    pPos = InStr(lowerText, "$numero$/$ano$/p")
+    If pPos = 0 Then Exit Function
+    
+    ' Procura por "página" ou "pagina" a partir de pPos
+    Dim pagPos As Long
+    pagPos = InStr(pPos, lowerText, "página")
+    If pagPos = 0 Then
+        pagPos = InStr(pPos, lowerText, "pagina")
+    End If
+    If pagPos = 0 Then Exit Function
+    
+    ' Extrai o numero da pagina apos o padrao
+    Dim pageNumText As String
+    pageNumText = Trim(Mid(lowerText, pagPos + 6))
+    
+    ' Verifica se sobrou apenas 1 ou 2 digitos numericos
+    If Len(pageNumText) >= 1 And Len(pageNumText) <= 2 Then
+        If IsNumeric(pageNumText) Then
+            ' Verifica o trecho intermediario entre "requerimento" e "$numero$/$ano$/"
+            Dim midPart As String
+            midPart = Trim(Mid(lowerText, 13, pPos - 13))
+            
+            Dim validMid As Boolean
+            validMid = False
+            
+            ' Variacoes aceitaveis do indicador de numero (removendo todos os espacos)
+            Dim collapsedMid As String
+            collapsedMid = Replace(midPart, " ", "")
+            
+            If collapsedMid = "" Or _
+               collapsedMid = "n" Or _
+               collapsedMid = "n." Or _
+               collapsedMid = "no" Or _
+               collapsedMid = "no." Or _
+               collapsedMid = "n.o" Or _
+               collapsedMid = "n°" Or _
+               collapsedMid = "nº" Or _
+               collapsedMid = "n.º" Or _
+               collapsedMid = "n.o." Or _
+               collapsedMid = "no.o" Then
+                validMid = True
+            End If
+            
+            If validMid Then
+                IsRequerimentoPageLine = True
+            End If
+        End If
+    End If
+    
+    Exit Function
+ErrorHandler:
+    IsRequerimentoPageLine = False
 End Function
 
 

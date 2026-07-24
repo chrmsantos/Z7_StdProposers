@@ -57,6 +57,32 @@ Describe 'Z7_STDPROPOSERS - VBA Modular Architecture' {
             $script:moduleContent['Mod3Pipeline.bas'] | Should Match 'Public Function InitializeLogging\(doc As Document\) As Boolean'
             $script:moduleContent['Mod3Pipeline.bas'] | Should Match 'Public Sub SafeFinalizeLogging\(\)'
         }
+
+        It 'Pipeline contem rotinas para substituir paragrafo tikinho tk' {
+            $script:moduleContent['Mod3Pipeline.bas'] | Should Match 'Private Function IsTikinhoTk\(ByVal text As String\) As Boolean'
+            $script:moduleContent['Mod3Pipeline.bas'] | Should Match 'Public Sub ReplaceTikinhoTkParagraphs\(doc As Document\)'
+        }
+
+        It 'Pipeline contem as substituicoes de Jd e numero' {
+            $script:moduleContent['Mod3Pipeline.bas'] | Should Match 'ExecuteFindReplace\(doc, " Jd ", " Jd. ", True\)'
+            $script:moduleContent['Mod3Pipeline.bas'] | Should Match 'ExecuteFindReplace\(doc, " aos n" & Chr\(186\) & " ", " ao n" & Chr\(186\) & " ", True\)'
+            $script:moduleContent['Mod3Pipeline.bas'] | Should Match 'ExecuteFindReplace\(doc, " nos n" & Chr\(186\) & " ", " no n" & Chr\(186\) & " ", True\)'
+        }
+
+        It 'Pipeline contem rotina para remover dois pontos da justificativa' {
+            $script:moduleContent['Mod3Pipeline.bas'] | Should Match 'Public Sub RemoveJustificativaColon\(doc As Document\)'
+            $script:moduleContent['Mod3Pipeline.bas'] | Should Match 'RemoveJustificativaColon doc'
+        }
+
+        It 'Contem rotina para identificar paginacao de requerimentos' {
+            $script:moduleContent['Mod2Engine.bas'] | Should Match 'Public Function IsRequerimentoPageLine\(text As String\) As Boolean'
+            $script:moduleContent['Mod3Pipeline.bas'] | Should Match 'IsRequerimentoPageLine\(cleanText\)'
+        }
+
+        It 'Contem rotina para garantir espaco nao separavel apos no' {
+            $script:moduleContent['Mod3Pipeline.bas'] | Should Match 'Public Sub EnsureNonBreakingSpaceAfterNo\(doc As Document\)'
+            $script:moduleContent['Mod3Pipeline.bas'] | Should Match 'EnsureNonBreakingSpaceAfterNo doc'
+        }
     }
 
     Context 'Qualidade basica de implementacao' {

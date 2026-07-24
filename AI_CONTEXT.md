@@ -2,7 +2,7 @@
 
 > Note to AI Agents: read this document before modifying the VBA pipeline or Python integration.
 >
-> Last updated: 2026-06-22 (v7.9.8 — added blank paragraph numbering removal and question consistency checking instructions to the AI prompts).
+> Last updated: 2026-07-23 (v7.9.9 — added paragraph initial letter capitalization to VBA pipeline).
 
 ## 1. Project Overview
 
