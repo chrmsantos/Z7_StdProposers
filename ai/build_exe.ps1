@@ -57,7 +57,7 @@ function Invoke-PyInstaller {
 	# --noconfirm: sobrescreve dist sem pedir confirmacao interativa
 	# Nota: nao usar --clean pois remove o diretorio pre-criado (workaround bug Python 3.14)
 	$mode = if ($OneFile) { "--onefile" } else { "--onedir" }
-	$pyiArgs = @($mode, "--noconsole", "--noconfirm", "--hidden-import=unicodedata", $scriptPath)
+	$pyiArgs = @($mode, "--noconsole", "--noconfirm", "--hidden-import=unicodedata", "--hidden-import=openai", "--hidden-import=jiter", $scriptPath)
 	$process = Start-Process -FilePath $pyinstallerPath -ArgumentList $pyiArgs -WorkingDirectory $scriptDir -NoNewWindow -Wait -PassThru
 	if ($process.ExitCode -ne 0) {
 		throw "Falha ao compilar $ScriptName (exit code: $($process.ExitCode))."
