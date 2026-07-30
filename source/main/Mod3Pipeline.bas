@@ -19,187 +19,6 @@ Public Const ASSINATURA_PARAGRAPH_COUNT As Long = 3      ' Numero de paragrafos 
 Public Const ASSINATURA_BLANK_LINES_BEFORE As Long = 2   ' Linhas em branco antes da assinatura
 
 '================================================================================
-' FUNCOES DE FINALIZACAO E LIMPEZA
-'================================================================================
-Public Sub concluir() ' [REMOVA]
-    On Error GoTo ErrorHandler
-
-    Dim doc As Document
-    Set doc = Nothing
-    Set doc = ActiveDocument
-    If doc Is Nothing Then GoTo ErrorHandler
-
-    ' Captura estado dos outros documentos ANTES de fechar o atual
-    Dim docsCountBefore As Long
-    docsCountBefore = Application.Documents.count
-
-    Dim hasOtherUnsaved As Boolean
-    hasOtherUnsaved = False
-
-    Dim d As Document
-    For Each d In Application.Documents
-        If Not (d Is doc) Then
-            If d.Saved = False Then
-                hasOtherUnsaved = True
-                Exit For
-            End If
-        End If
-    Next d
-
-    ' Copia a ementa (texto) para a area de transferencia
-    If Not CopyEmentaToClipboard(doc) Then
-        Err.Raise vbObjectError + 651, "concluir", "Nao foi possivel copiar a ementa para a area de transferencia."
-    End If
-
-    ' Salva com verificacao: nao fecha nada antes de garantir que salvou
-    If Not SaveDocumentSafely(doc) Then
-        Err.Raise vbObjectError + 652, "concluir", "Nao foi possivel salvar o documento com seguranca."
-    End If
-
-    ' Fecha o documento somente apos confirmar salvamento
-    doc.Close SaveChanges:=wdDoNotSaveChanges
-
-    ' Se era o unico documento aberto, fecha o Word
-    If docsCountBefore <= 1 Then
-        Application.Quit SaveChanges:=wdDoNotSaveChanges
-        Exit Sub
-    End If
-
-    ' Se ha outros documentos NAO salvos, minimiza o Word
-    If hasOtherUnsaved Then
-        On Error Resume Next
-        Application.WindowState = wdWindowStateMinimize
-        If Err.Number <> 0 Then
-            Err.Clear
-            If Not Application.ActiveWindow Is Nothing Then
-                Application.ActiveWindow.WindowState = wdWindowStateMinimize
-            End If
-        End If
-        On Error GoTo ErrorHandler
-    End If
-
-    Exit Sub
-
-ErrorHandler:
-    ' Interrompe com seguranca: nao fecha documento/Word em erro
-    Dim msg As String
-    msg = "Erro em 'concluir': " & Err.Description
-    On Error Resume Next
-    MsgBox msg, vbCritical, "Z7_STDPROPOSERS - Erro"
-End Sub
-
-Public Function SaveDocumentSafely(doc As Document) As Boolean
-    On Error GoTo ErrorHandler
-
-    SaveDocumentSafely = False
-    If doc Is Nothing Then Exit Function
-
-    ' Evita dialogs: se nao tiver caminho, Save pode abrir 'Salvar Como'
-    If doc.Path = "" Then Exit Function
-    If doc.ReadOnly Then Exit Function
-
-    On Error Resume Next
-    doc.Save
-    If Err.Number <> 0 Then
-        Err.Clear
-        On Error GoTo ErrorHandler
-        Exit Function
-    End If
-    On Error GoTo ErrorHandler
-
-    ' Confirmacao minima: Word marcou como salvo
-    If doc.Saved = True Then
-        SaveDocumentSafely = True
-    End If
-
-    Exit Function
-
-ErrorHandler:
-    SaveDocumentSafely = False
-End Function
-
-Public Function CopyEmentaToClipboard(doc As Document) As Boolean
-    On Error GoTo ErrorHandler
-
-    CopyEmentaToClipboard = False
-    If doc Is Nothing Then Exit Function
-
-    Dim ementaText As String
-    ementaText = ""
-
-    Dim rng As Range
-    Set rng = Nothing
-    Set rng = GetEmentaRange(doc)
-
-    If Not rng Is Nothing Then
-        ementaText = rng.text
-    Else
-        ' Fallback (mais tolerante): tenta extrair via heuristica
-        ementaText = GetEmentaText(doc)
-    End If
-
-    ementaText = Trim$(Replace(Replace(ementaText, vbCr, ""), vbLf, ""))
-    If ementaText = "" Then Exit Function
-
-    ' Tenta copiar texto puro para a area de transferencia
-    If PutTextInClipboard(ementaText) Then
-        CopyEmentaToClipboard = True
-        Exit Function
-    End If
-
-    ' Fallback: copia o Range (se disponivel)
-    If Not rng Is Nothing Then
-        On Error Resume Next
-        rng.Copy
-        If Err.Number = 0 Then
-            CopyEmentaToClipboard = True
-            Exit Function
-        End If
-        Err.Clear
-        On Error GoTo ErrorHandler
-    End If
-
-    Exit Function
-
-ErrorHandler:
-    CopyEmentaToClipboard = False
-End Function
-
-Public Function PutTextInClipboard(text As String) As Boolean
-    On Error GoTo ErrorHandler
-
-    PutTextInClipboard = False
-    If text = "" Then Exit Function
-
-    ' 1. Preferencia: MSForms.DataObject (late binding)
-    Dim dataObj As Object
-    On Error Resume Next
-    Set dataObj = CreateObject("MSForms.DataObject")
-    If Err.Number = 0 And Not dataObj Is Nothing Then
-        Err.Clear
-        dataObj.SetText text
-        dataObj.PutInClipboard
-        PutTextInClipboard = (Err.Number = 0)
-        Exit Function
-    End If
-    Err.Clear
-
-    ' 2. Fallback: htmlfile clipboardData
-    Dim html As Object
-    Set html = CreateObject("htmlfile")
-    If Not html Is Nothing Then
-        html.parentWindow.clipboardData.setData "text", text
-        PutTextInClipboard = True
-        Exit Function
-    End If
-
-    Exit Function
-
-ErrorHandler:
-    PutTextInClipboard = False
-End Function
-
-'================================================================================
 ' LIMPEZA SEGURA DE RECURSOS
 '================================================================================
 Public Sub SafeCleanup()
@@ -2182,42 +2001,6 @@ End Function
 ' Nota: CountBlankLinesBefore ja esta definida nas linhas 918-958
 ' (secao de identificacao de estrutura do documento)
 
-Public Function CountBlankLinesAfter(doc As Document, paraIndex As Long) As Long
-    On Error GoTo ErrorHandler
-
-    Dim count As Long
-    Dim i As Long
-    Dim para As Paragraph
-    Dim paraText As String
-
-    count = 0
-
-    ' Verifica paragrafos posteriores (maximo 5 para performance)
-    For i = paraIndex + 1 To doc.Paragraphs.count
-        If i > doc.Paragraphs.count Then Exit For
-
-        Set para = doc.Paragraphs(i)
-        paraText = Trim(Replace(Replace(para.Range.text, vbCr, ""), vbLf, ""))
-
-        ' Se o paragrafo esta vazio, conta como linha em branco
-        If paraText = "" And Not HasVisualContent(para) Then
-            count = count + 1
-        Else
-            ' Se encontrou paragrafo com conteudo, para de contar
-            Exit For
-        End If
-
-        ' Limite de seguranca
-        If count >= 5 Then Exit For
-    Next i
-
-    CountBlankLinesAfter = count
-    Exit Function
-
-ErrorHandler:
-    CountBlankLinesAfter = 0
-End Function
-
 '================================================================================
 ' SECOND PARAGRAPH LOCATION HELPER - Localiza o segundo paragrafo
 '================================================================================
@@ -2258,310 +2041,40 @@ ErrorHandler:
     GetSecondParagraphIndex = 0
 End Function
 
-'================================================================================
-' ENSURE SECOND PARAGRAPH BLANK LINES - Garante 2 linhas em branco no 2 paragrafo
-'================================================================================
-Public Function EnsureSecondParagraphBlankLines(doc As Document) As Boolean
+Public Function CountBlankLinesAfter(doc As Document, paraIndex As Long) As Long
     On Error GoTo ErrorHandler
 
-    Dim secondParaIndex As Long
-    Dim linesToAdd As Long
-    Dim linesToAddAfter As Long
-
-    secondParaIndex = GetSecondParagraphIndex(doc)
-    linesToAdd = 0
-    linesToAddAfter = 0
-
-    If secondParaIndex > 0 And secondParaIndex <= doc.Paragraphs.count Then
-        Dim para As Paragraph
-        Set para = doc.Paragraphs(secondParaIndex)
-
-        ' Verifica e corrige linhas em branco ANTES
-        Dim blankLinesBefore As Long
-        blankLinesBefore = CountBlankLinesBefore(doc, secondParaIndex)
-
-        If blankLinesBefore < 2 Then
-            Dim insertionPoint As Range
-            Set insertionPoint = para.Range
-            insertionPoint.Collapse wdCollapseStart
-
-            linesToAdd = 2 - blankLinesBefore
-
-            Dim newLines As String
-            newLines = String(linesToAdd, vbCrLf)
-            insertionPoint.InsertBefore newLines
-
-            ' Atualiza o indice (foi deslocado)
-            secondParaIndex = secondParaIndex + linesToAdd
-            Set para = doc.Paragraphs(secondParaIndex)
-        End If
-
-        ' Verifica e corrige linhas em branco DEPOIS
-        Dim blankLinesAfter As Long
-        blankLinesAfter = CountBlankLinesAfter(doc, secondParaIndex)
-
-        If blankLinesAfter < 2 Then
-            Dim insertionPointAfter As Range
-            Set insertionPointAfter = para.Range
-            insertionPointAfter.Collapse wdCollapseEnd
-
-            linesToAddAfter = 2 - blankLinesAfter
-
-            Dim newLinesAfter As String
-            newLinesAfter = String(linesToAddAfter, vbCrLf)
-            insertionPointAfter.InsertAfter newLinesAfter
-        End If
-
-        LogMessage "Linhas em branco do 2 paragrafo reforcadas (antes: " & (blankLinesBefore + linesToAdd) & ", depois: " & (blankLinesAfter + linesToAddAfter) & ")", LOG_LEVEL_INFO
-    End If
-
-    EnsureSecondParagraphBlankLines = True
-    Exit Function
-
-ErrorHandler:
-    EnsureSecondParagraphBlankLines = False
-    LogMessage "Erro ao garantir linhas em branco do 2 paragrafo: " & Err.Description, LOG_LEVEL_WARNING
-End Function
-
-'================================================================================
-' ENSURE PLENARIO BLANK LINES - Garante 2 linhas em branco antes e depois do Plenario
-'================================================================================
-Public Function EnsurePlenarioBlankLines(doc As Document) As Boolean
-    On Error GoTo ErrorHandler
-
-    Dim para As Paragraph
-    Dim paraText As String
-    Dim paraTextCmp As String
-    Dim i As Long
-    Dim plenarioIndex As Long
-
-    plenarioIndex = 0
-
-    ' Localiza o paragrafo "Plenario Dr. Tancredo Neves"
-    For i = 1 To doc.Paragraphs.count
-        Set para = doc.Paragraphs(i)
-
-        If Not HasVisualContent(para) Then
-            paraText = Trim(Replace(Replace(para.Range.text, vbCr, ""), vbLf, ""))
-            paraTextCmp = NormalizeForComparison(paraText)
-
-            ' Procura por "Plenario" e "Tancredo Neves"
-                If InStr(paraTextCmp, "plenario") > 0 And _
-                    InStr(paraTextCmp, "tancredo") > 0 And _
-                    InStr(paraTextCmp, "neves") > 0 Then
-                plenarioIndex = i
-                Exit For
-            End If
-        End If
-    Next i
-
-    If plenarioIndex > 0 Then
-        ' Remove linhas vazias ANTES
-        i = plenarioIndex - 1
-        Do While i >= 1
-            Set para = doc.Paragraphs(i)
-            paraText = Trim(Replace(Replace(para.Range.text, vbCr, ""), vbLf, ""))
-
-            If paraText = "" And Not HasVisualContent(para) Then
-                para.Range.Delete
-                plenarioIndex = plenarioIndex - 1
-                i = i - 1
-            Else
-                Exit Do
-            End If
-        Loop
-
-        ' Remove linhas vazias DEPOIS
-        i = plenarioIndex + 1
-        Do While i <= doc.Paragraphs.count
-            Set para = doc.Paragraphs(i)
-            paraText = Trim(Replace(Replace(para.Range.text, vbCr, ""), vbLf, ""))
-
-            If paraText = "" And Not HasVisualContent(para) Then
-                para.Range.Delete
-            Else
-                Exit Do
-            End If
-        Loop
-
-        ' Insere EXATAMENTE 2 linhas em branco ANTES
-        Set para = doc.Paragraphs(plenarioIndex)
-        para.Range.InsertParagraphBefore
-        para.Range.InsertParagraphBefore
-
-        ' Insere EXATAMENTE 2 linhas em branco DEPOIS
-        Set para = doc.Paragraphs(plenarioIndex + 2) ' +2 porque inserimos 2 antes
-        para.Range.InsertParagraphAfter
-        para.Range.InsertParagraphAfter
-
-        LogMessage "Linhas em branco do Plenario reforcadas: 2 antes e 2 depois", LOG_LEVEL_INFO
-    End If
-
-    EnsurePlenarioBlankLines = True
-    Exit Function
-
-ErrorHandler:
-    EnsurePlenarioBlankLines = False
-    LogMessage "Erro ao garantir linhas em branco do Plenario: " & Err.Description, LOG_LEVEL_WARNING
-End Function
-
-'================================================================================
-' ENSURE SINGLE BLANK LINE BETWEEN PARAGRAPHS - Garante pelo menos 1 linha em branco entre paragrafos
-'================================================================================
-Public Function EnsureSingleBlankLineBetweenParagraphs(doc As Document) As Boolean
-    On Error GoTo ErrorHandler
-
+    Dim count As Long
     Dim i As Long
     Dim para As Paragraph
-    Dim NextPara As Paragraph
     Dim paraText As String
-    Dim nextParaText As String
-    Dim insertionPoint As Range
-    Dim addedCount As Long
 
-    addedCount = 0
+    count = 0
 
-    ' Percorre todos os paragrafos de tras para frente para nao afetar os indices
-    For i = doc.Paragraphs.count - 1 To 1 Step -1
+    ' Verifica paragrafos posteriores (maximo 5 para performance)
+    For i = paraIndex + 1 To doc.Paragraphs.count
+        If i > doc.Paragraphs.count Then Exit For
+
         Set para = doc.Paragraphs(i)
-        Set NextPara = doc.Paragraphs(i + 1)
-
-        ' Obtem texto limpo dos paragrafos
         paraText = Trim(Replace(Replace(para.Range.text, vbCr, ""), vbLf, ""))
-        nextParaText = Trim(Replace(Replace(NextPara.Range.text, vbCr, ""), vbLf, ""))
 
-        ' Se ambos os paragrafos tem conteudo (texto ou imagem)
-        If (paraText <> "" Or HasVisualContent(para)) And _
-           (nextParaText <> "" Or HasVisualContent(NextPara)) Then
-
-            ' Verifica se ha pelo menos uma linha em branco entre eles
-            Dim hasBlankBetween As Boolean
-            hasBlankBetween = False
-
-            ' Verifica se o proximo paragrafo e imediatamente adjacente
-            ' Isso seria indicado se nao ha paragrafo vazio entre eles
-            If i + 1 <= doc.Paragraphs.count Then
-                ' Se o indice do proximo paragrafo e i+1, eles sao adjacentes
-                ' e precisamos verificar se ha linha em branco
-                Dim checkIndex As Long
-                For checkIndex = i + 1 To i + 1
-                    If checkIndex <= doc.Paragraphs.count Then
-                        Dim checkPara As Paragraph
-                        Set checkPara = doc.Paragraphs(checkIndex)
-                        Dim checkText As String
-                        checkText = Trim(Replace(Replace(checkPara.Range.text, vbCr, ""), vbLf, ""))
-
-                        ' Se o paragrafo entre eles esta vazio, ha linha em branco
-                        If checkText = "" And Not HasVisualContent(checkPara) Then
-                            hasBlankBetween = True
-                        End If
-                    End If
-                Next checkIndex
-            End If
-
-            ' Se nao ha linha em branco, adiciona uma
-            If Not hasBlankBetween Then
-                Set insertionPoint = NextPara.Range
-                insertionPoint.Collapse wdCollapseStart
-                insertionPoint.InsertBefore vbCrLf
-                addedCount = addedCount + 1
-            End If
-        End If
-    Next i
-
-    If addedCount > 0 Then
-        LogMessage "Linhas em branco adicionadas entre paragrafos: " & addedCount, LOG_LEVEL_INFO
-    End If
-
-    EnsureSingleBlankLineBetweenParagraphs = True
-    Exit Function
-
-ErrorHandler:
-    EnsureSingleBlankLineBetweenParagraphs = False
-    LogMessage "Erro ao garantir linhas em branco entre paragrafos: " & Err.Description, LOG_LEVEL_WARNING
-End Function
-
-'================================================================================
-' ENSURE BLANK LINES BETWEEN LONG PARAGRAPHS - Garante linha em branco entre paragrafos com mais de 10 palavras
-'================================================================================
-Public Function EnsureBlankLinesBetweenLongParagraphs(doc As Document) As Boolean
-    On Error GoTo ErrorHandler
-
-    Dim i As Long
-    Dim para As Paragraph
-    Dim NextPara As Paragraph
-    Dim paraText As String
-    Dim nextParaText As String
-    Dim paraWordCount As Long
-    Dim nextParaWordCount As Long
-    Dim insertionPoint As Range
-    Dim addedCount As Long
-
-    addedCount = 0
-
-    ' Percorre todos os paragrafos de tras para frente para nao afetar os indices
-    For i = doc.Paragraphs.count - 1 To 1 Step -1
-        If i >= doc.Paragraphs.count Then Exit For ' Protecao dinamica
-
-        Set para = doc.Paragraphs(i)
-
-        ' Verifica se ha proximo paragrafo
-        If i + 1 <= doc.Paragraphs.count Then
-            Set NextPara = doc.Paragraphs(i + 1)
+        ' Se o paragrafo esta vazio, conta como linha em branco
+        If paraText = "" And Not HasVisualContent(para) Then
+            count = count + 1
         Else
+            ' Se encontrou paragrafo com conteudo, para de contar
             Exit For
         End If
 
-        ' Obtem texto limpo dos paragrafos
-        paraText = Trim(Replace(Replace(para.Range.text, vbCr, ""), vbLf, ""))
-        nextParaText = Trim(Replace(Replace(NextPara.Range.text, vbCr, ""), vbLf, ""))
-
-        ' Conta palavras (divide por espacos)
-        paraWordCount = 0
-        nextParaWordCount = 0
-
-        If paraText <> "" Then
-            paraWordCount = UBound(Split(paraText, " ")) + 1
-        End If
-
-        If nextParaText <> "" Then
-            nextParaWordCount = UBound(Split(nextParaText, " ")) + 1
-        End If
-
-        ' Se ambos os paragrafos tem mais de 10 palavras
-        If paraWordCount > 10 And nextParaWordCount > 10 Then
-            ' Verifica se ha linha em branco entre eles
-            Dim hasBlankBetween As Boolean
-            hasBlankBetween = False
-
-            ' Verifica se eles sao adjacentes (sem linha em branco entre)
-            ' Se i+1 e o proximo paragrafo e nao esta vazio, sao adjacentes
-            If nextParaText <> "" Then
-                hasBlankBetween = False
-            Else
-                hasBlankBetween = True
-            End If
-
-            ' Se nao ha linha em branco, adiciona uma
-            If Not hasBlankBetween Then
-                Set insertionPoint = NextPara.Range
-                insertionPoint.Collapse wdCollapseStart
-                insertionPoint.InsertBefore vbCrLf
-                addedCount = addedCount + 1
-            End If
-        End If
+        ' Limite de seguranca
+        If count >= 5 Then Exit For
     Next i
 
-    If addedCount > 0 Then
-        LogMessage "Linhas em branco adicionadas entre paragrafos longos (>10 palavras): " & addedCount, LOG_LEVEL_INFO
-    End If
-
-    EnsureBlankLinesBetweenLongParagraphs = True
+    CountBlankLinesAfter = count
     Exit Function
 
 ErrorHandler:
-    EnsureBlankLinesBetweenLongParagraphs = False
-    LogMessage "Erro ao garantir linhas em branco entre paragrafos longos: " & Err.Description, LOG_LEVEL_WARNING
+    CountBlankLinesAfter = 0
 End Function
 
 '================================================================================
@@ -2982,35 +2495,6 @@ Public Function GetFirstWord(doc As Document) As String
 
 ErrorHandler:
     GetFirstWord = ""
-End Function
-
-'================================================================================
-' LIMPA TEXTO PARA COMPARACAO
-'================================================================================
-Public Function CleanTextForComparison(text As String) As String
-    On Error Resume Next
-    CleanTextForComparison = text
-
-    Dim result As String
-    result = text
-
-    ' Remove quebras de linha
-    result = Replace(result, vbCr, " ")
-    result = Replace(result, vbLf, " ")
-    result = Replace(result, vbTab, " ")
-
-    ' Normaliza variacoes de caracteres
-    result = Replace(result, Chr(160), " ")  ' Non-breaking space
-
-    ' Remove multiplos espacos
-    Dim counter As Long
-    counter = 0
-    Do While InStr(result, "  ") > 0 And counter < 100
-        result = Replace(result, "  ", " ")
-        counter = counter + 1
-    Loop
-
-    CleanTextForComparison = Trim(result)
 End Function
 
 '================================================================================
@@ -5966,7 +5450,6 @@ NextPara:
 ErrorHandler:
     LogMessage "Erro ao formatar frases 'Por todas as razoes': " & Err.Description, LOG_LEVEL_WARNING
 End Sub
-
 
 
 '================================================================================

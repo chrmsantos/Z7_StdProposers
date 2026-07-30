@@ -1331,21 +1331,4 @@ Public Function CountDigitsInString(text As String) As Long
     CountDigitsInString = count
 End Function
 
-'================================================================================
-' GET CLIPBOARD DATA - Obtem dados da area de transferencia
-'================================================================================
-Public Function GetClipboardData() As Variant
-    On Error GoTo ErrorHandler
-
-    ' Placeholder para dados da area de transferencia
-    ' Em uma implementacao completa, seria necessario usar APIs do Windows
-    ' ou metodos mais avancados para capturar dados binarios
-    GetClipboardData = "ImageDataPlaceholder"
-    Exit Function
-
-ErrorHandler:
-    GetClipboardData = Empty
-End Function
-
-
 
