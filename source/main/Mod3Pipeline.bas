@@ -6,138 +6,9 @@ Option Explicit
 ' Z7_STDPROPOSERS - Sistema de Padronizacao de Proposituras Legislativas
 ' =============================================================================
 ' Licenca: GNU GPLv3 (https://www.gnu.org/licenses/gpl-3.0.html)
-' Autor: Christian Martin dos Santos (chrmsantos@protonmail.com)
-' =============================================================================
-'
-' =============================================================================
-' INDICE DE MODULOS (Ctrl+F para navegar)
-' =============================================================================
-'
-' [MOD.CONST]    CONSTANTES E CONFIGURACAO .......................... ~L13
-'                - Constantes do Word (wdXxx, msoXxx)
-'                - Constantes de Formatacao (fontes, margens)
-'                - Constantes de Sistema (versao, limites)
-'                - Constantes de Elementos Estruturais
-'
-' [MOD.VARS]     VARIAVEIS GLOBAIS .................................. ~L102
-'                - Estado da aplicacao (flags, contadores)
-'                - Cache de paragrafos (Type paragraphCache)
-'                - Protecao de imagens (Type ImageInfo)
-'                - Configuracoes de visualizacao (Type ViewSettings)
-'
-' [MOD.MAIN]     PONTO DE ENTRADA PRINCIPAL ......................... ~L220
-'                - PadronizarDocumentoMain() - Orquestrador
-'
-' [MOD.ERROR]    TRATAMENTO DE ERROS E RECUPERACAO .................. ~L475
-'                - ShowUserFriendlyError, EmergencyRecovery
-'                - SafeCleanup, ReleaseObjects, CloseAllOpenFiles
-'
-' [MOD.VALID]    VALIDACAO E COMPATIBILIDADE ........................ ~L579
-'                - ValidateDocument, IsDocumentHealthy
-'                - IsOperationTimeout, CheckWordVersion
-'
-' [MOD.TEXT]     PROCESSAMENTO DE TEXTO ............................. ~L638
-'                - GetCleanParagraphText, RemovePunctuation
-'                - NormalizarTexto, DetectSpecialParagraph
-'
-' [MOD.STRUCT]   IDENTIFICACAO DE ESTRUTURA ......................... ~L738
-'                - IsTituloElement, IsEmentaElement
-'                - IsJustificativaTitleElement, IsDataElement
-'                - IsAssinaturaStart, IsTituloAnexoElement
-'                - IdentifyDocumentStructure
-'
-' [MOD.CACHE]    SISTEMA DE CACHE ................................... ~L1225
-'                - BuildParagraphCache, ClearParagraphCache
-'
-' [MOD.API]      API PUBLICA DE ACESSO .............................. ~L1311
-'                - GetTituloRange, GetEmentaRange
-'                - GetProposicaoRange, GetJustificativaRange
-'                - GetDataRange, GetAssinaturaRange
-'                - GetAnexoRange, GetElementInfo
-'
-' [MOD.PROGRESS] BARRA DE PROGRESSO ................................. ~L1602
-'                - UpdateProgress, InitializeProgress
-'                - IncrementProgress
-'
-' [MOD.SAFE]     ACESSO SEGURO A PROPRIEDADES ....................... ~L1658
-'                - SafeGetCharacterCount, SafeSetFont
-'                - SafeSetParagraphFormat, SafeFindReplace
-'
-' [MOD.PATH]     FUNCOES DE CAMINHO ................................. ~L1818
-'                - GetProjectRootPath, GetZ7StdProposersBackupsPath
-'                - GetZ7StdProposersLogsPath, EnsureZ7StdProposersFolders (Mod6System)
-'
-' [MOD.LOG]      SISTEMA DE LOGS .................................... ~L1907
-'                - InitializeLogging, LogMessage, FlushLogBuffer
-'                - LogSection, LogStepStart, LogStepComplete
-'                - SafeFinalizeLogging
-'
-' [MOD.UTIL]     UTILITARIOS GERAIS ................................. ~L2321
-'                - GetProtectionType, GetDocumentSize
-'                - SanitizeFileName, GetWindowsVersion
-'
-' [MOD.STATE]    GERENCIAMENTO DE ESTADO ............................ ~L2418
-'                - SetAppState, ValidateDocument (pre-checks)
-'
-' [MOD.FORMAT]   ROTINAS DE FORMATACAO .............................. ~L2577
-'                - ApplyDocumentFormatting (orquestrador)
-'                - ConfigurarPagina, FormatFont, FormatParagraphs
-'                - FormatFirstParagraph, FormatSecondParagraph
-'
-' [MOD.CLEAN]    LIMPEZA DE FORMATACAO .............................. ~L5775
-'                - ClearAllFormatting, RemovePageNumberLines
-'                - RemoveUnderscoreOnlyParagraphs
-'                - CleanupDocumentStructure, RemoveTabMarks
-'
-' [MOD.TITLE]    FORMATACAO DE TITULO ............................... ~L6356
-'                - FormatDocumentTitle
-'
-' [MOD.SPECIAL]  PARAGRAFOS ESPECIAIS ............................... ~L6480
-'                - Considerando, Ante o Exposto, In Loco
-'                - ApplyBoldToSpecialParagraphs
-'                - FormatVereadorParagraphs
-'
-' [MOD.BLANK]    GERENCIAMENTO DE LINHAS EM BRANCO .................. ~L7011
-'                - InsertBlankLinesInJustificativa
-'                - EnsureSingleBlankLineBetweenParagraphs
-'
-' [MOD.PUBLIC]   SUBROTINAS PUBLICAS ................................ ~L7456
-'                - AbrirRepositorioGitHub
-'                - ConfirmarDesfazimento, DesfazerPadronizacao
-'
-' [MOD.BACKUP]   SISTEMA DE BACKUP .................................. ~L7621
-'                - CreateDocumentBackup, RestoreBackup
-'                - CleanupOldBackups
-'
-' [MOD.SPACES]   LIMPEZA DE ESPACOS ................................. ~L7846
-'                - LimparEspacosMultiplos
-'                - LimitarLinhasVaziasSequenciais
-'
-' [MOD.VIEW]     CONFIGURACAO DE VISUALIZACAO ....................... ~L8172
-'                - ConfigureDocumentView
-'                - RemoveHighlightingAndBorders
-'
-' [MOD.IMAGE]    PROTECAO DE IMAGENS ................................ ~L8397
-'                - BackupAllImages, RestoreAllImages
-'                - FormatImageParagraphsIndents
-'                - CenterImageAfterPlenario
-'
-' [MOD.LIST]     FORMATACAO DE LISTAS ............................... ~L8625
-'                - BackupListFormats, RestoreListFormats
-'                - FormatNumberedParagraphsIndent (Desabilitado)
-'                - FormatBulletedParagraphsIndent
-'
-' [MOD.UPDATE]   VERIFICACAO DE ATUALIZACAO ......................... ~L9666
-'                - CheckForUpdates, ExecutarInstalador
-
-' [MOD.FINAL]    FORMATACAO FINAL ................................... ~L10052
-'                - ApplyUniversalFinalFormatting
-'                - AddSpecialSpacing
-'
-' =============================================================================
-
-
+' Autor: Christian Martin dos Santos (chrmsantos@gmail.com)
 '================================================================================
+
 ' Criterios para identificacao dos elementos da propositura
 Public Const TITULO_MIN_LENGTH As Long = 15              ' Comprimento minimo do titulo
 Public Const EMENTA_MIN_LEFT_INDENT As Single = 6        ' Recuo minimo a esquerda da ementa (em pontos)
@@ -148,13 +19,9 @@ Public Const ASSINATURA_PARAGRAPH_COUNT As Long = 3      ' Numero de paragrafos 
 Public Const ASSINATURA_BLANK_LINES_BEFORE As Long = 2   ' Linhas em branco antes da assinatura
 
 '================================================================================
-' Regras:
-' - Copia o texto da ementa para a area de transferencia
-' - Salva o documento atual e somente fecha se o salvamento foi bem sucedido
-' - Se houver apenas o documento ativo aberto: fecha o Word
-' - Se houver outros documentos abertos e algum NAO estiver salvo: minimiza o Word
-' - Nao exibe mensagens ao usuario, exceto em caso de erro (e aborta com seguranca)
-Public Sub concluir()
+' FUNCOES DE FINALIZACAO E LIMPEZA
+'================================================================================
+Public Sub concluir() ' [REMOVA]
     On Error GoTo ErrorHandler
 
     Dim doc As Document
@@ -1075,11 +942,6 @@ Public Function PreviousChecking(doc As Document) As Boolean
     If Not ValidateDocumentStructure(doc) Then
         LogMessage "Estrutura do documento validada com avisos", LOG_LEVEL_WARNING
     End If
-
-    ' [REMOVIDO A PEDIDO DO USUARIO] Verifica consistencia ementa x corpo
-    ' If Not ValidateAddressConsistency(doc) Then
-    '     LogMessage "Recomendacao para verificar enderecos foi exibida ao usuario", LOG_LEVEL_INFO
-    ' End If
 
     ' Verifica presenca de possiveis dados sensiveis
     If Not CheckSensitiveData(doc) Then
@@ -4771,6 +4633,9 @@ NextVariant:
     ' Garante espaço não separável após nº/n° antes de algarismos
     EnsureNonBreakingSpaceAfterNo doc
 
+    ' Substitui todos os espaços não separáveis por espaços comuns, exceto após nº/n° antes de algarismos
+    ReplaceNonBreakingSpacesExceptAfterNo doc
+
     ApplyTextReplacements = True
     Exit Function
 
@@ -7744,6 +7609,47 @@ ErrorHandler:
     RemoveNumberingFromBlankParagraphs = False
 End Function
 
+
+'================================================================================
+' REPLACE NON BREAKING SPACES EXCEPT AFTER NO - Substitui espacos nao separaveis por comuns, exceto apos nº/n°
+'================================================================================
+Public Sub ReplaceNonBreakingSpacesExceptAfterNo(doc As Document)
+    On Error GoTo ErrorHandler
+    
+    Dim nbsp As String: nbsp = Chr(160)
+    Dim tempMarker As String: tempMarker = "@@NBSP_MARKER@@"
+    Dim i As Long
+    Dim digit As String
+    Dim noOrdinalLower As String: noOrdinalLower = "n" & Chr(186)
+    Dim noOrdinalUpper As String: noOrdinalUpper = "N" & Chr(186)
+    Dim noDegreeLower As String: noDegreeLower = "n" & Chr(176)
+    Dim noDegreeUpper As String: noDegreeUpper = "N" & Chr(176)
+    
+    ' 1. Protege os espacos nao separaveis que devem ser mantidos (apos nº/n° e antes de algarismos)
+    For i = 0 To 9
+        digit = CStr(i)
+        ExecuteFindReplace doc, noOrdinalLower & nbsp & digit, noOrdinalLower & tempMarker & digit, True
+        ExecuteFindReplace doc, noOrdinalUpper & nbsp & digit, noOrdinalUpper & tempMarker & digit, True
+        ExecuteFindReplace doc, noDegreeLower & nbsp & digit, noDegreeLower & tempMarker & digit, True
+        ExecuteFindReplace doc, noDegreeUpper & nbsp & digit, noDegreeUpper & tempMarker & digit, True
+    Next i
+    
+    ' 2. Substitui todos os outros espacos nao separaveis por espacos comuns
+    ExecuteFindReplace doc, nbsp, " ", False
+    
+    ' 3. Restaura os espacos nao separaveis protegidos
+    For i = 0 To 9
+        digit = CStr(i)
+        ExecuteFindReplace doc, noOrdinalLower & tempMarker & digit, noOrdinalLower & nbsp & digit, True
+        ExecuteFindReplace doc, noOrdinalUpper & tempMarker & digit, noOrdinalUpper & nbsp & digit, True
+        ExecuteFindReplace doc, noDegreeLower & tempMarker & digit, noDegreeLower & nbsp & digit, True
+        ExecuteFindReplace doc, noDegreeUpper & tempMarker & digit, noDegreeUpper & nbsp & digit, True
+    Next i
+    
+    Exit Sub
+ErrorHandler:
+    LogMessage "Erro ao substituir espacos nao separaveis: " & Err.Description, LOG_LEVEL_WARNING
+End Sub
 
 '================================================================================
 ' ENSURE NON BREAKING SPACE AFTER NO - Garante espaco nao separavel apos nº/n°

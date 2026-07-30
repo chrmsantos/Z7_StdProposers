@@ -6,7 +6,7 @@ Option Explicit
 ' Z7_STDPROPOSERS - Sistema de Padronizacao de Proposituras Legislativas
 ' =============================================================================
 ' Licenca: GNU GPLv3 (https://www.gnu.org/licenses/gpl-3.0.html)
-' Autor: Christian Martin dos Santos (chrmsantos@protonmail.com)
+' Autor: Christian Martin dos Santos (chrmsantos@gmail.com)
 ' =============================================================================
 '================================================================================
 ' FUNCOES DE VALIDACAO E COMPATIBILIDADE
@@ -1130,8 +1130,8 @@ Public Function CheckWordVersion() As Boolean
     On Error GoTo ErrorHandler
 
     Dim version As Double
-    ' Uso de CDbl para garantir conversao correta em todas as versoes
-    version = CDbl(Application.version)
+    ' Uso de Val para garantir conversao correta independente do locale
+    version = Val(Application.version)
 
     If version < MIN_SUPPORTED_VERSION Then
         CheckWordVersion = False

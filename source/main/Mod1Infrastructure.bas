@@ -6,7 +6,7 @@ Option Explicit
 ' Z7_STDPROPOSERS - Sistema de Padronizacao de Proposituras Legislativas
 ' =============================================================================
 ' Licenca: GNU GPLv3 (https://www.gnu.org/licenses/gpl-3.0.html)
-' Autor: Christian Martin dos Santos (chrmsantos@protonmail.com)
+' Autor: Christian Martin dos Santos (chrmsantos@gmail.com)
 ' =============================================================================
 '================================================================================
 ' CONSTANTES DO WORD
@@ -47,7 +47,7 @@ Public Const wdPrintView As Long = 3
 '================================================================================
 Public Const STANDARD_FONT As String = "Arial"
 Public Const STANDARD_FONT_SIZE As Long = 12
-Public Const FOOTER_FONT_SIZE As Long = 10
+Public Const FOOTER_FONT_SIZE As Long = 9
 Public Const LINE_SPACING As Single = 14
 
 Public Const TOP_MARGIN_CM As Double = 4.85
@@ -1000,7 +1000,6 @@ ErrorHandler:
 End Sub
 
 
-' Mod7Utils.bas
 '================================================================================
 ' FUNCOES AUXILIARES DE LIMPEZA DE TEXTO
 '================================================================================

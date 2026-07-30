@@ -273,6 +273,16 @@ CleanUp:
     End If
     On Error GoTo 0
 
+    ' Salva o documento ativo logo apos o processamento
+    On Error Resume Next
+    If Not doc Is Nothing Then
+        If doc.Path <> "" And Not doc.ReadOnly Then
+            doc.Save
+            LogMessage "Documento salvo automaticamente apos padronizacao", LOG_LEVEL_INFO
+        End If
+    End If
+    On Error GoTo 0
+
     Exit Sub
 
 CriticalErrorHandler:
