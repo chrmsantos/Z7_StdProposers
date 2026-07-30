@@ -1460,13 +1460,13 @@ Public Function IsPageNumberLine(text As String) As Boolean
     lowerText = LCase(text)
 
     ' Verifica se contem o padrao base
-    If InStr(lowerText, "$numero$/$ano$/p") = 0 Then Exit Function
+    If InStr(lowerText, "$NUMERO$/$ANO$ – P") = 0 Then Exit Function
 
     ' Procura pelos padroes possiveis no final
     Dim patterns() As String
     ReDim patterns(0 To 1)
-    patterns(0) = "$numero$/$ano$/pagina"
-    patterns(1) = "$numero$/$ano$/página"
+    patterns(0) = "$NUMERO$/$ANO$ – Pagina"
+    patterns(1) = "$NUMERO$/$ANO$ – Página"
 
     Dim pattern As String
     Dim i As Long
@@ -1504,77 +1504,158 @@ End Function
 
 
 '================================================================================
+' Funcao auxiliar: valida a linha de pagina de uma propositura
+' Recebe o texto normalizado (sem acentos, caixa baixa), a keyword esperada
+' e o offset do trecho intermediario.
+'================================================================================
+Private Function IsProposituraPageLineImpl(normalizedText As String, keyword As String, midStartOffset As Long) As Boolean
+    On Error GoTo ErrorHandler
+    IsProposituraPageLineImpl = False
+    
+    ' Procura pela presenca de "$numero$/$ano$"
+    Dim naPos As Long
+    naPos = InStr(normalizedText, "$numero$/$ano$")
+    If naPos = 0 Then Exit Function
+    
+    ' Define o ponto apos "$numero$/$ano$" e procura por "pagina" (sem acento, pois texto esta normalizado)
+    Dim afterMarker As String
+    afterMarker = Mid(normalizedText, naPos + 14)  ' 14 = Len("$numero$/$ano$")
+    
+    Dim posPagina As Long
+    posPagina = InStr(afterMarker, "pagina")
+    If posPagina = 0 Then Exit Function
+    
+    ' Verifica se o caractere anterior a "pagina" e um separador valido
+    Dim ndash As String
+    ndash = ChrW(8211)  ' en dash "–" (U+2013)
+    
+    If posPagina > 1 Then
+        Dim charBefore As String
+        charBefore = Mid(afterMarker, posPagina - 1, 1)
+        ' Aceita barra, espaco, hifen, travessao
+        If charBefore <> "/" And charBefore <> " " And charBefore <> "-" And charBefore <> ndash Then
+            ' Verifica se ha um espaco + travessao antes (ex: " – pagina" ou " - pagina")
+            If posPagina > 3 Then
+                Dim twoBefore As String
+                twoBefore = Mid(afterMarker, posPagina - 2, 2)
+                If twoBefore <> "- " And twoBefore <> ndash & " " Then
+                    Exit Function
+                End If
+            Else
+                Exit Function
+            End If
+        End If
+    End If
+    
+    ' Calcula a posicao absoluta de "pagina" no texto normalizado
+    Dim pagPos As Long
+    pagPos = naPos + 14 + posPagina - 1
+    
+    ' Extrai o numero da pagina apos "pagina" (6 caracteres)
+    Dim pageNumText As String
+    pageNumText = Trim(Mid(normalizedText, pagPos + 6))
+    
+    ' Verifica se sobrou apenas 1 ou 2 digitos numericos
+    If Len(pageNumText) < 1 Or Len(pageNumText) > 2 Then Exit Function
+    If Not IsNumeric(pageNumText) Then Exit Function
+    
+    ' Verifica o trecho intermediario entre a keyword e "$numero$/$ano$"
+    Dim midPart As String
+    midPart = Trim(Mid(normalizedText, midStartOffset, naPos - midStartOffset))
+    
+    ' Variacoes aceitaveis do indicador de numero (removendo todos os espacos)
+    Dim collapsedMid As String
+    collapsedMid = Replace(midPart, " ", "")
+    
+    If collapsedMid = "" Or _
+       collapsedMid = "n" Or _
+       collapsedMid = "n." Or _
+       collapsedMid = "no" Or _
+       collapsedMid = "no." Or _
+       collapsedMid = "n.o" Or _
+       collapsedMid = "n" & ChrW(176) Or _
+       collapsedMid = "n" & ChrW(186) Or _
+       collapsedMid = "n." & ChrW(186) Or _
+       collapsedMid = "n.o." Or _
+       collapsedMid = "no.o" Then
+        IsProposituraPageLineImpl = True
+    End If
+    
+    Exit Function
+ErrorHandler:
+    IsProposituraPageLineImpl = False
+End Function
+
+'================================================================================
 ' IS REQUERIMENTO PAGE LINE - Verifica se texto e exclusivamente a linha de pagina
-' de um requerimento no formato "REQUERIMENTO n° $NUMERO$/$ANO$/Página X" ou
-' "REQUERIMENTO n° $NUMERO$/$ANO$/Página XX" (com tolerâncias de grafia).
+' de um requerimento no formato "REQUERIMENTO n° $NUMERO$/$ANO$ – Página X" etc.
 '================================================================================
 Public Function IsRequerimentoPageLine(text As String) As Boolean
     On Error GoTo ErrorHandler
     IsRequerimentoPageLine = False
     
-    Dim lowerText As String
-    lowerText = LCase(Trim(text))
+    ' Normaliza: remove acentos, caixa baixa
+    Dim normText As String
+    normText = NormalizeForComparison(Trim(text))
     
-    ' A string deve ter pelo menos o tamanho de "requerimento $numero$/$ano$/pagina X"
-    If Len(lowerText) < 30 Then Exit Function
+    ' A string deve ter pelo menos o tamanho de "requerimento n $numero$/$ano$ pagina x"
+    If Len(normText) < 30 Then Exit Function
     
     ' O paragrafo deve comecar com "requerimento"
-    If Left(lowerText, 12) <> "requerimento" Then Exit Function
+    If Left(normText, 12) <> "requerimento" Then Exit Function
     
-    ' Procura pela presenca de "$numero$/$ano$/p"
-    Dim pPos As Long
-    pPos = InStr(lowerText, "$numero$/$ano$/p")
-    If pPos = 0 Then Exit Function
-    
-    ' Procura por "página" ou "pagina" a partir de pPos
-    Dim pagPos As Long
-    pagPos = InStr(pPos, lowerText, "página")
-    If pagPos = 0 Then
-        pagPos = InStr(pPos, lowerText, "pagina")
-    End If
-    If pagPos = 0 Then Exit Function
-    
-    ' Extrai o numero da pagina apos o padrao
-    Dim pageNumText As String
-    pageNumText = Trim(Mid(lowerText, pagPos + 6))
-    
-    ' Verifica se sobrou apenas 1 ou 2 digitos numericos
-    If Len(pageNumText) >= 1 And Len(pageNumText) <= 2 Then
-        If IsNumeric(pageNumText) Then
-            ' Verifica o trecho intermediario entre "requerimento" e "$numero$/$ano$/"
-            Dim midPart As String
-            midPart = Trim(Mid(lowerText, 13, pPos - 13))
-            
-            Dim validMid As Boolean
-            validMid = False
-            
-            ' Variacoes aceitaveis do indicador de numero (removendo todos os espacos)
-            Dim collapsedMid As String
-            collapsedMid = Replace(midPart, " ", "")
-            
-            If collapsedMid = "" Or _
-               collapsedMid = "n" Or _
-               collapsedMid = "n." Or _
-               collapsedMid = "no" Or _
-               collapsedMid = "no." Or _
-               collapsedMid = "n.o" Or _
-               collapsedMid = "n°" Or _
-               collapsedMid = "nº" Or _
-               collapsedMid = "n.º" Or _
-               collapsedMid = "n.o." Or _
-               collapsedMid = "no.o" Then
-                validMid = True
-            End If
-            
-            If validMid Then
-                IsRequerimentoPageLine = True
-            End If
-        End If
-    End If
-    
+    IsRequerimentoPageLine = IsProposituraPageLineImpl(normText, "requerimento", 13)
     Exit Function
 ErrorHandler:
     IsRequerimentoPageLine = False
+End Function
+
+'--------------------------------------------------------------------------------
+' IS INDICACAO PAGE LINE - Verifica se texto e exclusivamente a linha de pagina
+' de uma indicacao no formato "INDICAÇÃO n° $NUMERO$/$ANO$ – Página X" etc.
+'--------------------------------------------------------------------------------
+Public Function IsIndicacaoPageLine(text As String) As Boolean
+    On Error GoTo ErrorHandler
+    IsIndicacaoPageLine = False
+    
+    ' Normaliza: remove acentos, caixa baixa
+    Dim normText As String
+    normText = NormalizeForComparison(Trim(text))
+    
+    ' A string deve ter pelo menos o tamanho de "indicacao n $numero$/$ano$ pagina x"
+    If Len(normText) < 28 Then Exit Function
+    
+    ' O paragrafo deve comecar com "indicacao"
+    If Left(normText, 9) <> "indicacao" Then Exit Function
+    
+    IsIndicacaoPageLine = IsProposituraPageLineImpl(normText, "indicacao", 10)
+    Exit Function
+ErrorHandler:
+    IsIndicacaoPageLine = False
+End Function
+
+'--------------------------------------------------------------------------------
+' IS MOCACAO PAGE LINE - Verifica se texto e exclusivamente a linha de pagina
+' de uma mocao no formato "MOÇÃO n° $NUMERO$/$ANO$ – Página X" etc.
+'--------------------------------------------------------------------------------
+Public Function IsMocaoPageLine(text As String) As Boolean
+    On Error GoTo ErrorHandler
+    IsMocaoPageLine = False
+    
+    ' Normaliza: remove acentos, caixa baixa
+    Dim normText As String
+    normText = NormalizeForComparison(Trim(text))
+    
+    ' A string deve ter pelo menos o tamanho de "mocao n $numero$/$ano$ pagina x"
+    If Len(normText) < 26 Then Exit Function
+    
+    ' O paragrafo deve comecar com "mocao"
+    If Left(normText, 5) <> "mocao" Then Exit Function
+    
+    IsMocaoPageLine = IsProposituraPageLineImpl(normText, "mocao", 6)
+    Exit Function
+ErrorHandler:
+    IsMocaoPageLine = False
 End Function
 
 

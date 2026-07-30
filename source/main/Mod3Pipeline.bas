@@ -3085,7 +3085,7 @@ Public Function RemovePageNumberLines(doc As Document) As Boolean
         cleanText = Trim(Replace(Replace(paraText, vbCr, ""), vbLf, ""))
 
         ' Verifica se a linha termina com o padrao desejado ou e pagina de requerimento
-        If IsPageNumberLine(cleanText) Or IsRequerimentoPageLine(cleanText) Then
+        If IsPageNumberLine(cleanText) Or IsRequerimentoPageLine(cleanText) Or IsIndicacaoPageLine(cleanText) Or IsMocaoPageLine(cleanText) Then
             ' Verifica se existe uma proxima linha
             Dim hasNextLine As Boolean
             Dim nextLineIsEmpty As Boolean
