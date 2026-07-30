@@ -4,14 +4,15 @@ from tkinter import scrolledtext
 
 import z7_theme
 from z7_logging import configure_component_logger, log_exception
-from z7_gemini_key import get_api_key
+from z7_api_key import get_api_key
 
 LOGGER = configure_component_logger("chat_ia")
 
-_DEFAULT_MODEL = 'gemini-3.5-flash'
+_DEFAULT_MODEL = 'deepseek/deepseek-chat'
+_OPENROUTER_BASE_URL = 'https://openrouter.ai/api/v1'
 _MAX_CONTEXT_CHARS = 150_000
 
-_APP_VERSION = "7.9.9"
+_APP_VERSION = "7.9.10"
 _APP_AUTHOR  = "CMS"
 _ORG         = "Câmara Municipal de Santa Bárbara d'Oeste"
 _LICENSE     = "GPL-3.0"
@@ -56,7 +57,8 @@ class ChatApp:
         
         self.mode = z7_theme.load_theme()
         self.client = None
-        self.chat_session = None
+        self.messages = []  # Histórico de mensagens no formato OpenAI
+        self.system_instruction = ""
         self.is_generating = False
         self._cancel_requested = False
         self.last_ai_reply = ""
@@ -72,7 +74,7 @@ class ChatApp:
         # Privacy Warning before starting AI
         if not z7_theme.ask_privacy_warning(
             "Aviso de Privacidade - Z7 StdProposers",
-            "O texto do seu documento atual será enviado para a API do Google Gemini para servir de contexto do chat.\n\n"
+            "O texto do seu documento atual será enviado para a API do OpenRouter para servir de contexto do chat.\n\n"
             "Certifique-se de que não há dados sigilosos e que o uso está de acordo com as diretrizes do seu órgão.\n\n"
             "Deseja iniciar o assistente?",
             key="chat_ia",
@@ -100,8 +102,6 @@ class ChatApp:
             word.Top = 0
             word.StatusBar = "Z7: Aguardando interacao no Chat..."
             
-            # A API COM do Word trabalha em 'Points', enquanto o Tkinter usa 'Pixels'.
-            # Precisamos converter para que a janela não fique gigante ou pequena demais.
             target_width_px = screen_width - self.chat_width_px
             target_height_px = screen_height
             
@@ -114,7 +114,6 @@ class ChatApp:
                 word.Width = word.PixelsToPoints(target_width_px)
                 word.Height = word.PixelsToPoints(target_height_px, True)
             except Exception:
-                # Fallback genérico de 96 DPI (1 px = 0.75 points)
                 word.Width = target_width_px * 0.75
                 word.Height = target_height_px * 0.75
                 
@@ -194,30 +193,25 @@ class ChatApp:
         """Atualiza o texto e a aparência do status de acordo com o estado atual."""
         self.current_status_text = text
         
-        # Determina a cor baseada no conteúdo do status
         colors = z7_theme.get_theme_colors(self.mode)
         text_lower = text.lower()
         
         if "erro" in text_lower or "inválida" in text_lower or "ausente" in text_lower:
-            # Estado de erro: vermelho destacado
             fg_color = "#ef4444"
             bg_color = "#fef2f2" if self.mode == "light" else "#450a0a"
             border_color = "#fca5a5" if self.mode == "light" else "#991b1b"
             indicator = "● "
         elif "pronto" in text_lower or "copiada" in text_lower or "recebi" in text_lower:
-            # Estado pronto/sucesso: verde
             fg_color = "#10b981" if self.mode == "light" else "#34d399"
             bg_color = "#ecfdf5" if self.mode == "light" else "#064e3b"
             border_color = "#a7f3d0" if self.mode == "light" else "#065f46"
             indicator = "● "
         elif "digitando" in text_lower or "corrigindo" in text_lower or "verificando" in text_lower or "carregando" in text_lower or "iniciando" in text_lower or "cancelando" in text_lower:
-            # Estado ocupado/trabalhando: azul/indigo
             fg_color = "#6366f1" if self.mode == "light" else "#a5b4fc"
             bg_color = "#f5f3ff" if self.mode == "light" else "#1e1b4b"
             border_color = "#c7d2fe" if self.mode == "light" else "#312e81"
             indicator = "◌ "
         else:
-            # Estado padrão
             fg_color = colors["fg_muted"]
             bg_color = colors["bg"]
             border_color = colors["border"]
@@ -260,7 +254,7 @@ class ChatApp:
 
 
 
-        # ── Rod apé (empacotado BOTTOM primeiro: fica na base absoluta) ────────────────
+        # ── Rodapé ───────────────────────────────────────────────────────────
         _footer_text = f"{_ORG}  ·  {_APP_AUTHOR}  ·  {_LICENSE}  ·  {_MOTTO}"
         self.footer_lbl = tk.Label(
             self.root, text=_footer_text,
@@ -268,11 +262,10 @@ class ChatApp:
         )
         self.footer_lbl.pack(side=tk.BOTTOM, fill=tk.X, pady=(0, 4))
 
-        # ── Área de entrada (empacotada BOTTOM após o rod apé) ─────────────────
+        # ── Área de entrada ──────────────────────────────────────────────────
         self.input_outer = tk.Frame(self.root)
         self.input_outer.pack(side=tk.BOTTOM, fill=tk.X, padx=24, pady=(8, 12))
 
-        # Wrapper com borda visual para o campo de texto
         self.input_border = tk.Frame(self.input_outer, bd=1, relief=tk.SOLID)
         self.input_border.pack(side=tk.LEFT, expand=True, fill=tk.BOTH)
 
@@ -293,7 +286,6 @@ class ChatApp:
         )
         self.send_btn.pack(side=tk.RIGHT, fill=tk.Y, padx=(12, 0))
 
-        # Linha separadora acima da área de entrada
         self.input_sep = tk.Frame(self.root, height=1)
         self.input_sep.pack(side=tk.BOTTOM, fill=tk.X)
 
@@ -317,7 +309,7 @@ class ChatApp:
         elif role == "Sistema":
             self.chat_area.insert(tk.END, f"⚠ {message}\n\n", "sys_tag")
         else:
-            self.chat_area.insert(tk.END, "Gemini:\n", "ai_tag")
+            self.chat_area.insert(tk.END, "IA:\n", "ai_tag")
             self.chat_area.insert(tk.END, f"{message}\n", "ai_msg")
             self.chat_area.insert(tk.END, "\n")
 
@@ -367,7 +359,7 @@ class ChatApp:
 
     def load_context(self) -> None:
         """Recarrega o texto do documento e envia para a IA confirmar o novo contexto."""
-        if self.is_generating or not self.chat_session:
+        if self.is_generating or not self.client:
             return
 
         success = self._reload_doc_text()
@@ -401,9 +393,10 @@ class ChatApp:
                 f"---INICIO DO DOCUMENTO---\n{self.doc_text}\n---FIM DO DOCUMENTO---\n\n"
                 "Por favor, confirme que recebeu e processou o contexto atualizado do documento."
             )
-            LOGGER.info("Sending updated document context to Gemini chat")
-            response = self.chat_session.send_message(ctx_msg)
-            reply = response.text
+            LOGGER.info("Sending updated document context to AI chat")
+            self.messages.append({"role": "user", "content": ctx_msg})
+            reply = self._call_api()
+            self.messages.append({"role": "assistant", "content": reply})
         except Exception as e:
             log_exception(LOGGER, "Failed to send context to AI", e)
             self._set_word_status("Z7: Erro ao carregar contexto no Chat IA.")
@@ -412,7 +405,7 @@ class ChatApp:
         self.root.after(0, self._on_message_received, reply)
 
     def run_grammar_check(self) -> None:
-        if self.is_generating or not self.chat_session:
+        if self.is_generating or not self.client:
             return
         
         self._reload_doc_text()
@@ -429,7 +422,7 @@ class ChatApp:
         threading.Thread(target=self._run_task_thread, args=("grammar",), daemon=True).start()
 
     def run_consistency_check(self) -> None:
-        if self.is_generating or not self.chat_session:
+        if self.is_generating or not self.client:
             return
 
         self._reload_doc_text()
@@ -470,7 +463,7 @@ class ChatApp:
             normative_instruction = (
                 "A verificação de consistência deverá verificar as referências normativas do documento sob os seguintes requisitos:\n"
                 "- Se o documento/propositura for uma indicação, o texto deverá fazer referência expressa ao Art. 108 do Regimento Interno;\n"
-                "- Se o documento/propositura for um Requerimento de Informações, o texto deverá fazer referência expressa ao Art. 10, Inciso X, da Lei Orgânica do município de Santa Bárbara d’Oeste, combinado com o Art. 63, Inciso IX, do mesmo diploma legal;\n"
+                "- Se o documento/propositura for um Requerimento de Informações, o texto deverá fazer referência expressa ao Art. 10, Inciso X, da Lei Orgânica do município de Santa Bárbara d'Oeste, combinado com o Art. 63, Inciso IX, do mesmo diploma legal;\n"
                 "- Se o documento/propositura for um Requerimento de Pesar, o texto deverá fazer referência expressa ao Art. 102, Inciso IV, do Regimento Interno;\n"
                 "- Se o documento/propositura for uma Moção, o texto deverá fazer referência expressa ao Art. 92, do Capítulo IV, Título V, do Regimento Interno."
             )
@@ -479,10 +472,11 @@ class ChatApp:
             )
             prompt = f"{today_prefix}\n{ignore_instruction}\n{grammar_instruction}\n{normative_instruction}\n{questions_instruction}\n\n{base_prompt}\n\n---INICIO DO DOCUMENTO---\n{self.doc_text}\n---FIM DO DOCUMENTO---\n"
             
-            LOGGER.info(f"Sending {task_type} task to Gemini chat")
+            LOGGER.info(f"Sending {task_type} task to AI chat")
             
-            response = self.chat_session.send_message(prompt)
-            reply = response.text
+            self.messages.append({"role": "user", "content": prompt})
+            reply = self._call_api()
+            self.messages.append({"role": "assistant", "content": reply})
         except Exception as e:
             log_exception(LOGGER, f"{task_type} task failed", e)
             self._set_word_status(f"Z7: Erro na tarefa {task_type}.")
@@ -497,38 +491,30 @@ class ChatApp:
         self.chat_area.delete("1.0", tk.END)
         self.chat_area.config(state=tk.DISABLED)
         self.last_ai_reply = ""
-        self.chat_session = None
+        self.messages = []
         self.update_status("Iniciando nova conversa...")
         threading.Thread(target=self._new_conversation_thread, daemon=True).start()
 
     def _new_conversation_thread(self) -> None:
         try:
-            from google.genai import types
             today_prefix = get_today_date_text()
-            system_instruction = f"{today_prefix} Você é um assistente especialista em legislação prestativo e polido. Auxilie o usuário alterando, revisando ou tirando dúvidas."
+            self.system_instruction = f"{today_prefix} Você é um assistente especialista em legislação prestativo e polido. Auxilie o usuário alterando, revisando ou tirando dúvidas."
 
-            # Pré-popula histórico com contexto do documento sem chamada de API
+            # Pré-popula histórico com contexto do documento
             self._reload_doc_text()
-            history = []
+            self.messages = []
             if self.doc_text and self.doc_text.strip() and "nenhum documento" not in self.doc_text.lower():
                 ctx_user_msg = (
                     f"Abaixo está o texto do documento no Word (contexto desta conversa):\n\n"
                     f"{self.doc_text}"
                 )
-                history = [
-                    types.Content(role="user",  parts=[types.Part(text=ctx_user_msg)]),
-                    types.Content(role="model", parts=[types.Part(text="Entendido! Contexto atualizado.")]),
-                ]
+                self.messages.append({"role": "user", "content": ctx_user_msg})
+                self.messages.append({"role": "assistant", "content": "Entendido! Contexto atualizado."})
                 greeting = "✅ Contexto atualizado! Como posso ajudar?"
                 LOGGER.info("New conversation: document context pre-seeded in history")
             else:
                 greeting = "💬 Nova conversa reiniciada! Como posso ajudar?"
 
-            self.chat_session = self.client.chats.create(
-                model=self._model,
-                config=types.GenerateContentConfig(system_instruction=system_instruction),
-                history=history,
-            )
             self.root.after(0, lambda g=greeting: self._on_new_conversation_ready(g))
         except Exception as e:
             log_exception(LOGGER, "Failed to start new conversation", e)
@@ -580,6 +566,18 @@ class ChatApp:
             self._set_word_status("Z7: Erro ao carregar contexto do documento no Chat.")
             self.doc_text = "Nenhum documento ativo ou erro ao obter texto do Word."
 
+    def _call_api(self) -> str:
+        """Envia o histórico completo de mensagens para a API e retorna a resposta."""
+        api_messages = [{"role": "system", "content": self.system_instruction}]
+        api_messages.extend(self.messages)
+
+        response = self.client.chat.completions.create(
+            model=self._model,
+            messages=api_messages,
+            timeout=120,
+        )
+        return response.choices[0].message.content
+
     def init_ai(self) -> None:
         # Inicialização em background para não travar a UI
         threading.Thread(target=self._init_ai_thread, daemon=True).start()
@@ -588,8 +586,7 @@ class ChatApp:
         import pythoncom
         pythoncom.CoInitialize()
         try:
-            import google.genai as genai
-            from google.genai import types
+            from openai import OpenAI
 
             api_key = get_api_key(self.root)
             if not api_key:
@@ -598,7 +595,11 @@ class ChatApp:
                 self.root.after(0, lambda: self.update_status("Erro: Chave API ausente."))
                 return
 
-            self.client = genai.Client(api_key=api_key, http_options={'timeout': 60_000})
+            self.client = OpenAI(
+                base_url=_OPENROUTER_BASE_URL,
+                api_key=api_key,
+                timeout=60.0,
+            )
 
             # --- Texto do documento (carregado na thread principal via _load_doc_text_main_thread) ---
             _doc_truncated = self._doc_truncated
@@ -613,23 +614,19 @@ class ChatApp:
                 self._model = _DEFAULT_MODEL
 
             today_prefix = get_today_date_text()
-            system_instruction = f"{today_prefix} Você é um assistente especialista em legislação prestativo e polido. Auxilie o usuário alterando, revisando ou tirando dúvidas."
+            self.system_instruction = f"{today_prefix} Você é um assistente especialista em legislação prestativo e polido. Auxilie o usuário alterando, revisando ou tirando dúvidas."
 
-            # --- Pré-popula o histórico com o contexto do documento (sem chamada de API) ---
-            # Usar history=[] evita um round-trip de rede no início, eliminando a principal
-            # causa de falha: timeout/erro de rede ao enviar um payload grande na inicialização.
+            # --- Pré-popula o histórico com o contexto do documento ---
             _truncation_notice = _doc_truncated
             doc_context = self.doc_text
-            history = []
+            self.messages = []
             if doc_context and doc_context.strip() and "nenhum documento" not in doc_context.lower():
                 ctx_user_msg = (
                     f"Abaixo está o texto atual do meu documento no Word para ser usado como base e contexto dessa conversa:\n\n"
                     f"{doc_context}"
                 )
-                history = [
-                    types.Content(role="user",  parts=[types.Part(text=ctx_user_msg)]),
-                    types.Content(role="model", parts=[types.Part(text="Entendido! Recebi o contexto do documento e estou pronto para ajudar.")]),
-                ]
+                self.messages.append({"role": "user", "content": ctx_user_msg})
+                self.messages.append({"role": "assistant", "content": "Entendido! Recebi o contexto do documento e estou pronto para ajudar."})
                 self.initial_greeting = "✅ Contexto do documento carregado! Como posso ajudar?"
                 LOGGER.info("Document context pre-seeded in chat history (no API call required)")
             else:
@@ -637,12 +634,7 @@ class ChatApp:
                 _truncation_notice = False
                 LOGGER.warning("No document context available for AI initialization")
 
-            self.chat_session = self.client.chats.create(
-                model=self._model,
-                config=types.GenerateContentConfig(system_instruction=system_instruction),
-                history=history,
-            )
-            LOGGER.info("Chat session started with model: %s", self._model)
+            LOGGER.info("Chat session ready with model: %s", self._model)
 
             def _on_ready_with_notice(notice: bool) -> None:
                 self._on_ai_ready()
@@ -659,7 +651,7 @@ class ChatApp:
             log_exception(LOGGER, "Failed to initialize chat AI", e)
             self._set_word_status("Z7: Erro ao inicializar o Chat IA.")
             error_msg = str(e).lower()
-            if "403" in error_msg or "401" in error_msg or "invalid api key" in error_msg or "api_key" in error_msg:
+            if "401" in error_msg or "403" in error_msg or "invalid api key" in error_msg or "api_key" in error_msg:
                 self.root.after(0, lambda: self.update_status("Erro: Chave Inválida."))
                 self.root.after(0, lambda: self.append_message("Sistema", "Sua chave da API parece inválida ou expirou. Abra as Configurações da IA para atualizar ou remover a chave."))
             else:
@@ -675,8 +667,8 @@ class ChatApp:
             self.run_consistency_check()
 
     def send_message(self) -> None:
-        if self.is_generating or not self.chat_session:
-            LOGGER.info("Send skipped: generating=%s session_ready=%s", self.is_generating, self.chat_session is not None)
+        if self.is_generating or not self.client:
+            LOGGER.info("Send skipped: generating=%s client_ready=%s", self.is_generating, self.client is not None)
             return
 
         user_msg = self.input_text.get("1.0", tk.END).strip()
@@ -701,12 +693,13 @@ class ChatApp:
                 if self.doc_text and self.doc_text.strip() and "nenhum documento" not in self.doc_text.lower():
                     actual_msg = (
                         f"[Contexto do documento]\n{self.doc_text}\n\n"
-                        f"[Mensagem do usu\u00e1rio]\n{user_msg}"
+                        f"[Mensagem do usuário]\n{user_msg}"
                     )
                 self._context_pending = False
-            LOGGER.info("Sending message to Gemini chat")
-            response = self.chat_session.send_message(actual_msg)
-            reply = response.text
+            LOGGER.info("Sending message to AI chat")
+            self.messages.append({"role": "user", "content": actual_msg})
+            reply = self._call_api()
+            self.messages.append({"role": "assistant", "content": reply})
         except Exception as e:
             log_exception(LOGGER, "Chat message request failed", e)
             self._set_word_status("Z7: Erro de comunicacao no Chat IA.")

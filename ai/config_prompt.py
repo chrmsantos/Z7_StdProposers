@@ -15,7 +15,7 @@ LOGGER = configure_component_logger("config_prompt")
 
 GITHUB_REPO_URL = "https://github.com/chrmsantos/Z7_StdProposers"
 
-_APP_VERSION = "7.9.9"
+_APP_VERSION = "7.9.10"
 _APP_AUTHOR  = "CMS"
 _ORG         = "Câmara Municipal de Santa Bárbara d'Oeste"
 _LICENSE     = "GPL-3.0"
@@ -85,11 +85,11 @@ def get_consistency_prompt_file_path() -> Path:
 
 
 def load_api_key() -> str:
-    from z7_gemini_key import read_stored_api_key
+    from z7_api_key import read_stored_api_key
     return read_stored_api_key()
 
 def save_api_key(api_key: str) -> None:
-    from z7_gemini_key import write_api_key
+    from z7_api_key import write_api_key
     write_api_key(api_key)
 
 def load_prompt() -> str:
@@ -126,7 +126,7 @@ def load_ai_model() -> str:
                 return f.read().strip()
         except Exception as e:
             log_exception(LOGGER, "Failed to load custom model", e)
-    return "gemini-3.5-flash"
+    return "deepseek/deepseek-chat"
 
 def save_ai_model(model_name: str) -> None:
     model_file = get_model_file_path()
@@ -623,7 +623,7 @@ def open_api_key_dialog(parent: tk.Tk, theme_mode: str) -> None:
     btn_primary = colors.get("btn_primary_bg", "#2563eb")
 
     dialog = tk.Toplevel(parent)
-    dialog.title("Chave de API Gemini")
+    dialog.title("Chave de API OpenRouter")
     dialog.geometry("460x155")
     dialog.resizable(False, False)
     dialog.transient(parent)
@@ -631,7 +631,7 @@ def open_api_key_dialog(parent: tk.Tk, theme_mode: str) -> None:
     dialog.attributes('-topmost', True)
     dialog.configure(bg=bg)
 
-    tk.Label(dialog, text="Chave de API do Gemini:", font=("Segoe UI", 10, "bold"),
+    tk.Label(dialog, text="Chave de API do OpenRouter:", font=("Segoe UI", 10, "bold"),
              bg=bg, fg=fg).pack(anchor="w", padx=25, pady=(20, 5))
 
     entry_frame = tk.Frame(dialog, bg=bg)
