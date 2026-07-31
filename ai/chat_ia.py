@@ -346,6 +346,10 @@ class ChatApp:
                 except Exception:
                     self.word_app = win32com.client.GetObject(Class="Word.Application")
             raw_text = self.word_app.ActiveDocument.Content.Text
+            if raw_text is None:
+                raw_text = ""
+                LOGGER.warning("Document text returned None from COM, treating as empty")
+            
             if len(raw_text) > _MAX_CONTEXT_CHARS:
                 cut = raw_text.rfind(' ', 0, _MAX_CONTEXT_CHARS)
                 if cut == -1:
@@ -624,6 +628,10 @@ class ChatApp:
                                 f"ActiveWindow: {e_aw}\n"
                                 f"Selection: {e_sel}"
                             )
+            if raw_text is None:
+                raw_text = ""
+                LOGGER.warning("Document text returned None from COM, treating as empty")
+            
             if len(raw_text) > _MAX_CONTEXT_CHARS:
                 cut = raw_text.rfind(' ', 0, _MAX_CONTEXT_CHARS)
                 if cut == -1:
