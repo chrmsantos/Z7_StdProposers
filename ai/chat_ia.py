@@ -158,8 +158,6 @@ class ChatApp:
             selectbackground=select_bg, selectforeground=select_fg,
             inactiveselectbackground=select_bg
         )
-        self.chat_area.tag_config("sel", background=select_bg, foreground=select_fg)
-        self.chat_area.tag_raise("sel")
 
         # Input area
         self.input_outer.configure(bg=bg)
@@ -188,6 +186,10 @@ class ChatApp:
             background=colors["ai_bubble_bg"], lmargin1=10, lmargin2=10, rmargin=10,
             spacing1=4, spacing3=4)
         self.chat_area.tag_config("sys_tag",  font=("Segoe UI", 10, "italic"), foreground=fg_muted)
+
+        # Ensure selection highlight is visible above all other tags
+        self.chat_area.tag_config("sel", background=select_bg, foreground=select_fg)
+        self.chat_area.tag_raise("sel")
 
         # Refresh the status badge with current mode
         self.update_status(self.current_status_text)

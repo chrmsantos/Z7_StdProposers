@@ -534,7 +534,7 @@ Public Function GetZ7StdProposersRecoveryPath() As String
 End Function
 
 Public Function GetZ7StdProposersLogsPath() As String
-    GetZ7StdProposersLogsPath = GetProjectRootPath() & "\source\logs"
+    GetZ7StdProposersLogsPath = Environ("USERPROFILE") & "\AppData\Local\Z7\Tmp\StdProposers\logs"
 End Function
 
 Public Sub EnsureZ7StdProposersFolders()
@@ -554,7 +554,18 @@ Public Sub EnsureZ7StdProposersFolders()
 
     If Not fso.FolderExists(GetZ7StdProposersBackupsPath()) Then fso.CreateFolder GetZ7StdProposersBackupsPath()
     If Not fso.FolderExists(GetZ7StdProposersRecoveryPath()) Then fso.CreateFolder GetZ7StdProposersRecoveryPath()
-    If Not fso.FolderExists(GetZ7StdProposersLogsPath()) Then fso.CreateFolder GetZ7StdProposersLogsPath()
+
+    ' Garante que os diretorios intermediarios do path de logs existam
+    Dim logsPath As String
+    logsPath = GetZ7StdProposersLogsPath()
+    If Not fso.FolderExists(logsPath) Then
+        Dim parentLogsPath As String
+        parentLogsPath = fso.GetParentFolderName(logsPath)
+        If Not fso.FolderExists(parentLogsPath) Then
+            fso.CreateFolder parentLogsPath
+        End If
+        fso.CreateFolder logsPath
+    End If
 
     Set fso = Nothing
 End Sub
