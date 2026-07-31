@@ -582,18 +582,48 @@ class ChatApp:
             except Exception as backup_e:
                 LOGGER.warning("Could not run CreateDocumentBackup macro: %s", str(backup_e))
 
-            # Verifica se há documento ativo
+            # Tenta obter o texto do documento por múltiplos métodos
+            raw_text = None
+            
+            # Método 1: ActiveDocument.Content.Text
             try:
                 active_doc = word.ActiveDocument
-                LOGGER.info("Active document: %s", active_doc.Name)
-            except Exception as doc_e:
-                raise Exception(
-                    f"Word está aberto, mas nenhum documento está ativo. "
-                    f"Abra um documento no Word e tente novamente.\n"
-                    f"Detalhes: {doc_e}"
-                )
-
-            raw_text = word.ActiveDocument.Content.Text
+                raw_text = active_doc.Content.Text
+                LOGGER.info("Got document via ActiveDocument.Content.Text (%d chars)", len(raw_text))
+            except Exception as e_ad:
+                LOGGER.warning("ActiveDocument failed: %s", e_ad)
+                
+                # Método 2: Documents collection
+                try:
+                    docs_count = word.Documents.Count
+                    LOGGER.info("Documents.Count = %d", docs_count)
+                    if docs_count > 0:
+                        doc = word.Documents(1)
+                        raw_text = doc.Content.Text
+                        LOGGER.info("Got document via Documents(1).Content.Text (%d chars)", len(raw_text))
+                except Exception as e_docs:
+                    LOGGER.warning("Documents(1) failed: %s", e_docs)
+                    
+                    # Método 3: ActiveWindow.Document
+                    try:
+                        raw_text = word.ActiveWindow.Document.Content.Text
+                        LOGGER.info("Got document via ActiveWindow.Document.Content.Text (%d chars)", len(raw_text))
+                    except Exception as e_aw:
+                        LOGGER.warning("ActiveWindow.Document failed: %s", e_aw)
+                        
+                        # Método 4: Selection.Document (último recurso)
+                        try:
+                            raw_text = word.Selection.Document.Content.Text
+                            LOGGER.info("Got document via Selection.Document.Content.Text (%d chars)", len(raw_text))
+                        except Exception as e_sel:
+                            LOGGER.warning("Selection.Document failed: %s", e_sel)
+                            raise Exception(
+                                f"Word está aberto, mas não foi possível acessar nenhum documento.\n"
+                                f"ActiveDocument: {e_ad}\n"
+                                f"Documents(1): {e_docs}\n"
+                                f"ActiveWindow: {e_aw}\n"
+                                f"Selection: {e_sel}"
+                            )
             if len(raw_text) > _MAX_CONTEXT_CHARS:
                 cut = raw_text.rfind(' ', 0, _MAX_CONTEXT_CHARS)
                 if cut == -1:
