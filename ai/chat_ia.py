@@ -66,6 +66,7 @@ class ChatApp:
         self.doc_text = ""
         self._doc_truncated = False
         self._context_pending = False
+        self._doc_load_error = ""
         self.current_status_text = "Carregando contexto..."
 
         self.build_ui()
@@ -538,13 +539,40 @@ class ChatApp:
     def _load_doc_text_main_thread(self) -> None:
         """Lê o texto do documento ativo na thread principal (COM funciona corretamente aqui)."""
         import pythoncom
-        pythoncom.CoInitialize()
-        import win32com.client
+        
+        # Inicializa COM na thread principal (necessário para executável compilado)
         try:
+            pythoncom.CoInitialize()
+        except Exception:
+            pass  # Já pode estar inicializado
+        
+        try:
+            import win32com.client
+            import win32com
+            
+            # Tenta obter instância ativa do Word
+            word = None
             try:
                 word = win32com.client.GetActiveObject("Word.Application")
-            except Exception:
-                word = win32com.client.GetObject(Class="Word.Application")
+                LOGGER.info("Got active Word object via GetActiveObject")
+            except Exception as e1:
+                LOGGER.warning("GetActiveObject failed: %s", e1)
+                try:
+                    word = win32com.client.GetObject(Class="Word.Application")
+                    LOGGER.info("Got Word object via GetObject")
+                except Exception as e2:
+                    LOGGER.warning("GetObject failed: %s", e2)
+                    # Última tentativa: Dispatch
+                    try:
+                        word = win32com.client.Dispatch("Word.Application")
+                        LOGGER.info("Got Word object via Dispatch")
+                    except Exception as e3:
+                        LOGGER.warning("Dispatch also failed: %s", e3)
+                        raise Exception(
+                            f"Não foi possível conectar ao Microsoft Word. "
+                            f"Verifique se o Word está aberto com um documento.\n"
+                            f"Detalhes: GetActiveObject: {e1}; GetObject: {e2}; Dispatch: {e3}"
+                        )
 
             self.word_app = word
 
@@ -553,6 +581,17 @@ class ChatApp:
                 LOGGER.info("Document backup created successfully.")
             except Exception as backup_e:
                 LOGGER.warning("Could not run CreateDocumentBackup macro: %s", str(backup_e))
+
+            # Verifica se há documento ativo
+            try:
+                active_doc = word.ActiveDocument
+                LOGGER.info("Active document: %s", active_doc.Name)
+            except Exception as doc_e:
+                raise Exception(
+                    f"Word está aberto, mas nenhum documento está ativo. "
+                    f"Abra um documento no Word e tente novamente.\n"
+                    f"Detalhes: {doc_e}"
+                )
 
             raw_text = word.ActiveDocument.Content.Text
             if len(raw_text) > _MAX_CONTEXT_CHARS:
@@ -564,11 +603,15 @@ class ChatApp:
                 LOGGER.warning("Document context truncated at %d chars", cut)
             else:
                 self.doc_text = raw_text
-            LOGGER.info("Loaded Word active document context for chat")
+            self._doc_load_error = ""
+            LOGGER.info("Loaded Word active document context for chat (%d chars)", len(self.doc_text))
         except Exception as e:
+            error_detail = str(e)
             log_exception(LOGGER, "Failed to load Word document context", e)
             self._set_word_status("Z7: Erro ao carregar contexto do documento no Chat.")
             self.doc_text = "Nenhum documento ativo ou erro ao obter texto do Word."
+            self._doc_load_error = error_detail
+            LOGGER.error("Document load error details: %s", error_detail)
 
     def _call_api(self) -> str:
         """Envia o histórico completo de mensagens para a API e retorna a resposta."""
@@ -634,9 +677,18 @@ class ChatApp:
                 self.initial_greeting = "✅ Contexto do documento carregado! Como posso ajudar?"
                 LOGGER.info("Document context pre-seeded in chat history (no API call required)")
             else:
-                self.initial_greeting = "Olá! Não consegui acessar o documento atual. Como posso ajudar?"
+                error_detail = getattr(self, '_doc_load_error', '')
+                if error_detail:
+                    self.initial_greeting = (
+                        "⚠ Não consegui acessar o documento atual.\n\n"
+                        f"Erro: {error_detail}\n\n"
+                        "💡 Dica: Certifique-se de que o Word está aberto com um documento ativo. "
+                        "Você pode digitar 'recarregar contexto' para tentar novamente."
+                    )
+                else:
+                    self.initial_greeting = "Olá! Não consegui acessar o documento atual. Como posso ajudar?"
                 _truncation_notice = False
-                LOGGER.warning("No document context available for AI initialization")
+                LOGGER.warning("No document context available for AI initialization. Error: %s", error_detail)
 
             LOGGER.info("Chat session ready with model: %s", self._model)
 
