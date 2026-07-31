@@ -299,7 +299,7 @@ class ChatApp:
         self.chat_area = scrolledtext.ScrolledText(
             self.chat_border, wrap=tk.WORD,
             font=("Segoe UI", 11), relief=tk.FLAT,
-            padx=15, pady=12, state=tk.DISABLED, bd=0
+            padx=12, pady=10, state=tk.DISABLED, bd=0
         )
         self.chat_area.pack(expand=True, fill=tk.BOTH)
 
@@ -372,18 +372,87 @@ class ChatApp:
                                 raise
             except Exception as e:
                 last_err = e
-                # Se o Word rejeitou a chamada (ocupado/modal), espera e tenta de novo
                 hresult = getattr(e, 'hresult', None)
+                # Se o Word rejeitou a chamada (ocupado/modal), espera e tenta de novo
                 if hresult is not None and (hresult & 0xFFFF) == 0x2711:  # RPC_E_CALL_REJECTED
                     LOGGER.info("Word busy (RPC_E_CALL_REJECTED), retry %d/5", attempt)
                     time.sleep(0.6 * attempt)
                     continue
+                # Se é erro de "nenhum documento aberto", não adianta repetir
+                err_str = str(e).lower()
+                if "nenhum documento" in err_str or "no document" in err_str:
+                    raise Exception(
+                        "O Microsoft Word está aberto, mas nenhum documento foi encontrado. "
+                        "Abra um documento no Word e tente novamente."
+                    )
                 raise
         raise last_err if last_err else Exception("Falha desconhecida ao ler documento do Word")
 
-    def _get_word_app(self):
-        """Obtém uma referência COM para o Word (GetActiveObject -> GetObject -> Dispatch)."""
+    def _find_word_with_documents(self):
+        """Varre a Running Object Table e retorna a instância do Word que tem documentos abertos.
+
+        Quando há múltiplos processos WINWORD.EXE, GetActiveObject pode retornar
+        uma instância vazia (tela inicial), causando 'nenhum documento foi aberto'.
+        """
+        import pythoncom
         import win32com.client
+
+        candidates = []
+        try:
+            ctx = pythoncom.CreateBindCtx(0)
+            rot = pythoncom.GetRunningObjectTable()
+            enum = rot.EnumRunning()
+            while True:
+                monikers = enum.Next(1)
+                if not monikers:
+                    break
+                mk = monikers[0]
+                try:
+                    name = mk.GetDisplayName(ctx, None)
+                except Exception:
+                    continue
+                if "word.application" not in name.lower():
+                    continue
+                try:
+                    unk = rot.GetObject(mk)
+                    disp = unk.QueryInterface(pythoncom.IID_IDispatch)
+                    word = win32com.client.Dispatch(disp)
+                    docs_count = int(word.Documents.Count)
+                    LOGGER.info("ROT Word instance '%s': Documents.Count=%d", name, docs_count)
+                    candidates.append((docs_count, word))
+                except Exception as e_cand:
+                    LOGGER.warning("Failed to inspect ROT Word instance '%s': %s", name, e_cand)
+        except Exception as e_rot:
+            LOGGER.warning("ROT enumeration failed: %s", e_rot)
+
+        # Prefere instância com documentos abertos
+        candidates.sort(key=lambda c: c[0], reverse=True)
+        for docs_count, word in candidates:
+            if docs_count > 0:
+                LOGGER.info("Selected Word instance with %d open document(s)", docs_count)
+                return word
+        # Se nenhuma tem documento, retorna a primeira (se houver) para erro coerente
+        if candidates:
+            return candidates[0][1]
+        return None
+
+    def _get_word_app(self):
+        """Obtém uma referência COM para o Word, preferindo instância com documentos abertos."""
+        import win32com.client
+
+        # 1) Procura na ROT uma instância do Word com documentos abertos
+        try:
+            word = self._find_word_with_documents()
+            if word is not None:
+                try:
+                    if int(word.Documents.Count) > 0:
+                        return word
+                except Exception:
+                    pass
+        except Exception as e_rot:
+            LOGGER.warning("_find_word_with_documents failed: %s", e_rot)
+
+        # 2) Fallbacks tradicionais
         try:
             word = win32com.client.GetActiveObject("Word.Application")
             LOGGER.info("Got active Word object via GetActiveObject")
@@ -534,24 +603,7 @@ class ChatApp:
                 base_prompt = load_consistency_prompt()
                 
             today_prefix = get_today_date_text()
-            ignore_instruction = (
-                "As strings \"$ANO$\" e \"$DATAATUALEXTENSO$\" devem ser ignoradas no processo de verificação de consistência "
-                "de datas, não devendo ser comparadas com outras datas no restante do documento."
-            )
-            grammar_instruction = (
-                "A verificação de consistência deve também verificar e apontar erros gramaticais graves."
-            )
-            normative_instruction = (
-                "A verificação de consistência deverá verificar as referências normativas do documento sob os seguintes requisitos:\n"
-                "- Se o documento/propositura for uma indicação, o texto deverá fazer referência expressa ao Art. 108 do Regimento Interno;\n"
-                "- Se o documento/propositura for um Requerimento de Informações, o texto deverá fazer referência expressa ao Art. 10, Inciso X, da Lei Orgânica do município de Santa Bárbara d'Oeste, combinado com o Art. 63, Inciso IX, do mesmo diploma legal;\n"
-                "- Se o documento/propositura for um Requerimento de Pesar, o texto deverá fazer referência expressa ao Art. 102, Inciso IV, do Regimento Interno;\n"
-                "- Se o documento/propositura for uma Moção, o texto deverá fazer referência expressa ao Art. 92, do Capítulo IV, Título V, do Regimento Interno."
-            )
-            questions_instruction = (
-                "Se houver perguntas no documento, a verificação de consistência deve verificar se elas são consistentes e coerentes ao contexto do documento."
-            )
-            prompt = f"{today_prefix}\n{ignore_instruction}\n{grammar_instruction}\n{normative_instruction}\n{questions_instruction}\n\n{base_prompt}\n\n---INICIO DO DOCUMENTO---\n{self.doc_text}\n---FIM DO DOCUMENTO---\n"
+            prompt = f"{today_prefix}\n{base_prompt}\n\n---INICIO DO DOCUMENTO---\n{self.doc_text}\n---FIM DO DOCUMENTO---\n"
             
             LOGGER.info(f"Sending {task_type} task to AI chat")
             

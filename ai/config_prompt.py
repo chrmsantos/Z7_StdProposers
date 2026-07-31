@@ -21,7 +21,18 @@ _ORG         = "Câmara Municipal de Santa Bárbara d'Oeste"
 _LICENSE     = "GPL-3.0"
 _MOTTO       = "Dharma, virtude e gratidão."
 
-DEFAULT_PROMPT = """Você é um especialista em análise jurídica e legislativa no idioma Português do Brasil.
+_DEFAULT_PREFIX = """As strings \"$ANO$\" e \"$DATAATUALEXTENSO$\" devem ser ignoradas no processo de verificação de consistência de datas, não devendo ser comparadas com outras datas no restante do documento.
+A verificação de consistência deve também verificar e apontar erros gramaticais graves.
+A verificação de consistência deverá verificar as referências normativas do documento sob os seguintes requisitos:
+- Se o documento/propositura for uma indicação, o texto deverá fazer referência expressa ao Art. 108 do Regimento Interno;
+- Se o documento/propositura for um Requerimento de Informações, o texto deverá fazer referência expressa ao Art. 10, Inciso X, da Lei Orgânica do município de Santa Bárbara d'Oeste, combinado com o Art. 63, Inciso IX, do mesmo diploma legal;
+- Se o documento/propositura for um Requerimento de Pesar, o texto deverá fazer referência expressa ao Art. 102, Inciso IV, do Regimento Interno;
+- Se o documento/propositura for uma Moção, o texto deverá fazer referência expressa ao Art. 92, do Capítulo IV, Título V, do Regimento Interno.
+Se houver perguntas no documento, a verificação de consistência deve verificar se elas são consistentes e coerentes ao contexto do documento."""
+
+DEFAULT_PROMPT = f"""{_DEFAULT_PREFIX}
+
+Você é um especialista em análise jurídica e legislativa no idioma Português do Brasil.
 Analise criteriosamente a propositura legislativa abaixo em busca de inconsistências.
 
 Considere como inconsistências:
@@ -33,7 +44,7 @@ Considere como inconsistências:
 6. Erros gramaticais graves (por exemplo, falhas graves de concordância nominal ou verbal, erros ortográficos crassos, desvios sérios de regência, ou problemas de pontuação que prejudiquem a clareza e compreensão da matéria);
 7. Falha ou ausência de referências normativas obrigatórias de acordo com o tipo de propositura:
    - Se a propositura for uma Indicação, o texto deverá fazer referência expressa ao "Art. 108 do Regimento Interno";
-   - Se for um Requerimento de Informações, o texto deverá fazer referência expressa ao "Art. 10, Inciso X, da Lei Orgânica do município de Santa Bárbara d’Oeste, combinado com o Art. 63, Inciso IX, do mesmo diploma legal";
+   - Se for um Requerimento de Informações, o texto deverá fazer referência expressa ao "Art. 10, Inciso X, da Lei Orgânica do município de Santa Bárbara d'Oeste, combinado com o Art. 63, Inciso IX, do mesmo diploma legal";
    - Se for um Requerimento de Pesar, o texto deverá fazer referência expressa ao "Art. 102, Inciso IV, do Regimento Interno";
    - Se for uma Moção, o texto deverá fazer referência expressa ao "Art. 92, do Capítulo IV, Título V, do Regimento Interno".
 8. Perguntas no documento que não sejam consistentes ou coerentes ao contexto do documento.
@@ -50,7 +61,9 @@ Se NÃO encontrar inconsistências, responda APENAS com: "Sem inconsistências d
 
 Responda em Português do Brasil."""
 
-DEFAULT_CONSISTENCY_PROMPT = """Regras de Classificação e Limites:
+DEFAULT_CONSISTENCY_PROMPT = f"""{_DEFAULT_PREFIX}
+
+Regras de Classificação e Limites:
 titulo: A primeira linha do documento, geralmente em caixa alta, contendo a natureza da propositura e as marcações de número/ano.
 ementa: O parágrafo logo abaixo do título, que resume o objeto da matéria e geralmente começa com um verbo de ação (Indica, Requer, Manifesta).
 vocativo: O cumprimento formal direcionado à autoridade ou aos pares. Pode ter uma ou múltiplas linhas.
