@@ -691,14 +691,15 @@ class ChatApp:
 
             self.word_app = word
 
+            # Lê o texto do documento com retry + fallbacks (ActiveDocument, Documents, etc.)
+            # IMPORTANTE: lê o texto ANTES de rodar macros, pois o backup pode trocar o documento ativo
+            raw_text = self._read_word_doc_text(word)
+
             try:
                 word.Application.Run("CreateDocumentBackup", word.ActiveDocument)
                 LOGGER.info("Document backup created successfully.")
             except Exception as backup_e:
                 LOGGER.warning("Could not run CreateDocumentBackup macro: %s", str(backup_e))
-
-            # Lê o texto do documento com retry + fallbacks (ActiveDocument, Documents, etc.)
-            raw_text = self._read_word_doc_text(word)
             LOGGER.info("Got document text (%d chars)", len(raw_text))
 
             if raw_text is None:
