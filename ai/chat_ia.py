@@ -12,7 +12,7 @@ _DEFAULT_MODEL = 'deepseek/deepseek-chat'
 _OPENROUTER_BASE_URL = 'https://openrouter.ai/api/v1'
 _MAX_CONTEXT_CHARS = 150_000
 
-_APP_VERSION = "7.9.11"
+_APP_VERSION = "8.0.0"
 _APP_AUTHOR  = "CMS"
 _ORG         = "Câmara Municipal de Santa Bárbara d'Oeste"
 _LICENSE     = "GPL-3.0"
@@ -336,21 +336,95 @@ class ChatApp:
         self.update_status("Resposta copiada!")
         self.root.after(2000, lambda: self.update_status(old_status))
 
+    def _read_word_doc_text(self, word) -> str:
+        """Lê o texto do documento ativo do Word com retry e múltiplos fallbacks.
+
+        Lida com RPC_E_CALL_REJECTED (Word ocupado/modal) tentando novamente,
+        e usa ActiveDocument -> Documents(1) -> ActiveWindow -> Selection.
+        """
+        import time
+
+        last_err = None
+
+        for attempt in range(1, 6):
+            try:
+                # Método 1: ActiveDocument
+                try:
+                    return word.ActiveDocument.Content.Text or ""
+                except Exception as e_ad:
+                    last_err = e_ad
+                    # Método 2: Documents collection
+                    try:
+                        if word.Documents.Count > 0:
+                            return word.Documents(1).Content.Text or ""
+                    except Exception as e_docs:
+                        last_err = e_docs
+                        # Método 3: ActiveWindow.Document
+                        try:
+                            return word.ActiveWindow.Document.Content.Text or ""
+                        except Exception as e_aw:
+                            last_err = e_aw
+                            # Método 4: Selection.Document
+                            try:
+                                return word.Selection.Document.Content.Text or ""
+                            except Exception as e_sel:
+                                last_err = e_sel
+                                raise
+            except Exception as e:
+                last_err = e
+                # Se o Word rejeitou a chamada (ocupado/modal), espera e tenta de novo
+                hresult = getattr(e, 'hresult', None)
+                if hresult is not None and (hresult & 0xFFFF) == 0x2711:  # RPC_E_CALL_REJECTED
+                    LOGGER.info("Word busy (RPC_E_CALL_REJECTED), retry %d/5", attempt)
+                    time.sleep(0.6 * attempt)
+                    continue
+                raise
+        raise last_err if last_err else Exception("Falha desconhecida ao ler documento do Word")
+
+    def _get_word_app(self):
+        """Obtém uma referência COM para o Word (GetActiveObject -> GetObject -> Dispatch)."""
+        import win32com.client
+        try:
+            word = win32com.client.GetActiveObject("Word.Application")
+            LOGGER.info("Got active Word object via GetActiveObject")
+            return word
+        except Exception as e1:
+            LOGGER.warning("GetActiveObject failed: %s", e1)
+        try:
+            word = win32com.client.GetObject(Class="Word.Application")
+            LOGGER.info("Got Word object via GetObject")
+            return word
+        except Exception as e2:
+            LOGGER.warning("GetObject failed: %s", e2)
+        word = win32com.client.Dispatch("Word.Application")
+        LOGGER.info("Got Word object via Dispatch")
+        return word
+
     def _reload_doc_text(self) -> bool:
         """Tenta atualizar self.doc_text com o conteúdo atual do Word na thread principal."""
+        import pythoncom
+        # Garante COM inicializado nesta thread (crucial em executável compilado)
+        try:
+            pythoncom.CoInitialize()
+        except Exception:
+            pass
         try:
             if not self.word_app:
-                import win32com.client
-                try:
-                    self.word_app = win32com.client.GetActiveObject("Word.Application")
-                except Exception:
-                    self.word_app = win32com.client.GetObject(Class="Word.Application")
-            raw_text = self.word_app.ActiveDocument.Content.Text
+                self.word_app = self._get_word_app()
+            try:
+                raw_text = self._read_word_doc_text(self.word_app)
+            except Exception:
+                # Referência pode estar obsoleta (Word reiniciado); reconecta
+                LOGGER.info("word_app stale, reconnecting to Word")
+                self.word_app = self._get_word_app()
+                raw_text = self._read_word_doc_text(self.word_app)
             if raw_text is None:
                 raw_text = ""
                 LOGGER.warning("Document text returned None from COM, treating as empty")
-            
+            self._doc_load_error = ""
+
             if len(raw_text) > _MAX_CONTEXT_CHARS:
+
                 cut = raw_text.rfind(' ', 0, _MAX_CONTEXT_CHARS)
                 if cut == -1:
                     cut = _MAX_CONTEXT_CHARS
@@ -551,32 +625,15 @@ class ChatApp:
             pass  # Já pode estar inicializado
         
         try:
-            import win32com.client
-            import win32com
-            
             # Tenta obter instância ativa do Word
-            word = None
             try:
-                word = win32com.client.GetActiveObject("Word.Application")
-                LOGGER.info("Got active Word object via GetActiveObject")
-            except Exception as e1:
-                LOGGER.warning("GetActiveObject failed: %s", e1)
-                try:
-                    word = win32com.client.GetObject(Class="Word.Application")
-                    LOGGER.info("Got Word object via GetObject")
-                except Exception as e2:
-                    LOGGER.warning("GetObject failed: %s", e2)
-                    # Última tentativa: Dispatch
-                    try:
-                        word = win32com.client.Dispatch("Word.Application")
-                        LOGGER.info("Got Word object via Dispatch")
-                    except Exception as e3:
-                        LOGGER.warning("Dispatch also failed: %s", e3)
-                        raise Exception(
-                            f"Não foi possível conectar ao Microsoft Word. "
-                            f"Verifique se o Word está aberto com um documento.\n"
-                            f"Detalhes: GetActiveObject: {e1}; GetObject: {e2}; Dispatch: {e3}"
-                        )
+                word = self._get_word_app()
+            except Exception as e_conn:
+                raise Exception(
+                    f"Não foi possível conectar ao Microsoft Word. "
+                    f"Verifique se o Word está aberto com um documento.\n"
+                    f"Detalhes: {e_conn}"
+                )
 
             self.word_app = word
 
@@ -586,49 +643,12 @@ class ChatApp:
             except Exception as backup_e:
                 LOGGER.warning("Could not run CreateDocumentBackup macro: %s", str(backup_e))
 
-            # Tenta obter o texto do documento por múltiplos métodos
-            raw_text = None
-            
-            # Método 1: ActiveDocument.Content.Text
-            try:
-                active_doc = word.ActiveDocument
-                raw_text = active_doc.Content.Text
-                LOGGER.info("Got document via ActiveDocument.Content.Text (%d chars)", len(raw_text))
-            except Exception as e_ad:
-                LOGGER.warning("ActiveDocument failed: %s", e_ad)
-                
-                # Método 2: Documents collection
-                try:
-                    docs_count = word.Documents.Count
-                    LOGGER.info("Documents.Count = %d", docs_count)
-                    if docs_count > 0:
-                        doc = word.Documents(1)
-                        raw_text = doc.Content.Text
-                        LOGGER.info("Got document via Documents(1).Content.Text (%d chars)", len(raw_text))
-                except Exception as e_docs:
-                    LOGGER.warning("Documents(1) failed: %s", e_docs)
-                    
-                    # Método 3: ActiveWindow.Document
-                    try:
-                        raw_text = word.ActiveWindow.Document.Content.Text
-                        LOGGER.info("Got document via ActiveWindow.Document.Content.Text (%d chars)", len(raw_text))
-                    except Exception as e_aw:
-                        LOGGER.warning("ActiveWindow.Document failed: %s", e_aw)
-                        
-                        # Método 4: Selection.Document (último recurso)
-                        try:
-                            raw_text = word.Selection.Document.Content.Text
-                            LOGGER.info("Got document via Selection.Document.Content.Text (%d chars)", len(raw_text))
-                        except Exception as e_sel:
-                            LOGGER.warning("Selection.Document failed: %s", e_sel)
-                            raise Exception(
-                                f"Word está aberto, mas não foi possível acessar nenhum documento.\n"
-                                f"ActiveDocument: {e_ad}\n"
-                                f"Documents(1): {e_docs}\n"
-                                f"ActiveWindow: {e_aw}\n"
-                                f"Selection: {e_sel}"
-                            )
+            # Lê o texto do documento com retry + fallbacks (ActiveDocument, Documents, etc.)
+            raw_text = self._read_word_doc_text(word)
+            LOGGER.info("Got document text (%d chars)", len(raw_text))
+
             if raw_text is None:
+
                 raw_text = ""
                 LOGGER.warning("Document text returned None from COM, treating as empty")
             
