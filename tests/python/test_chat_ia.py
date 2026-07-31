@@ -63,26 +63,24 @@ class TestChatIaDocTextLoading(unittest.TestCase):
             self.assertFalse(app._doc_truncated)
 
     def test_load_doc_text_sets_fallback_on_error(self):
+        # Simula falha no GetActiveObject usando stubs já presentes
         with mock.patch.dict(sys.modules, _STUBS):
+            mod = _import_chat_ia()
             app = mock.MagicMock()
             app.doc_text = ""
             app._doc_truncated = False
 
-            # Simula falha no GetActiveObject
-            broken_win32com = mock.MagicMock()
-            broken_win32com.client.GetActiveObject.side_effect = Exception("Word not running")
-            broken_win32com.client.GetObject.side_effect = Exception("Word not running")
-
-            with mock.patch.dict(sys.modules, {
-                **_STUBS,
-                "win32com": broken_win32com,
-                "win32com.client": broken_win32com.client,
-            }):
-                import importlib
-                import chat_ia
-                importlib.reload(chat_ia)
-                chat_ia.ChatApp._load_doc_text_main_thread(app)
+            # Configura falha no stub de win32com já injetado em sys.modules
+            original_side_effect_go = _win32com_stub.client.GetActiveObject.side_effect
+            original_side_effect_gobj = _win32com_stub.client.GetObject.side_effect
+            try:
+                _win32com_stub.client.GetActiveObject.side_effect = Exception("Word not running")
+                _win32com_stub.client.GetObject.side_effect = Exception("Word not running")
+                mod.ChatApp._load_doc_text_main_thread(app)
                 self.assertIn("nenhum documento", app.doc_text.lower())
+            finally:
+                _win32com_stub.client.GetActiveObject.side_effect = original_side_effect_go
+                _win32com_stub.client.GetObject.side_effect = original_side_effect_gobj
 
     def test_load_doc_text_truncates_long_document(self):
         with mock.patch.dict(sys.modules, _STUBS):

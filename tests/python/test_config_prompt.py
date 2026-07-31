@@ -59,7 +59,7 @@ class TestLoadPrompt(unittest.TestCase):
             prompt_file.write_text("irrelevant", encoding="utf-8")
             with mock.patch("z7_logging.get_data_dir", return_value=tmp_path):
                 mod = _reload_config()
-                with mock.patch("builtins.open", side_effect=OSError("disk error")):
+                with mock.patch.object(type(prompt_file), "read_text", side_effect=OSError("disk error")):
                     result = mod.load_prompt()
                     self.assertEqual(result, mod.DEFAULT_PROMPT)
 
@@ -69,7 +69,7 @@ class TestLoadAiModel(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             with mock.patch("z7_logging.get_data_dir", return_value=Path(tmp)):
                 mod = _reload_config()
-                self.assertEqual(mod.load_ai_model(), "gemini-3.5-flash")
+                self.assertEqual(mod.load_ai_model(), "deepseek/deepseek-chat")
 
     def test_returns_saved_model(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -92,9 +92,9 @@ class TestSaveAiModel(unittest.TestCase):
 
 
 class TestLoadApiKey(unittest.TestCase):
-    def test_delegates_to_z7_gemini_key(self):
+    def test_delegates_to_z7_api_key(self):
         mod = _reload_config()
-        with mock.patch("z7_gemini_key.read_stored_api_key", return_value="my-key") as m:
+        with mock.patch("z7_api_key.read_stored_api_key", return_value="my-key") as m:
             result = mod.load_api_key()
             m.assert_called_once()
             self.assertEqual(result, "my-key")

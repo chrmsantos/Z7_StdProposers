@@ -96,9 +96,9 @@ def load_prompt() -> str:
     prompt_file = get_prompt_file_path()
     if prompt_file.exists():
         try:
-            with open(prompt_file, 'r', encoding='utf-8') as f:
-                LOGGER.info("Loaded custom prompt file")
-                return f.read()
+            text = prompt_file.read_text(encoding='utf-8')
+            LOGGER.info("Loaded custom prompt file")
+            return text
         except Exception as e:
             log_exception(LOGGER, "Failed to load custom prompt", e)
     return DEFAULT_PROMPT
@@ -108,9 +108,9 @@ def load_consistency_prompt() -> str:
     consistency_file = get_consistency_prompt_file_path()
     if consistency_file.exists():
         try:
-            with open(consistency_file, 'r', encoding='utf-8') as f:
-                LOGGER.info("Loaded custom consistency prompt file")
-                return f.read()
+            text = consistency_file.read_text(encoding='utf-8')
+            LOGGER.info("Loaded custom consistency prompt file")
+            return text
         except Exception as e:
             log_exception(LOGGER, "Failed to load custom consistency prompt", e)
     return DEFAULT_CONSISTENCY_PROMPT
@@ -122,8 +122,7 @@ def load_ai_model() -> str:
     model_file = get_model_file_path()
     if model_file.exists():
         try:
-            with open(model_file, 'r', encoding='utf-8') as f:
-                return f.read().strip()
+            return model_file.read_text(encoding='utf-8').strip()
         except Exception as e:
             log_exception(LOGGER, "Failed to load custom model", e)
     return "deepseek/deepseek-chat"
@@ -131,8 +130,7 @@ def load_ai_model() -> str:
 def save_ai_model(model_name: str) -> None:
     model_file = get_model_file_path()
     try:
-        with open(model_file, 'w', encoding='utf-8') as f:
-            f.write(model_name)
+        model_file.write_text(model_name, encoding='utf-8')
         LOGGER.info("Model saved successfully: %s", model_name)
     except Exception as e:
         log_exception(LOGGER, "Failed to save model", e)
@@ -150,8 +148,7 @@ def save_prompt(grammar_text: str, consistency_text: str, root: tk.Tk, model_var
 
     prompt_file = get_prompt_file_path()
     try:
-        with open(prompt_file, 'w', encoding='utf-8') as f:
-            f.write(grammar_text.strip())
+        prompt_file.write_text(grammar_text.strip(), encoding='utf-8')
         LOGGER.info("Grammar prompt saved successfully")
     except Exception as e:
         log_exception(LOGGER, "Failed to save grammar prompt", e)
@@ -160,8 +157,7 @@ def save_prompt(grammar_text: str, consistency_text: str, root: tk.Tk, model_var
 
     consistency_file = get_consistency_prompt_file_path()
     try:
-        with open(consistency_file, 'w', encoding='utf-8') as f:
-            f.write(consistency_text.strip())
+        consistency_file.write_text(consistency_text.strip(), encoding='utf-8')
         LOGGER.info("Consistency prompt saved successfully")
     except Exception as e:
         log_exception(LOGGER, "Failed to save consistency prompt", e)
@@ -314,8 +310,8 @@ def start_download_and_update(parent_root: tk.Tk, latest_version: str, release_d
                 
                 dest_file = temp_dir / name
                 req = urllib.request.Request(url, headers=headers)
-                with urllib.request.urlopen(req, timeout=20) as resp, open(dest_file, "wb") as f:
-                    f.write(resp.read())
+                with urllib.request.urlopen(req, timeout=20) as resp:
+                    dest_file.write_bytes(resp.read())
             
             raw_base = "https://raw.githubusercontent.com/chrmsantos/Z7_StdProposers/main"
             fallback_files = [
@@ -351,8 +347,8 @@ def start_download_and_update(parent_root: tk.Tk, latest_version: str, release_d
 
                     try:
                         req = urllib.request.Request(url, headers=headers)
-                        with urllib.request.urlopen(req, timeout=15) as resp, open(dest_file, "wb") as f:
-                            f.write(resp.read())
+                        with urllib.request.urlopen(req, timeout=15) as resp:
+                            dest_file.write_bytes(resp.read())
                     except Exception as download_err:
                         LOGGER.warning(f"Failed to download raw {local_name}: {download_err}")
                         if local_source and local_source.exists():
@@ -498,8 +494,7 @@ try {{
     }}
 }}
 """
-            with open(worker_path, "w", encoding="utf-8") as f:
-                f.write(ps_script)
+            worker_path.write_text(ps_script, encoding='utf-8')
             
             update_progress(1.0, "Iniciando instalador em segundo plano...")
             
