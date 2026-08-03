@@ -6342,27 +6342,6 @@ Public Sub RemoverLinhasEmBrancoExtras(doc As Document)
         End If
     Next i
 
-    ' --- Substituicao gigante manual (maior que 255 chars) ---
-    Dim repRange As Range
-    Set repRange = doc.Range
-    With repRange.Find
-        .ClearFormatting
-        .text = "Que cabe ao Poder Legislativo, dispor sobre as"
-        .Forward = True
-        .Wrap = wdFindStop
-        .Format = False
-        Do While .Execute
-            repRange.Expand wdParagraph
-            Dim foundText As String
-            foundText = Replace(repRange.text, vbCr, "")
-            If InStr(foundText, "financeira e or") > 0 And InStr(foundText, "para atender tal solicita") > 0 Then
-                SafeReplaceText repRange, "Cabe ao Poder Legislativo dispor sobre as mat" & ChrW(233) & "rias de compet" & ChrW(234) & "ncia do Munic" & ChrW(237) & "pio, especialmente assuntos de interesse local. Compete-lhe tamb" & ChrW(233) & "m a fun" & ChrW(231) & ChrW(227) & "o de fiscaliza" & ChrW(231) & ChrW(227) & "o dos atos do Poder Executivo, abrangendo os atos administrativos, de gest" & ChrW(227) & "o e fiscaliza" & ChrW(231) & ChrW(227) & "o financeira e or" & ChrW(231) & "ament" & ChrW(225) & "ria do munic" & ChrW(237) & "pio." & vbCr & "Desta forma, fa" & ChrW(231) & "o esta indica" & ChrW(231) & ChrW(227) & "o para o prefeito determinar ao setor competente realize os atos administrativos para atender tal solicita" & ChrW(231) & ChrW(227) & "o." & vbCr
-                replacedCount = replacedCount + 1
-            End If
-            repRange.Collapse wdCollapseEnd
-        Loop
-    End With
-
     ' --- Substituicoes no texto padrao ---
     With doc.Content.Find
         .ClearFormatting
