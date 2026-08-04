@@ -15,7 +15,7 @@ LOGGER = configure_component_logger("config_prompt")
 
 GITHUB_REPO_URL = "https://github.com/chrmsantos/Z7_StdProposers"
 
-_APP_VERSION = "8.0.0"
+_APP_VERSION = "8.0.3"
 _APP_AUTHOR  = "CMS"
 _ORG         = "Câmara Municipal de Santa Bárbara d'Oeste"
 _LICENSE     = "GPL-3.0"
@@ -81,12 +81,12 @@ Excelentíssimo Senhor Prefeito Municipal,
 Nos termos do Art. 108 do Regimento Interno desta Casa de Leis, dirijo-me a Vossa Excelência para indicar que seja realizado um estudo técnico para ampliação da rede de creches públicas, com prioridade aos bairros com maior número de crianças em lista de espera, como o Jardim São Fernando e o Parque Zabani, neste Município.
 Justificativa:
 A falta de vagas em creches tem afetado diretamente as famílias, em especial mães que dependem do serviço para poder trabalhar. A ampliação do número de unidades ou convênios com instituições qualificadas atenderá à demanda crescente e garantirá o direito à educação infantil.
-Plenário “Dr. Tancredo Neves”, $DATAATUALEXTENSO$.
+Plenário "Dr. Tancredo Neves", $DATAATUALEXTENSO$.
 AUTORIA
 – Vereador –
 
 Saída JSON:
-{{"titulo": "INDICAÇÃO Nº $NUMERO$/$ANO$","ementa": "Indica ao Poder Executivo Municipal a ampliação da rede de creches nos bairros com maior demanda por vagas.","vocativo": "Excelentíssimo Senhor Prefeito Municipal,","proposicao": "Nos termos do Art. 108 do Regimento Interno desta Casa de Leis, dirijo-me a Vossa Excelência para indicar que seja realizado um estudo técnico para ampliação da rede de creches públicas, com prioridade aos bairros com maior número de crianças em lista de espera, como o Jardim São Fernando e o Parque Zabani, neste Município.","titulo_da_justificativa": "Justificativa:","justificativa": "A falta de vagas em creches tem afetado diretamente as famílias, em especial mães que dependem do serviço para poder trabalhar. A ampliação do número de unidades ou convênios com instituições qualificadas atenderá à demanda crescente e garantirá o direito à educação infantil.","data": "Plenário “Dr. Tancredo Neves”, $DATAATUALEXTENSO$.","assinatura": "AUTORIA\\n– Vereador –"}}"""
+{{"titulo": "INDICAÇÃO Nº $NUMERO$/$ANO$","ementa": "Indica ao Poder Executivo Municipal a ampliação da rede de creches nos bairros com maior demanda por vagas.","vocativo": "Excelentíssimo Senhor Prefeito Municipal,","proposicao": "Nos termos do Art. 108 do Regimento Interno desta Casa de Leis, dirijo-me a Vossa Excelência para indicar que seja realizado um estudo técnico para ampliação da rede de creches públicas, com prioridade aos bairros com maior número de crianças em lista de espera, como o Jardim São Fernando e o Parque Zabani, neste Município.","titulo_da_justificativa": "Justificativa:","justificativa": "A falta de vagas em creches tem afetado diretamente as famílias, em especial mães que dependem do serviço para poder trabalhar. A ampliação do número de unidades ou convênios com instituições qualificadas atenderá à demanda crescente e garantirá o direito à educação infantil.","data": "Plenário \\"Dr. Tancredo Neves\\", $DATAATUALEXTENSO$.","assinatura": "AUTORIA\\n– Vereador –"}}"""
 
 
 def get_prompt_file_path() -> Path:
@@ -148,24 +148,11 @@ def save_ai_model(model_name: str) -> None:
     except Exception as e:
         log_exception(LOGGER, "Failed to save model", e)
 
-def save_prompt(grammar_text: str, consistency_text: str, root: tk.Tk, model_var: tk.StringVar,
+def save_prompt(consistency_text: str, root: tk.Tk, model_var: tk.StringVar,
                privacy_chat_var: tk.BooleanVar | None = None) -> None:
-    if not grammar_text.strip():
-        LOGGER.warning("Grammar prompt save blocked because text is empty")
-        z7_theme.show_warning("Aviso", "O prompt do Corretor Gramatical não pode estar vazio.", parent=root)
-        return
     if not consistency_text.strip():
         LOGGER.warning("Consistency prompt save blocked because text is empty")
         z7_theme.show_warning("Aviso", "O prompt do Verificador de Consistência não pode estar vazio.", parent=root)
-        return
-
-    prompt_file = get_prompt_file_path()
-    try:
-        prompt_file.write_text(grammar_text.strip(), encoding='utf-8')
-        LOGGER.info("Grammar prompt saved successfully")
-    except Exception as e:
-        log_exception(LOGGER, "Failed to save grammar prompt", e)
-        z7_theme.show_error("Erro", f"Erro ao salvar prompt gramatical:\n{e}", parent=root)
         return
 
     consistency_file = get_consistency_prompt_file_path()
@@ -529,11 +516,6 @@ try {{
 
     threading.Thread(target=run_downloads, daemon=True).start()
 
-def restore_default(text_widget: tk.Text) -> None:
-    text_widget.delete("1.0", tk.END)
-    text_widget.insert(tk.END, DEFAULT_PROMPT)
-
-
 def restore_default_consistency(text_widget: tk.Text) -> None:
     text_widget.delete("1.0", tk.END)
     text_widget.insert(tk.END, DEFAULT_CONSISTENCY_PROMPT)
@@ -592,22 +574,6 @@ class AppTheme:
         for cb in self.widgets.get('privacy_checks', []):
             cb.configure(bg=bg, fg=fg_muted, activebackground=bg, activeforeground=fg,
                          selectcolor=text_bg)
-
-        if 'tab_frame' in self.widgets:
-            self.widgets['tab_frame'].configure(bg=bg)
-        active_idx = self.widgets.get('active_tab_idx', 0)
-        for i, btn in enumerate(self.widgets.get('tab_btns', [])):
-            if i == active_idx:
-                btn.configure(
-                    bg=colors["btn_primary_bg"], fg=colors["btn_primary_fg"],
-                    activebackground=colors["btn_primary_hover"],
-                    activeforeground=colors["btn_primary_fg"],
-                )
-            else:
-                btn.configure(
-                    bg=btn_sec_bg, fg=btn_sec_fg,
-                    activebackground=btn_sec_hover, activeforeground=fg,
-                )
 
         for btn in self.widgets.get('sec_btns', []):
             btn.configure(bg=btn_sec_bg, fg=btn_sec_fg, activebackground=btn_sec_hover, activeforeground=fg)
@@ -701,7 +667,7 @@ def main() -> None:
         LOGGER.warning("Could not connect to Word to update status bar: %s", str(e))
         
     root = tk.Tk()
-    root.title(f"Configurar Prompts — Z7 StdProposers v{_APP_VERSION}")
+    root.title(f"Configurar Prompt — Z7 StdProposers v{_APP_VERSION}")
     
     screen_width = root.winfo_screenwidth()
     screen_height = root.winfo_screenheight()
@@ -725,10 +691,10 @@ def main() -> None:
     theme.widgets['toggle_btn'] = toggle_btn
     
     lbl = tk.Label(root, text="Instruções para a Inteligência Artificial", font=("Segoe UI", 16, "bold"))
-    lbl.pack(pady=(35, 5))  # Aumentado o pady superior para não sobrepor o botão de tema
+    lbl.pack(pady=(35, 5))
     theme.widgets['title_lbl'] = lbl
     
-    info_lbl = tk.Label(root, text="Personalize o comportamento do modelo ajustando o prompt abaixo.", font=("Segoe UI", 10))
+    info_lbl = tk.Label(root, text="Personalize o comportamento do modelo ajustando o prompt de verificação de consistência abaixo.", font=("Segoe UI", 10))
     info_lbl.pack(pady=(0, 20))
     theme.widgets['info_lbl'] = info_lbl
 
@@ -784,44 +750,7 @@ def main() -> None:
 
     theme.widgets['privacy_checks'] = [cb_chat]
 
-    # Seletor de abas de prompt
-    prompt_buffers = {
-        'grammar': load_prompt(),
-        'consistency': load_consistency_prompt(),
-    }
-    current_tab = tk.StringVar(value='grammar')
-
-    tab_frame = tk.Frame(root)
-    tab_frame.pack(fill=tk.X, padx=25, pady=(0, 4))
-    theme.widgets['tab_frame'] = tab_frame
-    theme.widgets['active_tab_idx'] = 0
-
-    def switch_tab(tab_name: str, tab_idx: int) -> None:
-        if current_tab.get() == tab_name:
-            return
-        prompt_buffers[current_tab.get()] = text_area.get("1.0", tk.END)
-        current_tab.set(tab_name)
-        theme.widgets['active_tab_idx'] = tab_idx
-        text_area.delete("1.0", tk.END)
-        text_area.insert(tk.END, prompt_buffers[tab_name].strip())
-        theme.apply()
-
-    grammar_tab_btn = tk.Button(
-        tab_frame, text="Corretor Gramatical",
-        font=("Segoe UI", 10, "bold"), relief=tk.FLAT, cursor="hand2",
-        command=lambda: switch_tab('grammar', 0), padx=12,
-    )
-    grammar_tab_btn.pack(side=tk.LEFT)
-
-    consistency_tab_btn = tk.Button(
-        tab_frame, text="Verificador de Consistência",
-        font=("Segoe UI", 10, "bold"), relief=tk.FLAT, cursor="hand2",
-        command=lambda: switch_tab('consistency', 1), padx=12,
-    )
-    consistency_tab_btn.pack(side=tk.LEFT, padx=(4, 0))
-
-    theme.widgets['tab_btns'] = [grammar_tab_btn, consistency_tab_btn]
-
+    # Área de texto do prompt (sem abas)
     frame = tk.Frame(root) # Borda sutil
     theme.widgets['border_frame'] = frame
     
@@ -833,27 +762,19 @@ def main() -> None:
     scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
     text_area.config(yscrollcommand=scrollbar.set)
 
-    # Carrega o prompt da aba ativa (gramática por padrão)
-    text_area.insert(tk.END, prompt_buffers['grammar'])
+    # Carrega o prompt de consistência
+    text_area.insert(tk.END, load_consistency_prompt())
 
     # Estilos de botão
     btn_font = ("Segoe UI", 10, "bold")
 
     def do_save() -> None:
-        prompt_buffers[current_tab.get()] = text_area.get("1.0", tk.END)
         save_prompt(
-            grammar_text=prompt_buffers['grammar'],
-            consistency_text=prompt_buffers['consistency'],
+            consistency_text=text_area.get("1.0", tk.END),
             root=root,
             model_var=model_var,
             privacy_chat_var=privacy_chat_var,
         )
-
-    def do_restore_default() -> None:
-        if current_tab.get() == 'grammar':
-            restore_default(text_area)
-        else:
-            restore_default_consistency(text_area)
 
     save_btn = tk.Button(btn_frame, text="Salvar Configuração", width=20, bg="#2563eb", fg="white", font=btn_font, relief=tk.FLAT, activebackground="#1d4ed8", activeforeground="white", cursor="hand2", command=do_save)
     save_btn.pack(side=tk.RIGHT, padx=25)
@@ -861,7 +782,7 @@ def main() -> None:
     cancel_btn = tk.Button(btn_frame, text="Cancelar", width=15, font=btn_font, relief=tk.FLAT, cursor="hand2", command=root.destroy)
     cancel_btn.pack(side=tk.RIGHT, padx=5)
 
-    restore_btn = tk.Button(btn_frame, text="Restaurar Padrão", width=18, font=btn_font, relief=tk.FLAT, cursor="hand2", command=do_restore_default)
+    restore_btn = tk.Button(btn_frame, text="Restaurar Padrão", width=18, font=btn_font, relief=tk.FLAT, cursor="hand2", command=lambda: restore_default_consistency(text_area))
     restore_btn.pack(side=tk.LEFT, padx=25)
 
     import webbrowser

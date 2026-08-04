@@ -12,7 +12,7 @@ _DEFAULT_MODEL = 'deepseek/deepseek-chat'
 _OPENROUTER_BASE_URL = 'https://openrouter.ai/api/v1'
 _MAX_CONTEXT_CHARS = 150_000
 
-_APP_VERSION = "8.0.0"
+_APP_VERSION = "8.0.3"
 _APP_AUTHOR  = "CMS"
 _ORG         = "Câmara Municipal de Santa Bárbara d'Oeste"
 _LICENSE     = "GPL-3.0"
@@ -151,8 +151,8 @@ class ChatApp:
 
         # Chat area
         self.chat_border.configure(bg=border)
-        select_bg = "#4f46e5" if self.mode == "dark" else "#c4b5fd"
-        select_fg = "#ffffff" if self.mode == "dark" else "#1e1b4b"
+        select_bg = "#6366f1" if self.mode == "dark" else "#7c3aed"
+        select_fg = "#ffffff" if self.mode == "dark" else "#ffffff"
         self.chat_area.configure(
             bg=text_bg, fg=fg, insertbackground=fg,
             selectbackground=select_bg, selectforeground=select_fg,

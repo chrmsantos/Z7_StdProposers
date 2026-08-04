@@ -893,10 +893,9 @@ Public Function PreviousFormatting(doc As Document) As Boolean
 
     LogSection "FORMATACOES ESPECIFICAS"
 
-    LogStepStart "Formatacao de paragrafos 1 e 2"
-    FormatFirstParagraph doc
+    LogStepStart "Formatacao do paragrafo 2 (ementa)"
     FormatSecondParagraph doc
-    LogStepComplete "Formatacao de paragrafos 1 e 2"
+    LogStepComplete "Formatacao do paragrafo 2 (ementa)"
 
     LogStepStart "Formatacao de considerandos"
     FormatConsiderandoParagraphs doc
@@ -3620,6 +3619,7 @@ Public Function FormatDocumentTitle(doc As Document) As Boolean
     With firstPara.Range.Font
         .Bold = True
         .Underline = wdUnderlineSingle
+        .AllCaps = True
     End With
 
     With firstPara.Format
@@ -4486,9 +4486,10 @@ Public Sub ApplyBoldToSpecialParagraphs(doc As Document)
         If Not HasVisualContent(para) Then
             cleanText = GetCleanParagraphText(para)
 
-            ' Adiciona apenas Justificativa e Anexo (Vereador nao recebe negrito)
+            ' Adiciona Titulo, Justificativa e Anexo (Vereador nao recebe negrito)
             If cleanText = JUSTIFICATIVA_TEXT Or _
-               IsAnexoPattern(cleanText) Then
+               IsAnexoPattern(cleanText) Or _
+               (tituloParaIndex > 0 And paraCounter = tituloParaIndex) Then
                 specialParagraphs.Add para
             End If
         End If
@@ -4511,7 +4512,20 @@ Public Sub ApplyBoldToSpecialParagraphs(doc As Document)
 
         ' REFORCO: Garante alinhamento correto baseado no tipo
         pCleanText = GetCleanParagraphText(para)
-        If pCleanText = JUSTIFICATIVA_TEXT Then
+        If tituloParaIndex > 0 And para.Range.Start = doc.Paragraphs(tituloParaIndex).Range.Start Then
+            ' Titulo: centralizado, caixa alta, sublinhado, sem recuos
+            para.Format.alignment = wdAlignParagraphCenter
+            para.Format.leftIndent = 0
+            para.Format.firstLineIndent = 0
+            para.Format.RightIndent = 0
+            para.Format.SpaceBefore = 0
+            para.Format.SpaceAfter = 6
+            With para.Range.Font
+                .Bold = True
+                .Underline = wdUnderlineSingle
+                .AllCaps = True
+            End With
+        ElseIf pCleanText = JUSTIFICATIVA_TEXT Then
             ' Justificativa: centralizado (linhas em branco serao inseridas depois)
             para.Format.alignment = wdAlignParagraphCenter
             para.Format.leftIndent = 0
@@ -6591,15 +6605,15 @@ Public Function RestoreViewSettings(doc As Document) As Boolean
         .TableGridlines = originalViewSettings.TableGridlines
         ' .EnlargeFontsLessThan removida para compatibilidade
 
-        ' ZOOM e mantido em 130% - unica configuracao que permanece alterada
-        .Zoom.Percentage = 130
+        ' ZOOM e mantido em 140% - unica configuracao que permanece alterada
+        .Zoom.Percentage = 140
     End With
 
     ' Configuracoes especificas do Window (para reguas)
     docWindow.DisplayRulers = originalViewSettings.ShowHorizontalRuler
     docWindow.DisplayVerticalRuler = originalViewSettings.ShowVerticalRuler
 
-    LogMessage "Configuracoes de visualizacao originais restauradas (zoom mantido em 130%)"
+    LogMessage "Configuracoes de visualizacao originais restauradas (zoom mantido em 140%)"
     RestoreViewSettings = True
     Exit Function
 
@@ -6869,89 +6883,208 @@ Public Sub AddSpecialElementsSpacing(doc As Document)
     Dim elementsProcessed As Long
     elementsProcessed = 0
 
-    LogMessage "Adicionando espacamento especial para ementa, justificativa e data...", LOG_LEVEL_INFO
+    LogMessage "Adicionando espacamento especial (2 paragrafos em branco) para ementa, justificativa e data...", LOG_LEVEL_INFO
 
-    ' Garante uma linha pulada sempre entre o titulo e a ementa
-    If tituloParaIndex > 0 And ementaParaIndex > 0 And ementaParaIndex > tituloParaIndex And tituloParaIndex <= doc.Paragraphs.count And ementaParaIndex <= doc.Paragraphs.count Then
-        Dim hasEmptyBetween As Boolean
-        hasEmptyBetween = False
-        
-        Dim idx As Long
-        For idx = tituloParaIndex + 1 To ementaParaIndex - 1
-            If idx <= doc.Paragraphs.count Then
-                Dim midParaText As String
-                midParaText = Trim(Replace(Replace(doc.Paragraphs(idx).Range.text, vbCr, ""), vbLf, ""))
-                If midParaText = "" And Not HasVisualContent(doc.Paragraphs(idx)) Then
-                    hasEmptyBetween = True
-                    Exit For
-                End If
+    Dim idx As Long
+    Dim deletedCount As Long
+    Dim newParaIdx As Long
+
+    ' =========================================================================
+    ' REGRA 1: EMENTA - 2 paragrafos em branco acima e abaixo
+    ' Ajusta indices em ordem reversa (de baixo para cima): Data, Justificativa, Ementa
+    ' para que ajustes em elementos posteriores nao afetem indices anteriores
+    ' =========================================================================
+
+    ' 1a. Remove paragrafos em branco EXISTENTES abaixo da Ementa
+    If ementaParaIndex > 0 And ementaParaIndex <= doc.Paragraphs.count Then
+        RemoveBlankLinesAfter doc, ementaParaIndex
+    End If
+
+    ' 1b. Remove paragrafos em branco EXISTENTES acima da Ementa
+    If ementaParaIndex > 0 And ementaParaIndex <= doc.Paragraphs.count Then
+        deletedCount = 0
+        idx = ementaParaIndex - 1
+        Do While idx >= 1
+            If idx > doc.Paragraphs.count Then Exit Do
+            Dim ementaAboveText As String
+            ementaAboveText = Trim(Replace(Replace(doc.Paragraphs(idx).Range.text, vbCr, ""), vbLf, ""))
+            If ementaAboveText = "" And Not HasVisualContent(doc.Paragraphs(idx)) Then
+                doc.Paragraphs(idx).Range.Delete
+                ementaParaIndex = ementaParaIndex - 1
+                deletedCount = deletedCount + 1
+                idx = idx - 1
+            Else
+                Exit Do
             End If
-        Next idx
-        
-        If Not hasEmptyBetween Then
-            On Error Resume Next
-            doc.Paragraphs(tituloParaIndex).Range.InsertParagraphAfter
-            
-            ' Ajusta indices subsequentes
-            ementaParaIndex = ementaParaIndex + 1
-            If dataParaIndex >= ementaParaIndex Then dataParaIndex = dataParaIndex + 1
-            If tituloJustificativaIndex >= ementaParaIndex Then tituloJustificativaIndex = tituloJustificativaIndex + 1
-            
-            ' Formata o novo paragrafo vazio para manter recuos e espacamentos padronizados
-            Dim emptyParaIndex As Long
-            emptyParaIndex = tituloParaIndex + 1
-            If emptyParaIndex <= doc.Paragraphs.count Then
-                With doc.Paragraphs(emptyParaIndex).Format
-                    .SpaceBefore = 0
-                    .SpaceAfter = 0
-                    .leftIndent = 0
-                    .RightIndent = 0
-                    .firstLineIndent = 0
-                    .LineSpacingRule = wdLineSpaceSingle
-                End With
-            End If
-            Err.Clear
-            On Error GoTo ErrorHandler
+        Loop
+    End If
+
+    ' Ajusta indices posteriores por exclusoes acima
+    If deletedCount > 0 Then
+        If tituloJustificativaIndex >= 1 Then
+            tituloJustificativaIndex = tituloJustificativaIndex - deletedCount
+        End If
+        If dataParaIndex >= 1 Then
+            dataParaIndex = dataParaIndex - deletedCount
         End If
     End If
 
-    ' Garante sem espaco antes e depois da Ementa
+    ' 1c. Define posicao atual para insercao (pos da Ementa apos limpeza)
+    Dim ementaIdx As Long
+    ementaIdx = ementaParaIndex
+
+    ' 1d. Insere 2 paragrafos em branco ACIMA da Ementa
+    If ementaIdx > 0 And ementaIdx <= doc.Paragraphs.count Then
+        Dim j As Long
+        For j = 1 To 2
+            doc.Paragraphs(ementaIdx).Range.InsertParagraphBefore
+        Next j
+        ementaIdx = ementaIdx + 2
+        ementaParaIndex = ementaParaIndex + 2
+
+        ' Ajusta indices posteriores pelas insercoes antes da Ementa
+        If tituloJustificativaIndex >= 1 Then
+            tituloJustificativaIndex = tituloJustificativaIndex + 2
+        End If
+        If dataParaIndex >= 1 Then
+            dataParaIndex = dataParaIndex + 2
+        End If
+    End If
+
+    ' 1e. Garante SpaceBefore=0 e SpaceAfter=0 na Ementa
     If ementaParaIndex > 0 And ementaParaIndex <= doc.Paragraphs.count Then
         On Error Resume Next
         With doc.Paragraphs(ementaParaIndex).Format
-            .SpaceBefore = 0   ' Sem espaco antes
-            .SpaceAfter = 0    ' Sem espaco depois
+            .SpaceBefore = 0
+            .SpaceAfter = 0
         End With
-        If Err.Number = 0 Then elementsProcessed = elementsProcessed + 1
         Err.Clear
         On Error GoTo ErrorHandler
     End If
 
-    ' Garante sem espaco antes e depois do Titulo Justificativa
+    ' 1f. Insere 2 paragrafos em branco ABAIXO da Ementa
+    If ementaParaIndex > 0 And ementaParaIndex <= doc.Paragraphs.count Then
+        On Error Resume Next
+        doc.Paragraphs(ementaParaIndex).Range.InsertParagraphAfter
+        doc.Paragraphs(ementaParaIndex).Range.InsertParagraphAfter
+        Err.Clear
+        On Error GoTo ErrorHandler
+        elementsProcessed = elementsProcessed + 1
+    End If
+
+    ' =========================================================================
+    ' REGRA 2: TITULO DA JUSTIFICATIVA - 2 paragrafos em branco acima e abaixo
+    ' Processo deve rodar DEPOIS de ajustar a Ementa (para capturar os indices)
+    ' =========================================================================
+
+    ' 2a. Remove paragrafos em branco EXISTENTES acima do Titulo da Justificativa
+    If tituloJustificativaIndex > 0 And tituloJustificativaIndex <= doc.Paragraphs.count Then
+        deletedCount = 0
+        idx = tituloJustificativaIndex - 1
+        Do While idx >= 1
+            If idx > doc.Paragraphs.count Then Exit Do
+            Dim justAboveText As String
+            justAboveText = Trim(Replace(Replace(doc.Paragraphs(idx).Range.text, vbCr, ""), vbLf, ""))
+            If justAboveText = "" And Not HasVisualContent(doc.Paragraphs(idx)) Then
+                doc.Paragraphs(idx).Range.Delete
+                tituloJustificativaIndex = tituloJustificativaIndex - 1
+                deletedCount = deletedCount + 1
+                idx = idx - 1
+            Else
+                Exit Do
+            End If
+        Loop
+        If deletedCount > 0 Then
+            If dataParaIndex >= 1 Then
+                dataParaIndex = dataParaIndex - deletedCount
+            End If
+        End If
+    End If
+
+    ' 2b. Remove paragrafos em branco EXISTENTES abaixo do Titulo da Justificativa
+    If tituloJustificativaIndex > 0 And tituloJustificativaIndex <= doc.Paragraphs.count Then
+        RemoveBlankLinesAfter doc, tituloJustificativaIndex
+    End If
+
+    ' 2c. Insere 2 paragrafos em branco ACIMA do Titulo da Justificativa
+    If tituloJustificativaIndex > 0 And tituloJustificativaIndex <= doc.Paragraphs.count Then
+        For j = 1 To 2
+            doc.Paragraphs(tituloJustificativaIndex).Range.InsertParagraphBefore
+        Next j
+        tituloJustificativaIndex = tituloJustificativaIndex + 2
+        If dataParaIndex >= 1 Then
+            dataParaIndex = dataParaIndex + 2
+        End If
+    End If
+
+    ' 2d. Garante SpaceBefore=0 e SpaceAfter=0 no Titulo da Justificativa
     If tituloJustificativaIndex > 0 And tituloJustificativaIndex <= doc.Paragraphs.count Then
         On Error Resume Next
         With doc.Paragraphs(tituloJustificativaIndex).Format
-            .SpaceBefore = 0   ' Sem espaco antes
-            .SpaceAfter = 0    ' Sem espaco depois
+            .SpaceBefore = 0
+            .SpaceAfter = 0
         End With
-        If Err.Number = 0 Then elementsProcessed = elementsProcessed + 1
         Err.Clear
         On Error GoTo ErrorHandler
     End If
 
-    ' Garante sem espaco antes e depois da Data
+    ' 2e. Insere 2 paragrafos em branco ABAIXO do Titulo da Justificativa
+    If tituloJustificativaIndex > 0 And tituloJustificativaIndex <= doc.Paragraphs.count Then
+        On Error Resume Next
+        doc.Paragraphs(tituloJustificativaIndex).Range.InsertParagraphAfter
+        doc.Paragraphs(tituloJustificativaIndex).Range.InsertParagraphAfter
+        Err.Clear
+        On Error GoTo ErrorHandler
+        elementsProcessed = elementsProcessed + 1
+    End If
+
+    ' =========================================================================
+    ' REGRA 3: DATA - 2 paragrafos em branco acima
+    ' =========================================================================
+
+    ' 3a. Remove paragrafos em branco EXISTENTES acima da Data
+    If dataParaIndex > 0 And dataParaIndex <= doc.Paragraphs.count Then
+        deletedCount = 0
+        idx = dataParaIndex - 1
+        Do While idx >= 1
+            If idx > doc.Paragraphs.count Then Exit Do
+            Dim dataAboveText As String
+            dataAboveText = Trim(Replace(Replace(doc.Paragraphs(idx).Range.text, vbCr, ""), vbLf, ""))
+            If dataAboveText = "" And Not HasVisualContent(doc.Paragraphs(idx)) Then
+                doc.Paragraphs(idx).Range.Delete
+                dataParaIndex = dataParaIndex - 1
+                deletedCount = deletedCount + 1
+                idx = idx - 1
+            Else
+                Exit Do
+            End If
+        Loop
+    End If
+
+    ' 3b. Insere 2 paragrafos em branco ACIMA da Data
+    If dataParaIndex > 0 And dataParaIndex <= doc.Paragraphs.count Then
+        For j = 1 To 2
+            doc.Paragraphs(dataParaIndex).Range.InsertParagraphBefore
+        Next j
+        dataParaIndex = dataParaIndex + 2
+        elementsProcessed = elementsProcessed + 1
+    End If
+
+    ' 3c. Garante SpaceBefore=0 e SpaceAfter=0 na Data
     If dataParaIndex > 0 And dataParaIndex <= doc.Paragraphs.count Then
         On Error Resume Next
         With doc.Paragraphs(dataParaIndex).Format
-            .SpaceBefore = 0   ' Sem espaco antes
-            .SpaceAfter = 0    ' Sem espaco depois
+            .SpaceBefore = 0
+            .SpaceAfter = 0
         End With
-        If Err.Number = 0 Then elementsProcessed = elementsProcessed + 1
         Err.Clear
         On Error GoTo ErrorHandler
     End If
 
     LogMessage "Espacamento especial aplicado a " & elementsProcessed & " elementos", LOG_LEVEL_INFO
+    LogMessage "  Ementa: 2 paragrafos em branco acima e abaixo", LOG_LEVEL_INFO
+    LogMessage "  Titulo Justificativa: 2 paragrafos em branco acima e abaixo", LOG_LEVEL_INFO
+    LogMessage "  Data: 2 paragrafos em branco acima", LOG_LEVEL_INFO
     Exit Sub
 
 ErrorHandler:

@@ -301,14 +301,14 @@ Public Function ConfigureDocumentView(doc As Document) As Boolean
 
     ' Configura APENAS o zoom para 130% - todas as outras configuracoes sao preservadas
     With docWindow.View
-        .Zoom.Percentage = 130
+        .Zoom.Percentage = 140
         ' NAO altera mais o tipo de visualizacao - preserva o original
     End With
 
     ' Remove configuracoes que alteravam configuracoes globais do Word
     ' Estas configuracoes sao agora preservadas do estado original
 
-    LogMessage "Visualizacao configurada: zoom definido para 130%, demais configuracoes preservadas"
+    LogMessage "Visualizacao configurada: zoom definido para 140%, demais configuracoes preservadas"
     ConfigureDocumentView = True
     Exit Function
 
