@@ -72,19 +72,6 @@ class ChatApp:
         self.build_ui()
         self.apply_theme()
         
-        # Privacy Warning before starting AI
-        if not z7_theme.ask_privacy_warning(
-            "Aviso de Privacidade - Z7 StdProposers",
-            "O texto do seu documento atual será enviado para a API do OpenRouter para servir de contexto do chat.\n\n"
-            "Certifique-se de que não há dados sigilosos e que o uso está de acordo com as diretrizes do seu órgão.\n\n"
-            "Deseja iniciar o assistente?",
-            key="chat_ia",
-            parent=self.root
-        ):
-            LOGGER.info("User cancelled chat at privacy warning")
-            self.root.destroy()
-            return
-
         self._load_doc_text_main_thread()
         self.init_ai()
 
