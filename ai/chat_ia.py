@@ -140,6 +140,11 @@ class ChatApp:
                 bg=colors["btn_sec_bg"], fg=colors["btn_sec_fg"],
                 activebackground=colors["btn_sec_hover"], activeforeground=fg
             )
+        if hasattr(self, 'api_btn'):
+            self.api_btn.configure(
+                bg=colors["btn_sec_bg"], fg=colors["btn_sec_fg"],
+                activebackground=colors["btn_sec_hover"], activeforeground=fg
+            )
 
         # Chat area
         self.chat_border.configure(bg=border)
@@ -242,6 +247,14 @@ class ChatApp:
             command=self._open_config_prompt
         )
         self.settings_btn.pack(side=tk.RIGHT, anchor="e")
+
+        self.api_btn = tk.Button(
+            self.top_frame, text="🔑 API de IA",
+            font=("Segoe UI", 9, "bold"), relief=tk.FLAT,
+            cursor="hand2", padx=6, pady=2,
+            command=self._open_ai_api
+        )
+        self.api_btn.pack(side=tk.RIGHT, anchor="e", padx=(0, 6))
 
         self.status_frame = tk.Frame(
             self.top_frame,
@@ -662,6 +675,44 @@ class ChatApp:
         self.update_status("Pronto para conversar")
         self.append_message("AI", greeting)
         LOGGER.info("New conversation started")
+
+    def _open_ai_api(self) -> None:
+        """Abre o diálogo de configuração da API de IA (chave, modelo, teste)."""
+        try:
+            from config_prompt import open_ai_api_dialog
+        except ImportError:
+            from z7_theme import show_error
+            show_error("Erro", "Módulo de configuração da API não disponível.", parent=self.root)
+            return
+
+        def _on_api_saved(api_key: str, model: str) -> None:
+            """Callback chamado quando o usuário salva no diálogo de API."""
+            LOGGER.info("API settings saved – reinitializing client (model=%s)", model)
+            self._model = model
+            # Reinicializa o client OpenAI com a nova chave/modelo
+            threading.Thread(target=self._reinit_client, args=(api_key, model), daemon=True).start()
+
+        open_ai_api_dialog(self.root, self.mode, on_saved=_on_api_saved)
+
+    def _reinit_client(self, api_key: str, model: str) -> None:
+        """Reinstancia o client OpenAI com nova chave e modelo."""
+        import pythoncom
+        pythoncom.CoInitialize()
+        try:
+            from openai import OpenAI
+            self.client = OpenAI(
+                base_url=_OPENROUTER_BASE_URL,
+                api_key=api_key,
+                timeout=60.0,
+            )
+            self._model = model
+            LOGGER.info("OpenAI client reinitialized with model %s", model)
+            self.root.after(0, lambda: self.update_status("Pronto para conversar"))
+        except Exception as e:
+            log_exception(LOGGER, "Failed to reinitialize OpenAI client", e)
+            self.root.after(0, lambda: self.update_status("Erro ao atualizar API."))
+        finally:
+            pythoncom.CoUninitialize()
 
     def _open_config_prompt(self) -> None:
         """Abre a janela de configuração do prompt em um processo separado."""

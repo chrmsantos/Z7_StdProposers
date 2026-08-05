@@ -750,71 +750,306 @@ class AppTheme:
             self.widgets['footer_lbl'].configure(bg=bg, fg=fg_muted)
 
 
-def open_api_key_dialog(parent: tk.Tk, theme_mode: str) -> None:
+def open_ai_api_dialog(
+    parent: tk.Tk,
+    theme_mode: str,
+    on_saved: "Callable[[str, str], None] | None" = None,
+) -> None:
+    """Open the AI API settings dialog.
+
+    Shows fields for the OpenRouter API key and AI model name. A "Salvar"
+    button persists both values. A "Testar Modelo" button performs a live
+    connection test and displays the result in an output area.
+
+    Args:
+        parent: The root or toplevel window to centre the dialog over.
+        theme_mode: Current theme mode ('light' or 'dark').
+        on_saved: Optional callback invoked with ``(api_key, model)``
+                  after a successful save.
+    """
+    import re as _re
+    import threading
+    import webbrowser
+
     colors = z7_theme.get_theme_colors(theme_mode)
-    bg          = colors["bg"]
-    fg          = colors["fg"]
-    text_bg     = colors["text_bg"]
-    btn_sec_bg  = colors["btn_sec_bg"]
-    btn_sec_fg  = colors["btn_sec_fg"]
+    bg           = colors["bg"]
+    fg           = colors["fg"]
+    fg_muted     = colors["fg_muted"]
+    text_bg      = colors["text_bg"]
+    border       = colors["border"]
+    btn_sec_bg   = colors["btn_sec_bg"]
+    btn_sec_fg   = colors["btn_sec_fg"]
     btn_sec_hover = colors["btn_sec_hover"]
-    btn_primary = colors.get("btn_primary_bg", "#2563eb")
+    btn_primary  = colors.get("btn_primary_bg", "#2563eb")
+
+    _RE_API_KEY = _re.compile(
+        r"^(sk-or-v1-[0-9a-zA-F]{64}|sk-[0-9A-Za-z\-_]{16,}|[0-9A-Za-z\-_]{16,})$"
+    )
+
+    apikey_visible: list[bool] = [False]
 
     dialog = tk.Toplevel(parent)
-    dialog.title("Chave de API OpenRouter")
-    dialog.geometry("460x155")
+    dialog.title("API de IA (OpenRouter)")
+    dialog.geometry("520x620")
     dialog.resizable(False, False)
     dialog.transient(parent)
     dialog.grab_set()
     dialog.attributes('-topmost', True)
     dialog.configure(bg=bg)
 
-    tk.Label(dialog, text="Chave de API do OpenRouter:", font=("Segoe UI", 10, "bold"),
-             bg=bg, fg=fg).pack(anchor="w", padx=25, pady=(20, 5))
+    # Centres dialog over parent
+    dialog.update_idletasks()
+    px, py = parent.winfo_x(), parent.winfo_y()
+    pw, ph = parent.winfo_width(), parent.winfo_height()
+    dialog.geometry(f"520x620+{px + (pw - 520) // 2}+{py + (ph - 620) // 2}")
 
-    entry_frame = tk.Frame(dialog, bg=bg)
-    entry_frame.pack(fill=tk.X, padx=25)
+    # ── Status label ──────────────────────────────────────────────────────────
+    _current_key = load_api_key()
+    _status_lbl = tk.Label(
+        dialog,
+        text="✔  Chave configurada" if _current_key else "⚠  Chave não configurada",
+        font=("Segoe UI", 11, "bold"),
+        fg="#10b981" if _current_key else "#f59e0b",
+        bg=bg, anchor="w",
+    )
+    _status_lbl.pack(fill=tk.X, padx=22, pady=(16, 2))
 
-    entry_var = tk.StringVar(value=load_api_key())
-    entry = tk.Entry(entry_frame, textvariable=entry_var, font=("Segoe UI", 11),
-                     relief=tk.FLAT, bd=2, show="*", bg=text_bg, fg=fg,
-                     insertbackground=fg)
-    entry.pack(side=tk.LEFT, fill=tk.X, expand=True)
+    # ── Section: API Key ──────────────────────────────────────────────────────
+    tk.Label(
+        dialog, text="CHAVE OPENROUTER API",
+        font=("Segoe UI", 10, "bold"), fg=fg_muted, bg=bg, anchor="w",
+    ).pack(fill=tk.X, padx=22, pady=(10, 2))
+    tk.Frame(dialog, height=1, bg=border).pack(fill=tk.X, padx=22, pady=(0, 8))
 
-    def toggle_visibility() -> None:
-        if entry.cget("show") == "*":
-            entry.config(show="")
-            show_btn.config(text="Ocultar")
+    api_frame = tk.Frame(dialog, bg=bg)
+    api_frame.pack(fill=tk.X, padx=22)
+
+    api_var = tk.StringVar(value=_current_key)
+    api_entry = tk.Entry(
+        api_frame, textvariable=api_var, font=("Segoe UI", 11),
+        relief=tk.FLAT, bd=2, show="•", bg=text_bg, fg=fg,
+        insertbackground=fg,
+    )
+    api_entry.pack(side=tk.LEFT, fill=tk.X, expand=True)
+    api_entry.focus_set()
+
+    def _toggle_api_visibility() -> None:
+        apikey_visible[0] = not apikey_visible[0]
+        api_entry.config(show="" if apikey_visible[0] else "•")
+        vis_btn.config(text="👁 Ocultar" if apikey_visible[0] else "👁 Mostrar")
+
+    vis_btn = tk.Button(
+        api_frame, text="👁 Mostrar", font=("Segoe UI", 9),
+        relief=tk.FLAT, cursor="hand2",
+        bg=btn_sec_bg, fg=btn_sec_fg,
+        activebackground=btn_sec_hover, activeforeground=fg,
+        command=_toggle_api_visibility,
+    )
+    vis_btn.pack(side=tk.LEFT, padx=(6, 0))
+
+    # ── Section: AI Model ─────────────────────────────────────────────────────
+    tk.Label(
+        dialog, text="MODELO IA",
+        font=("Segoe UI", 10, "bold"), fg=fg_muted, bg=bg, anchor="w",
+    ).pack(fill=tk.X, padx=22, pady=(14, 2))
+    tk.Frame(dialog, height=1, bg=border).pack(fill=tk.X, padx=22, pady=(0, 8))
+
+    model_var = tk.StringVar(value=load_ai_model())
+    model_entry = tk.Entry(
+        dialog, textvariable=model_var, font=("Segoe UI", 11),
+        relief=tk.FLAT, bd=2, bg=text_bg, fg=fg, insertbackground=fg,
+    )
+    model_entry.pack(fill=tk.X, padx=22)
+
+    # ── Output area ───────────────────────────────────────────────────────────
+    tk.Label(
+        dialog, text="SAÍDA",
+        font=("Segoe UI", 9, "bold"), fg=fg_muted, bg=bg, anchor="w",
+    ).pack(fill=tk.X, padx=22, pady=(14, 2))
+
+    output_frame = tk.Frame(dialog, bg=border)
+    output_frame.pack(fill=tk.BOTH, expand=True, padx=22)
+
+    output_box = tk.Text(
+        output_frame, wrap=tk.WORD, font=("Consolas", 10),
+        relief=tk.FLAT, bd=0, padx=10, pady=8,
+        bg=text_bg, fg=fg, insertbackground=fg,
+        state=tk.DISABLED, height=6,
+    )
+    output_box.pack(fill=tk.BOTH, expand=True, padx=1, pady=1)
+
+    output_box.tag_config("success", foreground="#10b981")
+    output_box.tag_config("error", foreground="#ef4444")
+    output_box.tag_config("warn", foreground="#f59e0b")
+    output_box.tag_config("dim", foreground=fg_muted)
+
+    def _append(text: str, tag: str = "") -> None:
+        output_box.config(state=tk.NORMAL)
+        if tag:
+            output_box.insert(tk.END, text + "\n", tag)
         else:
-            entry.config(show="*")
-            show_btn.config(text="Mostrar")
+            output_box.insert(tk.END, text + "\n")
+        output_box.see(tk.END)
+        output_box.config(state=tk.DISABLED)
 
-    show_btn = tk.Button(entry_frame, text="Mostrar", font=("Segoe UI", 9),
-                         relief=tk.FLAT, cursor="hand2",
-                         bg=btn_sec_bg, fg=btn_sec_fg,
-                         activebackground=btn_sec_hover, activeforeground=fg,
-                         command=toggle_visibility)
-    show_btn.pack(side=tk.LEFT, padx=(8, 0))
+    def _clear_output() -> None:
+        output_box.config(state=tk.NORMAL)
+        output_box.delete("1.0", tk.END)
+        output_box.config(state=tk.DISABLED)
 
-    def do_save() -> None:
-        save_api_key(entry_var.get().strip())
-        LOGGER.info("API key saved from dialog")
+    # ── Buttons ───────────────────────────────────────────────────────────────
+    save_btn = tk.Button(
+        dialog, text="💾  Salvar", font=("Segoe UI", 12, "bold"),
+        relief=tk.FLAT, cursor="hand2", pady=8,
+        bg=btn_primary, fg="white",
+        activebackground="#1d4ed8", activeforeground="white",
+    )
+    save_btn.pack(fill=tk.X, padx=22, pady=(14, 4))
+
+    test_btn = tk.Button(
+        dialog, text="🧪  Testar Modelo", font=("Segoe UI", 10),
+        relief=tk.FLAT, cursor="hand2", pady=6,
+        bg=btn_sec_bg, fg=btn_sec_fg,
+        activebackground=btn_sec_hover, activeforeground=fg,
+    )
+    test_btn.pack(fill=tk.X, padx=22, pady=(0, 4))
+
+    web_btn = tk.Button(
+        dialog, text="🌐  OpenRouter Keys", font=("Segoe UI", 10),
+        relief=tk.FLAT, cursor="hand2", pady=4,
+        bg=bg, fg=fg_muted,
+        activebackground=bg, activeforeground=fg,
+        command=lambda: webbrowser.open("https://openrouter.ai/keys"),
+    )
+    web_btn.pack(fill=tk.X, padx=22, pady=(0, 16))
+
+    # ── Validation ────────────────────────────────────────────────────────────
+    def _validate_inputs() -> "tuple[str, str] | None":
+        _clear_output()
+        key = api_var.get().strip()
+        model = model_var.get().strip()
+        effective_key = key or load_api_key()
+
+        if not effective_key:
+            _append("⚠  Informe uma chave de API.", "warn")
+            return None
+        if not model:
+            _append("⚠  Informe um nome de modelo.", "warn")
+            return None
+        if key and not _RE_API_KEY.match(key):
+            _append(
+                "✘  Formato de chave inválido.\n"
+                '   Chaves OpenRouter costumam ter o formato "sk-or-v1-…".',
+                "error",
+            )
+            return None
+        return effective_key, model
+
+    # ── Save ──────────────────────────────────────────────────────────────────
+    def _on_save() -> None:
+        validated = _validate_inputs()
+        if validated is None:
+            return
+        effective_key, model = validated
+
+        save_btn.config(state=tk.DISABLED)
+        test_btn.config(state=tk.DISABLED)
+        _append("Salvando chave e modelo…", "dim")
+
+        def _do_save() -> None:
+            try:
+                if effective_key != load_api_key():
+                    save_api_key(effective_key)
+                    dialog.after(0, lambda: _append("✔  Chave salva.", "success"))
+                else:
+                    dialog.after(0, lambda: _append("ℹ  Usando chave já armazenada.", "dim"))
+                save_ai_model(model)
+                dialog.after(0, lambda: _append("✔  Modelo salvo.", "success"))
+                dialog.after(0, lambda: _close_and_save(effective_key, model))
+            except Exception as exc:
+                err_msg = str(exc)
+                dialog.after(0, lambda: _append(f"✘  Falha ao salvar: {err_msg}", "error"))
+            finally:
+                try:
+                    dialog.after(0, lambda: (
+                        save_btn.config(state=tk.NORMAL),
+                        test_btn.config(state=tk.NORMAL),
+                    ))
+                except Exception:
+                    pass
+
+        threading.Thread(target=_do_save, daemon=True).start()
+
+    # ── Test Model ────────────────────────────────────────────────────────────
+    def _on_test() -> None:
+        validated = _validate_inputs()
+        if validated is None:
+            return
+        effective_key, model = validated
+
+        test_btn.config(state=tk.DISABLED)
+        save_btn.config(state=tk.DISABLED)
+
+        def _do_test() -> None:
+            try:
+                from openai import OpenAI
+
+                dialog.after(0, lambda: _append("Testando conexão com a API OpenRouter…", "dim"))
+
+                client = OpenAI(
+                    base_url="https://openrouter.ai/api/v1",
+                    api_key=effective_key,
+                )
+                response = client.chat.completions.create(
+                    model=model,
+                    messages=[{"role": "user", "content": "Responda apenas com a palavra: OK"}],
+                )
+                resp_text = ""
+                if getattr(response, "choices", None) and len(response.choices) > 0:
+                    resp_text = (response.choices[0].message.content or "").strip()
+
+                if not resp_text:
+                    raise ValueError("A IA não retornou conteúdo na resposta.")
+
+                dialog.after(0, lambda: _append("✔  IA respondeu — configuração válida.", "success"))
+                dialog.after(0, lambda: _append(f"   Resposta: {resp_text}"))
+                dialog.after(0, lambda: _status_lbl.configure(
+                    text="✔  Chave configurada", fg="#10b981",
+                ))
+
+            except Exception as exc:
+                err_msg = str(exc)
+                dialog.after(0, lambda: _append(f"✘  Falha na validação: {err_msg}", "error"))
+            finally:
+                try:
+                    dialog.after(0, lambda: (
+                        test_btn.config(state=tk.NORMAL),
+                        save_btn.config(state=tk.NORMAL),
+                    ))
+                except Exception:
+                    pass
+
+        threading.Thread(target=_do_test, daemon=True).start()
+
+    # ── Close handler ─────────────────────────────────────────────────────────
+    def _close_and_save(effective_key: str, model: str) -> None:
+        if on_saved is not None:
+            on_saved(effective_key, model)
         dialog.destroy()
 
-    btn_row = tk.Frame(dialog, bg=bg)
-    btn_row.pack(fill=tk.X, padx=25, pady=(15, 0))
+    save_btn.config(command=_on_save)
+    test_btn.config(command=_on_test)
 
-    tk.Button(btn_row, text="Cancelar", font=("Segoe UI", 10, "bold"),
-              relief=tk.FLAT, cursor="hand2",
-              bg=btn_sec_bg, fg=btn_sec_fg,
-              activebackground=btn_sec_hover, activeforeground=fg,
-              command=dialog.destroy).pack(side=tk.RIGHT, padx=(10, 0))
+    def _on_close() -> None:
+        dialog.destroy()
 
-    tk.Button(btn_row, text="Salvar", font=("Segoe UI", 10, "bold"),
-              relief=tk.FLAT, cursor="hand2",
-              bg=btn_primary, fg="white",
-              activebackground="#1d4ed8", activeforeground="white",
-              command=do_save).pack(side=tk.RIGHT)
+    dialog.protocol("WM_DELETE_WINDOW", _on_close)
+
+
+# Keep backward-compatible alias for config_prompt internal usage
+def open_api_key_dialog(parent: tk.Tk, theme_mode: str) -> None:
+    """Legacy wrapper – opens the full AI API dialog (backward compatibility)."""
+    open_ai_api_dialog(parent, theme_mode)
 
 
 def main() -> None:
