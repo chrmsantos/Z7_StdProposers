@@ -219,6 +219,26 @@ def get_latest_github_release() -> dict:
     with urllib.request.urlopen(req, timeout=10) as response:
         return json.loads(response.read().decode('utf-8'))
 
+def _download_with_retry(url: str, dest_file: Path, headers: dict, timeout: int = 30, retries: int = 3) -> None:
+    """Baixa um arquivo com tentativas automáticas e verificação de tamanho mínimo."""
+    for attempt in range(1, retries + 1):
+        try:
+            req = urllib.request.Request(url, headers=headers)
+            with urllib.request.urlopen(req, timeout=timeout) as resp:
+                data = resp.read()
+            if len(data) < 100:
+                raise Exception(f"Arquivo muito pequeno ({len(data)} bytes), provavelmente erro no download.")
+            dest_file.write_bytes(data)
+            LOGGER.info("Downloaded %s (%d bytes, attempt %d)", dest_file.name, len(data), attempt)
+            return
+        except Exception as e:
+            LOGGER.warning("Download attempt %d/%d failed for %s: %s", attempt, retries, url, e)
+            if attempt == retries:
+                raise
+            import time
+            time.sleep(2 * attempt)
+
+
 def check_for_updates_ui(parent_root: tk.Tk) -> None:
     colors = z7_theme.get_theme_colors()
     
@@ -243,9 +263,9 @@ def check_for_updates_ui(parent_root: tk.Tk) -> None:
             if not tag_name:
                 tag_name = data.get("name", "").strip()
             
-            checking_dialog.destroy()
-            
+            # Destruir diálogo e mostrar resultado na thread principal (thread-safe)
             if not tag_name:
+                parent_root.after(0, lambda: _safe_destroy(checking_dialog))
                 parent_root.after(0, lambda: z7_theme.show_error("Erro de Atualização", "Não foi possível identificar a versão no GitHub.", parent=parent_root))
                 return
             
@@ -253,15 +273,28 @@ def check_for_updates_ui(parent_root: tk.Tk) -> None:
             comparison = compare_versions(tag_name, local_ver)
             
             if comparison <= 0:
-                parent_root.after(0, lambda: z7_theme.show_info("Sistema Atualizado", f"O Z7 StdProposers já está na versão mais recente (v{local_ver}).", parent=parent_root))
+                parent_root.after(0, lambda: _safe_destroy(checking_dialog))
+                parent_root.after(10, lambda: z7_theme.show_info("Sistema Atualizado", f"O Z7 StdProposers já está na versão mais recente (v{local_ver}).", parent=parent_root))
             else:
-                parent_root.after(0, lambda: prompt_update_confirmation(parent_root, tag_name, data))
+                parent_root.after(0, lambda: _safe_destroy(checking_dialog))
+                parent_root.after(10, lambda: prompt_update_confirmation(parent_root, tag_name, data))
                 
         except Exception as e:
-            checking_dialog.destroy()
-            parent_root.after(0, lambda err=str(e): z7_theme.show_error("Erro de Conectividade", f"Falha ao buscar atualizações:\n{err}", parent=parent_root))
+            LOGGER.error("Update check failed: %s", e)
+            parent_root.after(0, lambda: _safe_destroy(checking_dialog))
+            parent_root.after(10, lambda err=str(e): z7_theme.show_error("Erro de Conectividade", f"Falha ao buscar atualizações:\n{err}", parent=parent_root))
             
     threading.Thread(target=run_check, daemon=True).start()
+
+
+def _safe_destroy(window: tk.Toplevel) -> None:
+    """Destrói uma janela Toplevel de forma segura, ignorando se já foi destruída."""
+    try:
+        if window.winfo_exists():
+            window.destroy()
+    except Exception:
+        pass
+
 
 def prompt_update_confirmation(parent_root: tk.Tk, latest_version: str, release_data: dict) -> None:
     msg = (
@@ -271,6 +304,22 @@ def prompt_update_confirmation(parent_root: tk.Tk, latest_version: str, release_
     )
     if z7_theme.ask_ok_cancel("Atualização Disponível", msg, parent=parent_root):
         start_download_and_update(parent_root, latest_version, release_data)
+
+
+def _resolve_install_dir() -> Path:
+    """Determina o diretório de instalação do Z7 StdProposers de forma robusta."""
+    if getattr(sys, 'frozen', False):
+        current_exe_dir = Path(sys.executable).parent
+        if current_exe_dir.name.lower() == 'config_prompt':
+            return current_exe_dir.parent.parent
+        return current_exe_dir.parent
+    return Path(__file__).resolve().parent.parent
+
+
+def _escape_ps_string(value: str) -> str:
+    """Escapa uma string para uso seguro dentro de um script PowerShell entre aspas duplas."""
+    return value.replace('`', '``').replace('"', '`"').replace('$', '`$')
+
 
 def start_download_and_update(parent_root: tk.Tk, latest_version: str, release_data: dict) -> None:
     colors = z7_theme.get_theme_colors()
@@ -299,23 +348,32 @@ def start_download_and_update(parent_root: tk.Tk, latest_version: str, release_d
 
     def update_progress(ratio: float, message: str):
         def _gui_update():
-            if dl_dialog.winfo_exists():
-                status_lbl.config(text=message)
-                progress_canvas.coords(progress_bar, 0, 0, int(canvas_width * ratio), 12)
-                dl_dialog.update()
+            try:
+                if dl_dialog.winfo_exists():
+                    status_lbl.config(text=message)
+                    progress_canvas.coords(progress_bar, 0, 0, int(canvas_width * ratio), 12)
+                    dl_dialog.update()
+            except Exception:
+                pass
         parent_root.after(0, _gui_update)
 
     def run_downloads():
         try:
             temp_dir = Path(os.environ.get("LOCALAPPDATA", "")) / "Temp" / "Z7_Update"
+            # Limpa diretório temporário anterior para evitar conflitos
+            if temp_dir.exists():
+                shutil.rmtree(temp_dir, ignore_errors=True)
             temp_dir.mkdir(parents=True, exist_ok=True)
             
+            install_dir = _resolve_install_dir()
+            headers = {'User-Agent': f'Z7_StdProposers/{_APP_VERSION}'}
+
+            # ── Fase 1: Baixar assets do release ───────────────────────────
             assets = release_data.get("assets", [])
+            # Assets do release + 3 fallbacks (Normal.dotm, Word.officeUI, import_word.exe)
             total_items = len(assets) + 3
             current_item = 0
-            
-            headers = {'User-Agent': f'Z7_StdProposers/{_APP_VERSION}'}
-            
+
             for asset in assets:
                 name = asset.get("name")
                 url = asset.get("browser_download_url")
@@ -325,57 +383,92 @@ def start_download_and_update(parent_root: tk.Tk, latest_version: str, release_d
                 update_progress(current_item / total_items, f"Baixando {name}...")
                 
                 dest_file = temp_dir / name
-                req = urllib.request.Request(url, headers=headers)
-                with urllib.request.urlopen(req, timeout=20) as resp:
-                    dest_file.write_bytes(resp.read())
-            
+                _download_with_retry(url, dest_file, headers, timeout=30, retries=3)
+
+            # ── Fase 2: Garantir arquivos complementares (fallback) ────────
             raw_base = "https://raw.githubusercontent.com/chrmsantos/Z7_StdProposers/main"
             fallback_files = [
                 ("dist/Normal.dotm", "Normal.dotm"),
                 ("dist/Word.officeUI", "Word.officeUI"),
-                ("scripts/import_word.exe", "import_word.exe")
+                ("scripts/import_word.exe", "import_word.exe"),
             ]
             
-            if getattr(sys, 'frozen', False):
-                current_exe_dir = Path(sys.executable).parent
-                if current_exe_dir.name.lower() == 'config_prompt':
-                    install_dir = current_exe_dir.parent.parent
-                else:
-                    install_dir = current_exe_dir.parent
-            else:
-                install_dir = Path(__file__).resolve().parent.parent
-
             for repo_path, local_name in fallback_files:
                 dest_file = temp_dir / local_name
                 current_item += 1
                 
-                if not dest_file.exists():
-                    update_progress(current_item / total_items, f"Verificando {local_name}...")
-                    url = f"{raw_base}/{repo_path}"
-                    
-                    local_source = None
-                    if local_name == "import_word.exe":
-                        local_source = install_dir / "scripts" / "import_word.exe"
-                    elif local_name == "Normal.dotm":
-                        local_source = install_dir / "dist" / "Normal.dotm"
-                    elif local_name == "Word.officeUI":
-                        local_source = install_dir / "dist" / "Word.officeUI"
+                # Pula se já foi baixado como asset do release e tem tamanho razoável
+                if dest_file.exists() and dest_file.stat().st_size > 100:
+                    LOGGER.info("Fallback file %s already present from release assets (%d bytes)", local_name, dest_file.stat().st_size)
+                    continue
 
-                    try:
-                        req = urllib.request.Request(url, headers=headers)
-                        with urllib.request.urlopen(req, timeout=15) as resp:
-                            dest_file.write_bytes(resp.read())
-                    except Exception as download_err:
-                        LOGGER.warning(f"Failed to download raw {local_name}: {download_err}")
-                        if local_source and local_source.exists():
-                            shutil.copy2(local_source, dest_file)
-                            LOGGER.info(f"Copia local do fallback {local_name} realizada com sucesso a partir de {local_source}")
-                        else:
-                            LOGGER.error(f"Falha critica: arquivo de fallback {local_name} nao pode ser obtido")
-                        
-            # Detecta documentos atualmente abertos para reabri-los após a atualização
-            docs_to_reopen = []
+                update_progress(current_item / total_items, f"Baixando {local_name}...")
+                url = f"{raw_base}/{repo_path}"
+                
+                # Determina fonte local como fallback
+                local_source = None
+                if local_name == "import_word.exe":
+                    local_source = install_dir / "scripts" / "import_word.exe"
+                elif local_name == "Normal.dotm":
+                    local_source = install_dir / "dist" / "Normal.dotm"
+                elif local_name == "Word.officeUI":
+                    local_source = install_dir / "dist" / "Word.officeUI"
+
+                try:
+                    _download_with_retry(url, dest_file, headers, timeout=30, retries=2)
+                except Exception as download_err:
+                    LOGGER.warning("Failed to download %s from GitHub: %s", local_name, download_err)
+                    if local_source and local_source.exists():
+                        shutil.copy2(local_source, dest_file)
+                        LOGGER.info("Used local copy for %s from %s", local_name, local_source)
+                    else:
+                        LOGGER.error("CRITICAL: %s could not be obtained from any source", local_name)
+
+            # ── Fase 3: Verificar que todos os arquivos essenciais existem ─
+            required_files = [
+                temp_dir / f"config_prompt-v{latest_version}.zip",
+                temp_dir / f"chat_ia-v{latest_version}.zip",
+                temp_dir / "installer.exe",
+                temp_dir / "Normal.dotm",
+                temp_dir / "Word.officeUI",
+                temp_dir / "import_word.exe",
+            ]
+            # Aceita nomes de zip sem prefixo "v" também
+            alt_zip_names = [
+                temp_dir / f"config_prompt-v{latest_version.lstrip('v')}.zip",
+                temp_dir / f"chat_ia-v{latest_version.lstrip('v')}.zip",
+            ]
+
+            missing = []
+            for f in required_files:
+                if not f.exists() or f.stat().st_size < 100:
+                    # Tenta nomes alternativos para os zips
+                    if f.suffix == ".zip":
+                        alt_found = False
+                        for alt in alt_zip_names:
+                            if alt.name.startswith(f.stem.split("-v")[0]) and alt.exists() and alt.stat().st_size > 100:
+                                alt_found = True
+                                break
+                        if alt_found:
+                            continue
+                    missing.append(f.name)
+
+            if missing:
+                raise Exception(
+                    "Arquivos obrigatórios não puderam ser baixados:\n"
+                    + "\n".join(f"  • {m}" for m in missing)
+                )
+
+            # ── Fase 4: Copiar VERSION para o temp_dir ─────────────────────
+            version_file = install_dir / "VERSION"
+            if version_file.exists():
+                shutil.copy2(version_file, temp_dir / "VERSION")
+
+            # ── Fase 5: Detectar documentos abertos no Word ────────────────
+            docs_to_reopen: list[str] = []
             try:
+                import pythoncom
+                pythoncom.CoInitialize()
                 import win32com.client
                 word_app = win32com.client.GetActiveObject("Word.Application")
                 for d in word_app.Documents:
@@ -387,55 +480,92 @@ def start_download_and_update(parent_root: tk.Tk, latest_version: str, release_d
             except Exception:
                 pass
 
-            if docs_to_reopen:
-                ps_docs_array = ", ".join([f'"{doc.replace("\\", "\\\\")}"' for doc in docs_to_reopen])
-                ps_docs_def = f"$DocsToReopen = @({ps_docs_array})"
-            else:
-                ps_docs_def = "$DocsToReopen = @()"
+            # ── Fase 6: Gerar script PowerShell worker ─────────────────────
+            ps_docs_array = ", ".join(
+                [f'"{_escape_ps_string(doc)}"' for doc in docs_to_reopen]
+            )
+            ps_docs_def = f"$DocsToReopen = @({ps_docs_array})" if docs_to_reopen else "$DocsToReopen = @()"
 
             worker_path = temp_dir / "update_worker.ps1"
             parent_pid = os.getpid()
+            log_path = temp_dir / "update_worker.log"
+            escaped_install_dir = _escape_ps_string(str(install_dir))
+            escaped_source_dir = _escape_ps_string(str(temp_dir))
+            escaped_log_path = _escape_ps_string(str(log_path))
             
             ps_script = f"""$ErrorActionPreference = "Stop"
+Start-Transcript -Path "{escaped_log_path}" -Force
 Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.IO.Compression.FileSystem
 
 $ParentPid   = {parent_pid}
-$InstallDir  = "{install_dir}"
-$SourceDir   = "{temp_dir}"
+$InstallDir  = "{escaped_install_dir}"
+$SourceDir   = "{escaped_source_dir}"
 $BackupDir   = Join-Path $SourceDir "backup"
 {ps_docs_def}
 
 try {{
-    Write-Output "Aguardando encerramento do Z7..."
-    Wait-Process -Id $ParentPid -Timeout 10 -ErrorAction SilentlyContinue
+    Write-Output "Aguardando encerramento do Z7 (PID $ParentPid)..."
+    $waited = 0
+    while ((Get-Process -Id $ParentPid -ErrorAction SilentlyContinue) -and ($waited -lt 30)) {{
+        Start-Sleep -Seconds 1
+        $waited++
+    }}
+    if (Get-Process -Id $ParentPid -ErrorAction SilentlyContinue) {{
+        Write-Output "AVISO: processo pai ainda ativo apos 30s. Prosseguindo mesmo assim..."
+    }}
 
     Write-Output "Fechando o Microsoft Word..."
-    try {{
-        $word = [Runtime.InteropServices.Marshal]::GetActiveObject("Word.Application")
-        if ($word) {{
-            $word.Quit()
-            Start-Sleep -Seconds 3
+    $retries = 0
+    while ($retries -lt 3) {{
+        try {{
+            $word = [Runtime.InteropServices.Marshal]::GetActiveObject("Word.Application")
+            if ($word) {{
+                $word.Quit()
+                [System.Runtime.InteropServices.Marshal]::ReleaseComObject($word) | Out-Null
+                Start-Sleep -Seconds 3
+            }}
+        }} catch {{}}
+        
+        $wordProcesses = Get-Process -Name "winword" -ErrorAction SilentlyContinue
+        if (-not $wordProcesses) {{ break }}
+        
+        $retries++
+        if ($retries -lt 3) {{
+            Write-Output "Word ainda aberto. Tentativa $retries/3 de fechar..."
+            Stop-Process -Name "winword" -Force -ErrorAction SilentlyContinue
+            Start-Sleep -Seconds 2
+        }} else {{
+            Write-Output "AVISO: Nao foi possivel fechar todas as instancias do Word."
+            Stop-Process -Name "winword" -Force -ErrorAction SilentlyContinue
+            Start-Sleep -Seconds 1
         }}
-    }} catch {{}}
-    
-    $wordProcesses = Get-Process -Name "winword" -ErrorAction SilentlyContinue
-    if ($wordProcesses) {{
-        Stop-Process -Name "winword" -Force -ErrorAction SilentlyContinue
-        Start-Sleep -Seconds 1
     }}
 
     Write-Output "Criando copia de seguranca..."
     New-Item -ItemType Directory -Force -Path $BackupDir | Out-Null
-    if (Test-Path "$InstallDir\\ai\\chat_ia") {{ Copy-Item -Path "$InstallDir\\ai\\chat_ia" -Destination "$BackupDir\\chat_ia" -Recurse -Force }}
-    if (Test-Path "$InstallDir\\ai\\config_prompt") {{ Copy-Item -Path "$InstallDir\\ai\\config_prompt" -Destination "$BackupDir\\config_prompt" -Recurse -Force }}
-    if (Test-Path "$InstallDir\\scripts\\import_word.exe") {{ Copy-Item -Path "$InstallDir\\scripts\\import_word.exe" -Destination "$BackupDir\\import_word.exe" -Force }}
-    if (Test-Path "$InstallDir\\dist\\Normal.dotm") {{ Copy-Item -Path "$InstallDir\\dist\\Normal.dotm" -Destination "$BackupDir\\Normal.dotm" -Force }}
-    if (Test-Path "$InstallDir\\dist\\Word.officeUI") {{ Copy-Item -Path "$InstallDir\\dist\\Word.officeUI" -Destination "$BackupDir\\Word.officeUI" -Force }}
+    $backupTargets = @{{
+        "ai\\chat_ia"           = "$BackupDir\\chat_ia"
+        "ai\\config_prompt"     = "$BackupDir\\config_prompt"
+        "scripts\\import_word.exe" = "$BackupDir\\import_word.exe"
+        "dist\\Normal.dotm"     = "$BackupDir\\Normal.dotm"
+        "dist\\Word.officeUI"   = "$BackupDir\\Word.officeUI"
+        "VERSION"               = "$BackupDir\\VERSION"
+    }}
+    foreach ($kv in $backupTargets.GetEnumerator()) {{
+        $src = Join-Path $InstallDir $kv.Key
+        if (Test-Path $src) {{
+            $dstDir = Split-Path $kv.Value -Parent
+            New-Item -ItemType Directory -Force -Path $dstDir | Out-Null
+            Copy-Item -Path $src -Destination $kv.Value -Recurse -Force
+        }}
+    }}
+    Write-Output "Backup concluido."
 
     Write-Output "Instalando novos arquivos..."
     $zips = Get-ChildItem -Path $SourceDir -Filter "*.zip"
     foreach ($zip in $zips) {{
+        Write-Output "Extraindo $($zip.Name)..."
         $extractTemp = Join-Path $SourceDir "extract_$($zip.BaseName)"
         New-Item -ItemType Directory -Force -Path $extractTemp | Out-Null
         [System.IO.Compression.ZipFile]::ExtractToDirectory($zip.FullName, $extractTemp)
@@ -454,11 +584,18 @@ try {{
             if (Test-Path $destConfig) {{ Remove-Item -Path $destConfig -Recurse -Force -ErrorAction SilentlyContinue }}
             Copy-Item -Path $extractTemp -Destination $destConfig -Recurse -Force
         }}
+        Remove-Item -Path $extractTemp -Recurse -Force -ErrorAction SilentlyContinue
     }}
 
     if (Test-Path "$SourceDir\\import_word.exe") {{ Copy-Item -Path "$SourceDir\\import_word.exe" -Destination "$InstallDir\\scripts\\import_word.exe" -Force }}
     if (Test-Path "$SourceDir\\Normal.dotm") {{ Copy-Item -Path "$SourceDir\\Normal.dotm" -Destination "$InstallDir\\dist\\Normal.dotm" -Force }}
     if (Test-Path "$SourceDir\\Word.officeUI") {{ Copy-Item -Path "$SourceDir\\Word.officeUI" -Destination "$InstallDir\\dist\\Word.officeUI" -Force }}
+    if (Test-Path "$SourceDir\\installer.exe") {{ Copy-Item -Path "$SourceDir\\installer.exe" -Destination "$InstallDir\\scripts\\installer.exe" -Force }}
+    if (Test-Path "$SourceDir\\VERSION") {{
+        $newVersion = (Get-Content "$SourceDir\\VERSION" -Raw).Trim()
+        Write-Output "Atualizando VERSION para $newVersion"
+        Set-Content -Path "$InstallDir\\VERSION" -Value $newVersion -NoNewline
+    }}
 
     Write-Output "Aplicando os modelos do Word..."
     $importExe = Join-Path $InstallDir "scripts\\import_word.exe"
@@ -467,9 +604,13 @@ try {{
         if ($importProcess.ExitCode -ne 0) {{
             throw "Falha ao executar import_word.exe (codigo de saida: $($importProcess.ExitCode))."
         }}
+        Write-Output "Templates do Word aplicados com sucesso."
     }} else {{
-        throw "import_word.exe nao encontrado para importar os templates."
+        Write-Output "AVISO: import_word.exe nao encontrado. Templates nao atualizados."
     }}
+
+    Write-Output "Atualizacao para v{latest_version} concluida!"
+    Stop-Transcript
 
     [System.Windows.Forms.MessageBox]::Show("Atualizacao concluida com sucesso para a versao v{latest_version}!", "Z7 StdProposers", 0, 64)
     if ($DocsToReopen.Count -gt 0) {{
@@ -485,20 +626,33 @@ try {{
     Remove-Item -Path $SourceDir -Recurse -Force -ErrorAction SilentlyContinue
     
 }} catch {{
-    Write-Output "Erro detectado. Executando rollback de seguranca..."
-    if (Test-Path "$BackupDir\\chat_ia") {{
-        Remove-Item -Path "$InstallDir\\ai\\chat_ia" -Recurse -Force -ErrorAction SilentlyContinue
-        Copy-Item -Path "$BackupDir\\chat_ia" -Destination "$InstallDir\\ai\\chat_ia" -Recurse -Force
-    }}
-    if (Test-Path "$BackupDir\\config_prompt") {{
-        Remove-Item -Path "$InstallDir\\ai\\config_prompt" -Recurse -Force -ErrorAction SilentlyContinue
-        Copy-Item -Path "$BackupDir\\config_prompt" -Destination "$InstallDir\\ai\\config_prompt" -Recurse -Force
-    }}
-    if (Test-Path "$BackupDir\\import_word.exe") {{ Copy-Item -Path "$BackupDir\\import_word.exe" -Destination "$InstallDir\\scripts\\import_word.exe" -Force }}
-    if (Test-Path "$BackupDir\\Normal.dotm") {{ Copy-Item -Path "$BackupDir\\Normal.dotm" -Destination "$InstallDir\\dist\\Normal.dotm" -Force }}
-    if (Test-Path "$BackupDir\\Word.officeUI") {{ Copy-Item -Path "$BackupDir\\Word.officeUI" -Destination "$InstallDir\\dist\\Word.officeUI" -Force }}
+    $errMsg = $_.Exception.Message
+    Write-Output "ERRO FATAL: $errMsg"
+    Write-Output "Executando rollback de seguranca..."
+    Stop-Transcript
 
-    [System.Windows.Forms.MessageBox]::Show("Falha na atualizacao.`n`nOs arquivos originais foram totalmente restaurados.`n`nErro: $_", "Erro de Atualizacao", 0, 16)
+    if (Test-Path $BackupDir) {{
+        $restoreTargets = @{{
+            "chat_ia"               = "$InstallDir\\ai\\chat_ia"
+            "config_prompt"         = "$InstallDir\\ai\\config_prompt"
+            "import_word.exe"       = "$InstallDir\\scripts\\import_word.exe"
+            "Normal.dotm"           = "$InstallDir\\dist\\Normal.dotm"
+            "Word.officeUI"         = "$InstallDir\\dist\\Word.officeUI"
+            "VERSION"               = "$InstallDir\\VERSION"
+        }}
+        foreach ($kv in $restoreTargets.GetEnumerator()) {{
+            $bakFile = Join-Path $BackupDir $kv.Key
+            if (Test-Path $bakFile) {{
+                $dstDir = Split-Path $kv.Value -Parent
+                if ($dstDir -and -not (Test-Path $dstDir)) {{ New-Item -ItemType Directory -Force -Path $dstDir | Out-Null }}
+                Remove-Item -Path $kv.Value -Recurse -Force -ErrorAction SilentlyContinue
+                Copy-Item -Path $bakFile -Destination $kv.Value -Recurse -Force
+            }}
+        }}
+        Write-Output "Rollback concluido."
+    }}
+
+    [System.Windows.Forms.MessageBox]::Show("Falha na atualizacao.`n`nOs arquivos originais foram totalmente restaurados.`n`nErro: $errMsg`n`nLog detalhado: {escaped_log_path}", "Erro de Atualizacao", 0, 16)
     if ($DocsToReopen.Count -gt 0) {{
         foreach ($docPath in $DocsToReopen) {{
             if (Test-Path $docPath) {{
@@ -512,6 +666,7 @@ try {{
 """
             worker_path.write_text(ps_script, encoding='utf-8')
             
+            LOGGER.info("Update worker script written to %s", worker_path)
             update_progress(1.0, "Iniciando instalador em segundo plano...")
             
             subprocess.Popen([
@@ -525,8 +680,9 @@ try {{
             
         except Exception as e:
             err_msg = str(e)
+            LOGGER.error("Update preparation failed: %s", err_msg)
             def show_err():
-                dl_dialog.destroy()
+                _safe_destroy(dl_dialog)
                 z7_theme.show_error("Erro de Instalação", f"Ocorreu um erro ao preparar os arquivos:\n{err_msg}", parent=parent_root)
             parent_root.after(0, show_err)
 
