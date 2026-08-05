@@ -279,7 +279,8 @@ def main() -> None:
             fallback_files = [
                 ("dist/Normal.dotm", "Normal.dotm"),
                 ("dist/Word.officeUI", "Word.officeUI"),
-                ("scripts/import_word.exe", "import_word.exe")
+                ("scripts/import_word.exe", "import_word.exe"),
+                ("scripts/installer.exe", "installer.exe")
             ]
             
             LOGGER.info("Verificando downloads de fallback necessarios")
@@ -301,15 +302,27 @@ def main() -> None:
                         elapsed = time.monotonic() - t0
                         LOGGER.info("Download de fallback concluido para %s (%d bytes) em %.2fs", local_name, len(content), elapsed)
                     except Exception as download_err:
-                        LOGGER.warning("Falha ao baixar %s via URL Raw: %s. Tentando usar copia local do projeto...", local_name, download_err)
-                        # Fallback: se o arquivo já existir localmente no diretório de compilação, copia dele
+                        LOGGER.warning("Falha ao baixar %s via URL Raw: %s. Tentando usar copia local do projeto ou instalacao existente...", local_name, download_err)
+                        # Fallback: se o arquivo já existir localmente no diretório de compilação ou na instalacao existente, copia dele
                         local_source = None
                         if local_name == "import_word.exe":
                             local_source = project_root / "scripts" / "import_word.exe"
+                        elif local_name == "installer.exe":
+                            local_source = project_root / "scripts" / "installer.exe"
                         elif local_name == "Normal.dotm":
                             local_source = project_root / "dist" / "Normal.dotm"
+                            # Se nao existir no projeto, tenta a instalacao existente
+                            if not local_source or not local_source.exists():
+                                existing_normal = install_dir / "dist" / "Normal.dotm"
+                                if existing_normal.exists():
+                                    local_source = existing_normal
                         elif local_name == "Word.officeUI":
                             local_source = project_root / "dist" / "Word.officeUI"
+                            # Se nao existir no projeto, tenta a instalacao existente
+                            if not local_source or not local_source.exists():
+                                existing_officeui = install_dir / "dist" / "Word.officeUI"
+                                if existing_officeui.exists():
+                                    local_source = existing_officeui
                         
                         if local_source and local_source.exists():
                             shutil.copy2(local_source, dest_file)

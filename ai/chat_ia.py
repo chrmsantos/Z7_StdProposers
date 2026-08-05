@@ -43,7 +43,7 @@ class ChatApp:
         screen_width = self.root.winfo_screenwidth()
         screen_height = self.root.winfo_screenheight()
         
-        chat_width = int(screen_width * 2 / 3 * 1.15 * 1.10 * 0.70)
+        chat_width = int(screen_width * 2 / 3 * 1.15 * 1.10 * 0.70 * 1.10)
         chat_height = int(screen_height * 0.92 * 0.90 * 1.05)
         chat_left = 0
         chat_top = int(screen_height * 0.02)
@@ -150,19 +150,8 @@ class ChatApp:
         if hasattr(self, 'header_badges'):
             self.header_badges.configure(bg=bg)
 
-        # Toolbar
-        if hasattr(self, 'toolbar_frame'):
-            self.toolbar_frame.configure(bg=bg)
-            for btn_attr in ('new_chat_btn', 'reload_ctx_btn', 'copy_reply_btn'):
-                btn = getattr(self, btn_attr, None)
-                if btn:
-                    btn.configure(
-                        bg=colors["btn_sec_bg"], fg=colors["btn_sec_fg"],
-                        activebackground=colors["btn_sec_hover"], activeforeground=fg
-                    )
-
         # Separadores
-        for sep_attr in ('header_sep', 'toolbar_sep'):
+        for sep_attr in ('header_sep',):
             sep = getattr(self, sep_attr, None)
             if sep:
                 sep.configure(bg=border)
@@ -328,6 +317,17 @@ class ChatApp:
         except Exception:
             pass
 
+    @staticmethod
+    def _write_update_status_file(status: str) -> None:
+        """Escreve o status de atualização em arquivo compartilhado para config_prompt."""
+        import json
+        from z7_logging import get_data_dir
+        try:
+            status_file = get_data_dir() / "update_status.json"
+            status_file.write_text(json.dumps({"status": status}), encoding="utf-8")
+        except Exception:
+            pass
+
     def _check_for_updates_silent(self) -> None:
         """Verifica atualizações silenciosamente em background."""
         def _run():
@@ -338,15 +338,19 @@ class ChatApp:
                 if not tag_name:
                     tag_name = data.get("name", "").strip()
                 if not tag_name:
+                    self._write_update_status_file("error")
                     self.root.after(0, lambda: self._set_update_status("error"))
                     return
                 comparison = compare_versions(tag_name, _APP_VERSION)
                 if comparison > 0:
+                    self._write_update_status_file("update_available")
                     self.root.after(0, lambda: self._set_update_status("update_available"))
                 else:
+                    self._write_update_status_file("up_to_date")
                     self.root.after(0, lambda: self._set_update_status("up_to_date"))
             except Exception as e:
                 LOGGER.warning("Silent update check failed: %s", e)
+                self._write_update_status_file("error")
                 self.root.after(0, lambda: self._set_update_status("error"))
 
         threading.Thread(target=_run, daemon=True).start()
@@ -366,6 +370,12 @@ class ChatApp:
         )
         self.title_lbl.pack(side=tk.LEFT, anchor="w")
 
+        self.version_badge = tk.Label(
+            self.header_top, text=f"v{_APP_VERSION}",
+            font=("Segoe UI", 10, "bold"), padx=6, pady=1
+        )
+        self.version_badge.pack(side=tk.LEFT, anchor="w", padx=(8, 0))
+
         self.settings_btn = tk.Button(
             self.header_top, text="⚙ Config",
             font=("Segoe UI", 9), relief=tk.FLAT,
@@ -377,12 +387,6 @@ class ChatApp:
         # Linha 2: Badges de status
         self.header_badges = tk.Frame(self.top_frame)
         self.header_badges.pack(fill=tk.X, pady=(6, 0))
-
-        self.version_badge = tk.Label(
-            self.header_badges, text=f"v{_APP_VERSION}",
-            font=("Segoe UI", 9, "bold"), padx=6, pady=1
-        )
-        self.version_badge.pack(side=tk.LEFT, anchor="w")
 
         self.ai_status_lbl = tk.Label(
             self.header_badges, text="",
@@ -413,38 +417,6 @@ class ChatApp:
         # Separador após cabeçalho
         self.header_sep = tk.Frame(self.top_frame, height=1)
         self.header_sep.pack(fill=tk.X, pady=(12, 0))
-
-        # ── Toolbar de ações rápidas ─────────────────────────────────────────
-        self.toolbar_frame = tk.Frame(self.root)
-        self.toolbar_frame.pack(side=tk.TOP, fill=tk.X, padx=20, pady=(8, 0))
-
-        self.new_chat_btn = tk.Button(
-            self.toolbar_frame, text="💬 Nova Conversa",
-            font=("Segoe UI", 9), relief=tk.FLAT,
-            cursor="hand2", padx=8, pady=3,
-            command=self.new_conversation
-        )
-        self.new_chat_btn.pack(side=tk.LEFT)
-
-        self.reload_ctx_btn = tk.Button(
-            self.toolbar_frame, text="📄 Recarregar Contexto",
-            font=("Segoe UI", 9), relief=tk.FLAT,
-            cursor="hand2", padx=8, pady=3,
-            command=self.load_context
-        )
-        self.reload_ctx_btn.pack(side=tk.LEFT, padx=(6, 0))
-
-        self.copy_reply_btn = tk.Button(
-            self.toolbar_frame, text="📋 Copiar Resposta",
-            font=("Segoe UI", 9), relief=tk.FLAT,
-            cursor="hand2", padx=8, pady=3,
-            command=self.copy_last_reply
-        )
-        self.copy_reply_btn.pack(side=tk.LEFT, padx=(6, 0))
-
-        # Separador após toolbar
-        self.toolbar_sep = tk.Frame(self.toolbar_frame, height=1)
-        self.toolbar_sep.pack(fill=tk.X, pady=(8, 0))
 
         # ── Rodapé ───────────────────────────────────────────────────────────
         _footer_text = f"{_ORG}  ·  {_APP_AUTHOR}  ·  {_LICENSE}  ·  {_MOTTO}"

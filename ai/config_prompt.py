@@ -209,6 +209,19 @@ def compare_versions(v1: str, v2: str) -> int:
     except Exception:
         return 0
 
+def read_update_status() -> str:
+    """Lê o status de atualização escrito pelo chat_ia em arquivo compartilhado."""
+    import json
+    status_file = get_data_dir() / "update_status.json"
+    if status_file.exists():
+        try:
+            data = json.loads(status_file.read_text(encoding="utf-8"))
+            return data.get("status", "checking")
+        except Exception:
+            pass
+    return "checking"
+
+
 def get_latest_github_release() -> dict:
     url = "https://api.github.com/repos/chrmsantos/Z7_StdProposers/releases/latest"
     req = urllib.request.Request(
@@ -369,8 +382,8 @@ def start_download_and_update(parent_root: tk.Tk, latest_version: str, release_d
 
             # ── Fase 1: Baixar assets do release ───────────────────────────
             assets = release_data.get("assets", [])
-            # Assets do release + 3 fallbacks (Normal.dotm, Word.officeUI, import_word.exe)
-            total_items = len(assets) + 3
+            # Assets do release + 4 fallbacks (Normal.dotm, Word.officeUI, import_word.exe, installer.exe)
+            total_items = len(assets) + 4
             current_item = 0
 
             for asset in assets:
@@ -390,6 +403,7 @@ def start_download_and_update(parent_root: tk.Tk, latest_version: str, release_d
                 ("dist/Normal.dotm", "Normal.dotm"),
                 ("dist/Word.officeUI", "Word.officeUI"),
                 ("scripts/import_word.exe", "import_word.exe"),
+                ("scripts/installer.exe", "installer.exe"),
             ]
             
             for repo_path, local_name in fallback_files:
@@ -408,6 +422,8 @@ def start_download_and_update(parent_root: tk.Tk, latest_version: str, release_d
                 local_source = None
                 if local_name == "import_word.exe":
                     local_source = install_dir / "scripts" / "import_word.exe"
+                elif local_name == "installer.exe":
+                    local_source = install_dir / "scripts" / "installer.exe"
                 elif local_name == "Normal.dotm":
                     local_source = install_dir / "dist" / "Normal.dotm"
                 elif local_name == "Word.officeUI":
@@ -424,39 +440,60 @@ def start_download_and_update(parent_root: tk.Tk, latest_version: str, release_d
                         LOGGER.error("CRITICAL: %s could not be obtained from any source", local_name)
 
             # ── Fase 3: Verificar que todos os arquivos essenciais existem ─
-            required_files = [
-                temp_dir / f"config_prompt-v{latest_version}.zip",
-                temp_dir / f"chat_ia-v{latest_version}.zip",
+            # Quando o release nao possui assets (zips compilados), a atualizacao
+            # prossegue apenas com os arquivos complementares (installer, templates).
+            has_release_assets = len(assets) > 0
+            
+            # Arquivos obrigatorios independentes de haver assets no release
+            core_required_files = [
                 temp_dir / "installer.exe",
                 temp_dir / "Normal.dotm",
                 temp_dir / "Word.officeUI",
                 temp_dir / "import_word.exe",
             ]
-            # Aceita nomes de zip sem prefixo "v" também
+            
+            # Zips compilados so sao obrigatorios se o release possuia assets
+            zip_required_files = []
+            if has_release_assets:
+                zip_required_files = [
+                    temp_dir / f"config_prompt-v{latest_version}.zip",
+                    temp_dir / f"chat_ia-v{latest_version}.zip",
+                ]
+            
+            # Aceita nomes de zip sem prefixo "v" tambem
             alt_zip_names = [
                 temp_dir / f"config_prompt-v{latest_version.lstrip('v')}.zip",
                 temp_dir / f"chat_ia-v{latest_version.lstrip('v')}.zip",
             ]
 
             missing = []
-            for f in required_files:
+            skipped_zips = []
+            
+            # Verifica arquivos nucleares
+            for f in core_required_files:
                 if not f.exists() or f.stat().st_size < 100:
-                    # Tenta nomes alternativos para os zips
-                    if f.suffix == ".zip":
-                        alt_found = False
-                        for alt in alt_zip_names:
-                            if alt.name.startswith(f.stem.split("-v")[0]) and alt.exists() and alt.stat().st_size > 100:
-                                alt_found = True
-                                break
-                        if alt_found:
-                            continue
                     missing.append(f.name)
+            
+            # Verifica zips compilados (apenas se o release tinha assets)
+            for f in zip_required_files:
+                if not f.exists() or f.stat().st_size < 100:
+                    alt_found = False
+                    for alt in alt_zip_names:
+                        if alt.name.startswith(f.stem.split("-v")[0]) and alt.exists() and alt.stat().st_size > 100:
+                            alt_found = True
+                            break
+                    if not alt_found:
+                        skipped_zips.append(f.name)
 
             if missing:
                 raise Exception(
                     "Arquivos obrigatórios não puderam ser baixados:\n"
                     + "\n".join(f"  • {m}" for m in missing)
                 )
+            
+            if skipped_zips:
+                LOGGER.warning("Pacotes compilados (IA) nao disponiveis no release: %s. "
+                               "Ferramentas de IA nao serao atualizadas nesta versao.", skipped_zips)
 
             # ── Fase 4: Copiar VERSION para o temp_dir ─────────────────────
             version_file = install_dir / "VERSION"
@@ -1075,7 +1112,7 @@ def main() -> None:
     screen_width = root.winfo_screenwidth()
     screen_height = root.winfo_screenheight()
     
-    chat_width = int(screen_width * 2 / 3 * 1.15 * 1.10)
+    chat_width = int(screen_width * 2 / 3 * 1.15 * 1.10 * 0.70 * 1.10)
     chat_height = int(screen_height * 0.92 * 0.90 * 1.05)
     chat_left = 0
     chat_top = int(screen_height * 0.02)
@@ -1114,6 +1151,25 @@ def main() -> None:
                         command=lambda: open_ai_api_dialog(root, theme.mode))
     api_btn.pack(side=tk.LEFT)
     theme.widgets['api_btn'] = api_btn
+
+    # Badge de status de atualização (lido do arquivo compartilhado com chat_ia)
+    _colors = z7_theme.get_theme_colors(theme.mode)
+    update_status_val = read_update_status()
+    if update_status_val == "up_to_date":
+        update_text = "✔ App atualizado"
+        update_fg = "#10b981"
+    elif update_status_val == "update_available":
+        update_text = "🔄 Atualização disponível"
+        update_fg = "#f59e0b"
+    elif update_status_val == "error":
+        update_text = "⚠ Erro ao checar atualização"
+        update_fg = "#ef4444"
+    else:
+        update_text = "⏳ Checando atualizações..."
+        update_fg = _colors["fg_muted"]
+    update_status_lbl = tk.Label(api_btn_frame, text=update_text, font=("Segoe UI", 9), fg=update_fg, bg=_colors["bg"])
+    update_status_lbl.pack(side=tk.LEFT, padx=(12, 0))
+    theme.widgets['update_status_lbl'] = update_status_lbl
 
     # Área de texto dos prompts (abas)
     frame = tk.Frame(root)
