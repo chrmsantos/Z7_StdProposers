@@ -12,7 +12,7 @@ _DEFAULT_MODEL = 'deepseek/deepseek-chat'
 _OPENROUTER_BASE_URL = 'https://openrouter.ai/api/v1'
 _MAX_CONTEXT_CHARS = 150_000
 
-_APP_VERSION = "8.0.3"
+_APP_VERSION = "8.0.4"
 _APP_AUTHOR  = "CMS"
 _ORG         = "Câmara Municipal de Santa Bárbara d'Oeste"
 _LICENSE     = "GPL-3.0"
@@ -135,6 +135,11 @@ class ChatApp:
         # Header
         self.top_frame.configure(bg=bg)
         self.title_lbl.configure(bg=bg, fg=fg)
+        if hasattr(self, 'settings_btn'):
+            self.settings_btn.configure(
+                bg=colors["btn_sec_bg"], fg=colors["btn_sec_fg"],
+                activebackground=colors["btn_sec_hover"], activeforeground=fg
+            )
 
         # Chat area
         self.chat_border.configure(bg=border)
@@ -228,7 +233,15 @@ class ChatApp:
             self.top_frame, text="✨ Assistente de IA",
             font=("Segoe UI", 15, "bold")
         )
-        self.title_lbl.pack(side=tk.TOP, anchor="w")
+        self.title_lbl.pack(side=tk.LEFT, anchor="w")
+
+        self.settings_btn = tk.Button(
+            self.top_frame, text="⚙ Configurações",
+            font=("Segoe UI", 9), relief=tk.FLAT,
+            cursor="hand2", padx=6, pady=2,
+            command=self._open_config_prompt
+        )
+        self.settings_btn.pack(side=tk.RIGHT, anchor="e")
 
         self.status_frame = tk.Frame(
             self.top_frame,
@@ -619,8 +632,11 @@ class ChatApp:
 
     def _new_conversation_thread(self) -> None:
         try:
+            from config_prompt import load_chat_system_prompt
             today_prefix = get_today_date_text()
-            self.system_instruction = f"{today_prefix} Você é um assistente especialista em legislação prestativo e polido. Auxilie o usuário alterando, revisando ou tirando dúvidas."
+            chat_system_prompt = load_chat_system_prompt()
+            self.system_instruction = f"{today_prefix} {chat_system_prompt}"
+            self.initial_prompt_text = chat_system_prompt
 
             # Pré-popula histórico com contexto do documento
             self._reload_doc_text()
@@ -646,6 +662,26 @@ class ChatApp:
         self.update_status("Pronto para conversar")
         self.append_message("AI", greeting)
         LOGGER.info("New conversation started")
+
+    def _open_config_prompt(self) -> None:
+        """Abre a janela de configuração do prompt em um processo separado."""
+        import subprocess
+        import sys
+        from pathlib import Path
+
+        config_script = Path(__file__).resolve().parent / "config_prompt.py"
+        if not config_script.exists():
+            from z7_theme import show_error
+            show_error("Erro", f"Arquivo não encontrado:\n{config_script}", parent=self.root)
+            return
+
+        try:
+            subprocess.Popen([sys.executable, str(config_script)])
+            LOGGER.info("Config prompt window opened")
+        except Exception as e:
+            log_exception(LOGGER, "Failed to open config_prompt", e)
+            from z7_theme import show_error
+            show_error("Erro", f"Não foi possível abrir as configurações:\n{e}", parent=self.root)
 
     def on_enter(self, event: tk.Event) -> str:
         self.send_message()
@@ -760,8 +796,11 @@ class ChatApp:
                 log_exception(LOGGER, "Failed to load selected model for chat_ia", e)
                 self._model = _DEFAULT_MODEL
 
+            from config_prompt import load_chat_system_prompt
             today_prefix = get_today_date_text()
-            self.system_instruction = f"{today_prefix} Você é um assistente especialista em legislação prestativo e polido. Auxilie o usuário alterando, revisando ou tirando dúvidas."
+            chat_system_prompt = load_chat_system_prompt()
+            self.system_instruction = f"{today_prefix} {chat_system_prompt}"
+            self.initial_prompt_text = chat_system_prompt
 
             # --- Pré-popula o histórico com o contexto do documento ---
             _truncation_notice = _doc_truncated
@@ -818,6 +857,10 @@ class ChatApp:
 
     def _on_ai_ready(self) -> None:
         self.update_status("Pronto para conversar")
+        # Exibe o prompt inicial como primeira mensagem do usuário na interface
+        initial_prompt = getattr(self, 'initial_prompt_text', '')
+        if initial_prompt:
+            self.append_message("User", initial_prompt)
         self.append_message("AI", getattr(self, 'initial_greeting', "Olá! Como posso ajudar?"))
         if self.doc_text and self.doc_text.strip() and "nenhum documento" not in self.doc_text.lower():
             self.run_consistency_check()

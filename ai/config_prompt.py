@@ -15,7 +15,7 @@ LOGGER = configure_component_logger("config_prompt")
 
 GITHUB_REPO_URL = "https://github.com/chrmsantos/Z7_StdProposers"
 
-_APP_VERSION = "8.0.3"
+_APP_VERSION = "8.0.4"
 _APP_AUTHOR  = "CMS"
 _ORG         = "Câmara Municipal de Santa Bárbara d'Oeste"
 _LICENSE     = "GPL-3.0"
@@ -87,6 +87,34 @@ AUTORIA
 
 Saída JSON:
 {{"titulo": "INDICAÇÃO Nº $NUMERO$/$ANO$","ementa": "Indica ao Poder Executivo Municipal a ampliação da rede de creches nos bairros com maior demanda por vagas.","vocativo": "Excelentíssimo Senhor Prefeito Municipal,","proposicao": "Nos termos do Art. 108 do Regimento Interno desta Casa de Leis, dirijo-me a Vossa Excelência para indicar que seja realizado um estudo técnico para ampliação da rede de creches públicas, com prioridade aos bairros com maior número de crianças em lista de espera, como o Jardim São Fernando e o Parque Zabani, neste Município.","titulo_da_justificativa": "Justificativa:","justificativa": "A falta de vagas em creches tem afetado diretamente as famílias, em especial mães que dependem do serviço para poder trabalhar. A ampliação do número de unidades ou convênios com instituições qualificadas atenderá à demanda crescente e garantirá o direito à educação infantil.","data": "Plenário \\"Dr. Tancredo Neves\\", $DATAATUALEXTENSO$.","assinatura": "AUTORIA\\n– Vereador –"}}"""
+
+
+DEFAULT_CHAT_SYSTEM_PROMPT = "Você é um assistente especialista em legislação prestativo e polido. Auxilie o usuário alterando, revisando ou tirando dúvidas."
+
+
+def get_chat_system_prompt_file_path() -> Path:
+    return get_data_dir() / "chat_system_prompt.txt"
+
+
+def load_chat_system_prompt() -> str:
+    prompt_file = get_chat_system_prompt_file_path()
+    if prompt_file.exists():
+        try:
+            text = prompt_file.read_text(encoding='utf-8').strip()
+            LOGGER.info("Loaded custom chat system prompt file")
+            return text
+        except Exception as e:
+            log_exception(LOGGER, "Failed to load custom chat system prompt", e)
+    return DEFAULT_CHAT_SYSTEM_PROMPT
+
+
+def save_chat_system_prompt(prompt_text: str) -> None:
+    prompt_file = get_chat_system_prompt_file_path()
+    try:
+        prompt_file.write_text(prompt_text.strip(), encoding='utf-8')
+        LOGGER.info("Chat system prompt saved successfully")
+    except Exception as e:
+        log_exception(LOGGER, "Failed to save chat system prompt", e)
 
 
 def get_prompt_file_path() -> Path:
@@ -165,7 +193,6 @@ def save_prompt(consistency_text: str, root: tk.Tk, model_var: tk.StringVar) -> 
 
     save_ai_model(model_var.get())
 
-    z7_theme.show_info("Sucesso", "Configurações salvas com sucesso!", parent=root)
     root.destroy()
 
 def compare_versions(v1: str, v2: str) -> int:
