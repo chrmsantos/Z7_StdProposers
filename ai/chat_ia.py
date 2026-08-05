@@ -12,7 +12,7 @@ _DEFAULT_MODEL = 'deepseek/deepseek-chat'
 _OPENROUTER_BASE_URL = 'https://openrouter.ai/api/v1'
 _MAX_CONTEXT_CHARS = 150_000
 
-_APP_VERSION = "8.0.4"
+_APP_VERSION = "8.0.5"
 _APP_AUTHOR  = "CMS"
 _ORG         = "Câmara Municipal de Santa Bárbara d'Oeste"
 _LICENSE     = "GPL-3.0"
@@ -43,7 +43,7 @@ class ChatApp:
         screen_width = self.root.winfo_screenwidth()
         screen_height = self.root.winfo_screenheight()
         
-        chat_width = int(screen_width * 2 / 3 * 1.15 * 1.10)
+        chat_width = int(screen_width * 2 / 3 * 1.15 * 1.10 * 0.70)
         chat_height = int(screen_height * 0.92 * 0.90 * 1.05)
         chat_left = 0
         chat_top = int(screen_height * 0.02)
@@ -68,10 +68,14 @@ class ChatApp:
         self._context_pending = False
         self._doc_load_error = ""
         self.current_status_text = "Carregando contexto..."
+        self._update_status = "checking"
 
         self.build_ui()
         self.apply_theme()
         
+        self._update_ai_status()
+        self._check_for_updates_silent()
+
         self._load_doc_text_main_thread()
         self.init_ai()
 
@@ -188,7 +192,13 @@ class ChatApp:
         self.chat_area.tag_config("sel", background=select_bg, foreground=select_fg)
         self.chat_area.tag_raise("sel")
 
-        # Refresh the status badge with current mode
+        # Version badge
+        if hasattr(self, 'version_badge'):
+            self.version_badge.configure(bg=colors["btn_primary_bg"], fg="white")
+
+        # Refresh all status badges with current mode
+        self._set_update_status(self._update_status)
+        self._update_ai_status()
         self.update_status(self.current_status_text)
 
     def update_status(self, text: str) -> None:
@@ -229,6 +239,92 @@ class ChatApp:
         except Exception:
             pass
 
+    def _set_update_status(self, status: str) -> None:
+        """Atualiza o badge de status de atualização."""
+        self._update_status = status
+        if not hasattr(self, 'update_status_lbl'):
+            return
+
+        colors = z7_theme.get_theme_colors(self.mode)
+
+        if status == "checking":
+            text = "⏳ Checando..."
+            fg_color = colors["fg_muted"]
+        elif status == "up_to_date":
+            text = "✔ App atualizado"
+            fg_color = "#10b981" if self.mode == "light" else "#34d399"
+        elif status == "update_available":
+            text = "🔄 Atualização disponível"
+            fg_color = "#f59e0b" if self.mode == "light" else "#fbbf24"
+        elif status == "error":
+            text = "⚠ Erro ao checar"
+            fg_color = "#ef4444"
+        else:
+            text = ""
+            fg_color = colors["fg_muted"]
+
+        def _apply():
+            try:
+                self.update_status_lbl.config(text=text, fg=fg_color, bg=colors["bg"])
+            except Exception:
+                pass
+
+        try:
+            self.root.after(0, _apply)
+        except Exception:
+            pass
+
+    def _update_ai_status(self) -> None:
+        """Atualiza o badge de status da IA (modelo + validação)."""
+        if not hasattr(self, 'ai_status_lbl'):
+            return
+
+        model = self._model or _DEFAULT_MODEL
+        has_client = self.client is not None
+
+        colors = z7_theme.get_theme_colors(self.mode)
+
+        if has_client:
+            text = f"🤖 {model}  •  ✔ Validado"
+            color = "#10b981" if self.mode == "light" else "#34d399"
+        else:
+            text = f"🤖 {model}  •  ⚠ Não validado"
+            color = "#f59e0b" if self.mode == "light" else "#fbbf24"
+
+        def _apply():
+            try:
+                self.ai_status_lbl.config(text=text, fg=color, bg=colors["bg"])
+            except Exception:
+                pass
+
+        try:
+            self.root.after(0, _apply)
+        except Exception:
+            pass
+
+    def _check_for_updates_silent(self) -> None:
+        """Verifica atualizações silenciosamente em background."""
+        def _run():
+            try:
+                from config_prompt import get_latest_github_release, compare_versions
+                data = get_latest_github_release()
+                tag_name = data.get("tag_name", "").strip()
+                if not tag_name:
+                    tag_name = data.get("name", "").strip()
+                if not tag_name:
+                    self.root.after(0, lambda: self._set_update_status("error"))
+                    return
+                comparison = compare_versions(tag_name, _APP_VERSION)
+                if comparison > 0:
+                    self.root.after(0, lambda: self._set_update_status("update_available"))
+                else:
+                    self.root.after(0, lambda: self._set_update_status("up_to_date"))
+            except Exception as e:
+                LOGGER.warning("Silent update check failed: %s", e)
+                self.root.after(0, lambda: self._set_update_status("error"))
+
+        threading.Thread(target=_run, daemon=True).start()
+
     def build_ui(self) -> None:
         # ── Cabeçalho ────────────────────────────────────────────────────────
         self.top_frame = tk.Frame(self.root)
@@ -239,6 +335,18 @@ class ChatApp:
             font=("Segoe UI", 15, "bold")
         )
         self.title_lbl.pack(side=tk.LEFT, anchor="w")
+
+        self.version_badge = tk.Label(
+            self.top_frame, text=f"v{_APP_VERSION}",
+            font=("Segoe UI", 10, "bold"), padx=8, pady=1
+        )
+        self.version_badge.pack(side=tk.LEFT, anchor="w", padx=(12, 0))
+
+        self.update_status_lbl = tk.Label(
+            self.top_frame, text="⏳ Checando...",
+            font=("Segoe UI", 9)
+        )
+        self.update_status_lbl.pack(side=tk.LEFT, anchor="w", padx=(12, 0))
 
         self.settings_btn = tk.Button(
             self.top_frame, text="⚙ Configurações",
@@ -255,6 +363,12 @@ class ChatApp:
             command=self._open_ai_api
         )
         self.api_btn.pack(side=tk.RIGHT, anchor="e", padx=(0, 6))
+
+        self.ai_status_lbl = tk.Label(
+            self.top_frame, text="",
+            font=("Segoe UI", 9)
+        )
+        self.ai_status_lbl.pack(side=tk.TOP, anchor="w", pady=(4, 0))
 
         self.status_frame = tk.Frame(
             self.top_frame,
@@ -708,6 +822,7 @@ class ChatApp:
             self._model = model
             LOGGER.info("OpenAI client reinitialized with model %s", model)
             self.root.after(0, lambda: self.update_status("Pronto para conversar"))
+            self.root.after(50, self._update_ai_status)
         except Exception as e:
             log_exception(LOGGER, "Failed to reinitialize OpenAI client", e)
             self.root.after(0, lambda: self.update_status("Erro ao atualizar API."))
@@ -939,6 +1054,7 @@ class ChatApp:
 
     def _on_ai_ready(self) -> None:
         self.update_status("Pronto para conversar")
+        self._update_ai_status()
         # Exibe o prompt inicial como primeira mensagem do usuário na interface
         initial_prompt = getattr(self, 'initial_prompt_text', '')
         if initial_prompt:
