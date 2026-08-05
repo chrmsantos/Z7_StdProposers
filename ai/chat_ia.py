@@ -844,8 +844,19 @@ class ChatApp:
                         "💡 Dica: Certifique-se de que o Word está aberto com um documento ativo. "
                         "Você pode digitar 'recarregar contexto' para tentar novamente."
                     )
+                elif doc_context is not None and not doc_context.strip():
+                    self.initial_greeting = (
+                        "📄 O documento no Word está em branco.\n\n"
+                        "Escreva ou cole o conteúdo da propositura no Word e, em seguida, "
+                        "use o comando \"recarregar contexto\" aqui no chat para que eu possa analisá-lo."
+                    )
+                    LOGGER.info("Document is blank/empty")
                 else:
-                    self.initial_greeting = "Olá! Não consegui acessar o documento atual. Como posso ajudar?"
+                    self.initial_greeting = (
+                        "⚠ Não foi possível obter o conteúdo do documento.\n\n"
+                        "💡 Dica: Certifique-se de que o Word está aberto com um documento ativo. "
+                        "Você pode digitar 'recarregar contexto' para tentar novamente."
+                    )
                 _truncation_notice = False
                 LOGGER.warning("No document context available for AI initialization. Error: %s", error_detail)
 
