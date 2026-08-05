@@ -669,19 +669,39 @@ class ChatApp:
         import sys
         from pathlib import Path
 
-        config_script = Path(__file__).resolve().parent / "config_prompt.py"
-        if not config_script.exists():
-            from z7_theme import show_error
-            show_error("Erro", f"Arquivo não encontrado:\n{config_script}", parent=self.root)
-            return
-
-        try:
-            subprocess.Popen([sys.executable, str(config_script)])
-            LOGGER.info("Config prompt window opened")
-        except Exception as e:
-            log_exception(LOGGER, "Failed to open config_prompt", e)
-            from z7_theme import show_error
-            show_error("Erro", f"Não foi possível abrir as configurações:\n{e}", parent=self.root)
+        if getattr(sys, 'frozen', False):
+            # Compilado com PyInstaller: o executável config_prompt.exe
+            # está em um diretório irmão: ai/config_prompt/config_prompt.exe
+            current_exe = Path(sys.executable)
+            config_exe = current_exe.parent.parent / "config_prompt" / "config_prompt.exe"
+            if not config_exe.exists():
+                # Tenta na raiz do diretório pai (caso a estrutura seja diferente)
+                config_exe = current_exe.parent / "config_prompt.exe"
+            if not config_exe.exists():
+                from z7_theme import show_error
+                show_error("Erro", f"Executável não encontrado:\n{config_exe}", parent=self.root)
+                return
+            try:
+                subprocess.Popen([str(config_exe)])
+                LOGGER.info("Config prompt executable opened: %s", config_exe)
+            except Exception as e:
+                log_exception(LOGGER, "Failed to open config_prompt", e)
+                from z7_theme import show_error
+                show_error("Erro", f"Não foi possível abrir as configurações:\n{e}", parent=self.root)
+        else:
+            # Executando via interpretador Python (desenvolvimento)
+            config_script = Path(__file__).resolve().parent / "config_prompt.py"
+            if not config_script.exists():
+                from z7_theme import show_error
+                show_error("Erro", f"Arquivo não encontrado:\n{config_script}", parent=self.root)
+                return
+            try:
+                subprocess.Popen([sys.executable, str(config_script)])
+                LOGGER.info("Config prompt window opened")
+            except Exception as e:
+                log_exception(LOGGER, "Failed to open config_prompt", e)
+                from z7_theme import show_error
+                show_error("Erro", f"Não foi possível abrir as configurações:\n{e}", parent=self.root)
 
     def on_enter(self, event: tk.Event) -> str:
         self.send_message()
