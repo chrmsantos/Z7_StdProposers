@@ -1,5 +1,6 @@
 import json
 import tkinter as tk
+from tkinter import ttk
 from pathlib import Path
 import z7_theme
 from z7_logging import configure_component_logger, get_data_dir, log_exception
@@ -15,7 +16,7 @@ LOGGER = configure_component_logger("config_prompt")
 
 GITHUB_REPO_URL = "https://github.com/chrmsantos/Z7_StdProposers"
 
-_APP_VERSION = "8.0.5"
+_APP_VERSION = "8.0.6"
 _APP_AUTHOR  = "CMS"
 _ORG         = "Câmara Municipal de Santa Bárbara d'Oeste"
 _LICENSE     = "GPL-3.0"
@@ -57,7 +58,6 @@ Não reporte como problemas:
 - As strings "$ANO$" e "$DATAATUALEXTENSO$" (que devem ser ignoradas no processo de verificação de consistência de datas, não devendo ser comparadas com outras datas no restante do documento).
 
 Se encontrar inconsistências, liste-as de forma clara, sucinta e objetiva, indicando os trechos conflitantes e explicando o problema.
-Se NÃO encontrar inconsistências, responda APENAS com: "Sem inconsistências detectadas no documento."
 
 Responda em Português do Brasil."""
 
@@ -176,7 +176,7 @@ def save_ai_model(model_name: str) -> None:
     except Exception as e:
         log_exception(LOGGER, "Failed to save model", e)
 
-def save_prompt(consistency_text: str, root: tk.Tk, model_var: tk.StringVar) -> None:
+def save_prompt(consistency_text: str, root: tk.Tk) -> None:
     if not consistency_text.strip():
         LOGGER.warning("Consistency prompt save blocked because text is empty")
         z7_theme.show_warning("Aviso", "O prompt do Verificador de Consistência não pode estar vazio.", parent=root)
@@ -190,8 +190,6 @@ def save_prompt(consistency_text: str, root: tk.Tk, model_var: tk.StringVar) -> 
         log_exception(LOGGER, "Failed to save consistency prompt", e)
         z7_theme.show_error("Erro", f"Erro ao salvar prompt de consistência:\n{e}", parent=root)
         return
-
-    save_ai_model(model_var.get())
 
     root.destroy()
 
@@ -726,15 +724,20 @@ class AppTheme:
             self.widgets['border_frame'].configure(bg=border)
         if 'text_area' in self.widgets:
             self.widgets['text_area'].configure(bg=text_bg, fg=fg, insertbackground=fg)
-        if 'model_frame' in self.widgets:
-            self.widgets['model_frame'].configure(bg=bg)
-        if 'model_lbl' in self.widgets:
-            self.widgets['model_lbl'].configure(bg=bg, fg=fg)
-        if 'model_dropdown' in self.widgets:
-            self.widgets['model_dropdown'].configure(bg=text_bg, fg=fg, insertbackground=fg)
-
-        if 'api_frame' in self.widgets:
-            self.widgets['api_frame'].configure(bg=bg)
+        if 'chat_text_area' in self.widgets:
+            self.widgets['chat_text_area'].configure(bg=text_bg, fg=fg, insertbackground=fg)
+        if 'notebook' in self.widgets:
+            try:
+                style = ttk.Style()
+                style.configure('TNotebook', background=bg)
+                style.configure('TNotebook.Tab', background=btn_sec_bg, foreground=btn_sec_fg, padding=[10, 4])
+                style.map('TNotebook.Tab',
+                    background=[('selected', bg)],
+                    foreground=[('selected', fg)])
+            except Exception:
+                pass
+        if 'api_btn_frame' in self.widgets:
+            self.widgets['api_btn_frame'].configure(bg=bg)
         if 'api_btn' in self.widgets:
             self.widgets['api_btn'].configure(bg=btn_sec_bg, fg=btn_sec_fg,
                                               activebackground=btn_sec_hover, activeforeground=fg)
@@ -1093,65 +1096,84 @@ def main() -> None:
     lbl.pack(pady=(35, 5))
     theme.widgets['title_lbl'] = lbl
     
-    info_lbl = tk.Label(root, text="Personalize o comportamento do modelo ajustando o prompt de verificação de consistência abaixo.", font=("Segoe UI", 10))
+    info_lbl = tk.Label(root, text="Personalize os prompts enviados à IA ao inicializar o chat.", font=("Segoe UI", 10))
     info_lbl.pack(pady=(0, 20))
     theme.widgets['info_lbl'] = info_lbl
 
     btn_frame = tk.Frame(root)
     theme.widgets['btn_frame'] = btn_frame
 
-    # Seleção de Modelo
-    model_frame = tk.Frame(root)
-    model_frame.pack(fill=tk.X, padx=25, pady=(0, 10))
-    theme.widgets['model_frame'] = model_frame
+    # Botão de API de IA (transferred from chat_ia)
+    api_btn_frame = tk.Frame(root)
+    api_btn_frame.pack(fill=tk.X, padx=25, pady=(0, 10))
+    theme.widgets['api_btn_frame'] = api_btn_frame
 
-    model_lbl = tk.Label(model_frame, text="Modelo de IA:", font=("Segoe UI", 10, "bold"))
-    model_lbl.pack(side=tk.LEFT)
-    theme.widgets['model_lbl'] = model_lbl
-
-    model_var = tk.StringVar(root)
-    current_model = load_ai_model()
-    model_var.set(current_model)
-
-    model_entry = tk.Entry(model_frame, textvariable=model_var, font=("Segoe UI", 10), relief=tk.FLAT, bd=2)
-    model_entry.pack(side=tk.LEFT, padx=10, fill=tk.X, expand=True)
-    theme.widgets['model_dropdown'] = model_entry
-
-    # Chave de API
-    api_frame = tk.Frame(root)
-    api_frame.pack(fill=tk.X, padx=25, pady=(0, 10))
-    theme.widgets['api_frame'] = api_frame
-
-    api_btn = tk.Button(api_frame, text="🔑 Chave de API...", font=("Segoe UI", 10),
-                        relief=tk.FLAT, cursor="hand2",
-                        command=lambda: open_api_key_dialog(root, theme.mode))
+    api_btn = tk.Button(api_btn_frame, text="🔑 API de IA", font=("Segoe UI", 10, "bold"),
+                        relief=tk.FLAT, cursor="hand2", padx=10, pady=4,
+                        command=lambda: open_ai_api_dialog(root, theme.mode))
     api_btn.pack(side=tk.LEFT)
     theme.widgets['api_btn'] = api_btn
 
-    # Área de texto do prompt (sem abas)
-    frame = tk.Frame(root) # Borda sutil
+    # Área de texto dos prompts (abas)
+    frame = tk.Frame(root)
     theme.widgets['border_frame'] = frame
-    
-    text_area = tk.Text(frame, wrap=tk.WORD, font=("Consolas", 11), relief=tk.FLAT, padx=12, pady=12)
-    text_area.pack(side=tk.LEFT, expand=True, fill=tk.BOTH, padx=1, pady=1)
-    theme.widgets['text_area'] = text_area
 
-    scrollbar = tk.Scrollbar(frame, command=text_area.yview)
+    notebook = ttk.Notebook(frame)
+
+    # Aba 1: Prompt do Chat (instrução do sistema enviada automaticamente)
+    chat_tab = tk.Frame(notebook)
+    notebook.add(chat_tab, text=" 💬 Prompt do Chat ")
+    chat_inner = tk.Frame(chat_tab)
+    chat_inner.pack(expand=True, fill=tk.BOTH)
+    chat_text_area = tk.Text(chat_inner, wrap=tk.WORD, font=("Consolas", 11), relief=tk.FLAT, padx=12, pady=12)
+    chat_text_area.pack(side=tk.LEFT, expand=True, fill=tk.BOTH, padx=1, pady=1)
+    chat_scrollbar = tk.Scrollbar(chat_inner, command=chat_text_area.yview)
+    chat_scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+    chat_text_area.config(yscrollcommand=chat_scrollbar.set)
+    chat_text_area.insert(tk.END, load_chat_system_prompt())
+    theme.widgets['chat_text_area'] = chat_text_area
+
+    # Aba 2: Verificação de Consistência (prompt enviado automaticamente ao inicializar)
+    consistency_tab = tk.Frame(notebook)
+    notebook.add(consistency_tab, text=" 📋 Verificação de Consistência ")
+    consistency_inner = tk.Frame(consistency_tab)
+    consistency_inner.pack(expand=True, fill=tk.BOTH)
+    text_area = tk.Text(consistency_inner, wrap=tk.WORD, font=("Consolas", 11), relief=tk.FLAT, padx=12, pady=12)
+    text_area.pack(side=tk.LEFT, expand=True, fill=tk.BOTH, padx=1, pady=1)
+    scrollbar = tk.Scrollbar(consistency_inner, command=text_area.yview)
     scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
     text_area.config(yscrollcommand=scrollbar.set)
-
-    # Carrega o prompt de consistência
     text_area.insert(tk.END, load_consistency_prompt())
+    theme.widgets['text_area'] = text_area
+
+    notebook.pack(expand=True, fill=tk.BOTH, padx=1, pady=1)
+    theme.widgets['notebook'] = notebook
 
     # Estilos de botão
     btn_font = ("Segoe UI", 10, "bold")
 
     def do_save() -> None:
-        save_prompt(
-            consistency_text=text_area.get("1.0", tk.END),
-            root=root,
-            model_var=model_var,
-        )
+        chat_prompt = chat_text_area.get("1.0", tk.END).strip()
+        consistency_text = text_area.get("1.0", tk.END).strip()
+
+        if not consistency_text:
+            z7_theme.show_warning("Aviso", "O prompt de Verificação de Consistência não pode estar vazio.", parent=root)
+            return
+
+        # Salva o prompt do chat (instrução do sistema)
+        save_chat_system_prompt(chat_prompt)
+
+        # Salva o prompt de consistência
+        consistency_file = get_consistency_prompt_file_path()
+        try:
+            consistency_file.write_text(consistency_text, encoding='utf-8')
+            LOGGER.info("Consistency prompt saved successfully")
+        except Exception as e:
+            log_exception(LOGGER, "Failed to save consistency prompt", e)
+            z7_theme.show_error("Erro", f"Erro ao salvar prompt de consistência:\n{e}", parent=root)
+            return
+
+        root.destroy()
 
     save_btn = tk.Button(btn_frame, text="Salvar Configuração", width=20, bg="#2563eb", fg="white", font=btn_font, relief=tk.FLAT, activebackground="#1d4ed8", activeforeground="white", cursor="hand2", command=do_save)
     save_btn.pack(side=tk.RIGHT, padx=25)
@@ -1159,7 +1181,13 @@ def main() -> None:
     cancel_btn = tk.Button(btn_frame, text="Cancelar", width=15, font=btn_font, relief=tk.FLAT, cursor="hand2", command=root.destroy)
     cancel_btn.pack(side=tk.RIGHT, padx=5)
 
-    restore_btn = tk.Button(btn_frame, text="Restaurar Padrão", width=18, font=btn_font, relief=tk.FLAT, cursor="hand2", command=lambda: restore_default_consistency(text_area))
+    def do_restore() -> None:
+        chat_text_area.delete("1.0", tk.END)
+        chat_text_area.insert(tk.END, DEFAULT_CHAT_SYSTEM_PROMPT)
+        text_area.delete("1.0", tk.END)
+        text_area.insert(tk.END, DEFAULT_CONSISTENCY_PROMPT)
+
+    restore_btn = tk.Button(btn_frame, text="Restaurar Padrão", width=18, font=btn_font, relief=tk.FLAT, cursor="hand2", command=do_restore)
     restore_btn.pack(side=tk.LEFT, padx=25)
 
     import webbrowser

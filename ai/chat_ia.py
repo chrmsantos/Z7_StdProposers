@@ -12,7 +12,7 @@ _DEFAULT_MODEL = 'deepseek/deepseek-chat'
 _OPENROUTER_BASE_URL = 'https://openrouter.ai/api/v1'
 _MAX_CONTEXT_CHARS = 150_000
 
-_APP_VERSION = "8.0.5"
+_APP_VERSION = "8.0.6"
 _APP_AUTHOR  = "CMS"
 _ORG         = "Câmara Municipal de Santa Bárbara d'Oeste"
 _LICENSE     = "GPL-3.0"
@@ -144,11 +144,28 @@ class ChatApp:
                 bg=colors["btn_sec_bg"], fg=colors["btn_sec_fg"],
                 activebackground=colors["btn_sec_hover"], activeforeground=fg
             )
-        if hasattr(self, 'api_btn'):
-            self.api_btn.configure(
-                bg=colors["btn_sec_bg"], fg=colors["btn_sec_fg"],
-                activebackground=colors["btn_sec_hover"], activeforeground=fg
-            )
+        # Header sub-frames
+        if hasattr(self, 'header_top'):
+            self.header_top.configure(bg=bg)
+        if hasattr(self, 'header_badges'):
+            self.header_badges.configure(bg=bg)
+
+        # Toolbar
+        if hasattr(self, 'toolbar_frame'):
+            self.toolbar_frame.configure(bg=bg)
+            for btn_attr in ('new_chat_btn', 'reload_ctx_btn', 'copy_reply_btn'):
+                btn = getattr(self, btn_attr, None)
+                if btn:
+                    btn.configure(
+                        bg=colors["btn_sec_bg"], fg=colors["btn_sec_fg"],
+                        activebackground=colors["btn_sec_hover"], activeforeground=fg
+                    )
+
+        # Separadores
+        for sep_attr in ('header_sep', 'toolbar_sep'):
+            sep = getattr(self, sep_attr, None)
+            if sep:
+                sep.configure(bg=border)
 
         # Chat area
         self.chat_border.configure(bg=border)
@@ -177,16 +194,25 @@ class ChatApp:
         # Rodapé
         self.footer_lbl.configure(bg=bg, fg=fg_muted)
 
+        # Input hint
+        if hasattr(self, 'input_hint'):
+            self.input_hint.configure(bg=bg, fg=fg_muted)
+
         # Chat message tags
-        self.chat_area.tag_config("user_tag", font=("Segoe UI", 10, "bold"), foreground=user_tag_color)
+        self.chat_area.tag_config("user_tag", font=("Segoe UI", 10, "bold"),
+            foreground=user_tag_color, spacing1=6, spacing3=2)
         self.chat_area.tag_config("user_msg", font=("Segoe UI", 11), foreground=fg,
-            background=colors["user_bubble_bg"], lmargin1=10, lmargin2=10, rmargin=10,
-            spacing1=4, spacing3=4)
-        self.chat_area.tag_config("ai_tag",   font=("Segoe UI", 10, "bold"), foreground=ai_tag_color)
-        self.chat_area.tag_config("ai_msg",   font=("Segoe UI", 11), foreground=fg,
-            background=colors["ai_bubble_bg"], lmargin1=10, lmargin2=10, rmargin=10,
-            spacing1=4, spacing3=4)
-        self.chat_area.tag_config("sys_tag",  font=("Segoe UI", 10, "italic"), foreground=fg_muted)
+            background=colors["user_bubble_bg"], lmargin1=14, lmargin2=14, rmargin=14,
+            spacing1=6, spacing3=8, relief="flat", borderwidth=0)
+        self.chat_area.tag_config("ai_tag", font=("Segoe UI", 10, "bold"),
+            foreground=ai_tag_color, spacing1=6, spacing3=2)
+        self.chat_area.tag_config("ai_msg", font=("Segoe UI", 11), foreground=fg,
+            background=colors["ai_bubble_bg"], lmargin1=14, lmargin2=14, rmargin=14,
+            spacing1=6, spacing3=8, relief="flat", borderwidth=0)
+        self.chat_area.tag_config("sys_tag", font=("Segoe UI", 10, "italic"),
+            foreground=fg_muted, spacing1=4, spacing3=4)
+        self.chat_area.tag_config("msg_sep", foreground=border,
+            font=("Segoe UI", 6), spacing1=2, spacing3=6)
 
         # Ensure selection highlight is visible above all other tags
         self.chat_area.tag_config("sel", background=select_bg, foreground=select_fg)
@@ -328,55 +354,55 @@ class ChatApp:
     def build_ui(self) -> None:
         # ── Cabeçalho ────────────────────────────────────────────────────────
         self.top_frame = tk.Frame(self.root)
-        self.top_frame.pack(side=tk.TOP, fill=tk.X, pady=(18, 0), padx=24)
+        self.top_frame.pack(side=tk.TOP, fill=tk.X, pady=(16, 0), padx=20)
+
+        # Linha 1: Título + botões de ação
+        self.header_top = tk.Frame(self.top_frame)
+        self.header_top.pack(fill=tk.X)
 
         self.title_lbl = tk.Label(
-            self.top_frame, text="✨ Assistente de IA",
-            font=("Segoe UI", 15, "bold")
+            self.header_top, text="✨ Assistente de IA",
+            font=("Segoe UI", 16, "bold")
         )
         self.title_lbl.pack(side=tk.LEFT, anchor="w")
 
-        self.version_badge = tk.Label(
-            self.top_frame, text=f"v{_APP_VERSION}",
-            font=("Segoe UI", 10, "bold"), padx=8, pady=1
-        )
-        self.version_badge.pack(side=tk.LEFT, anchor="w", padx=(12, 0))
-
-        self.update_status_lbl = tk.Label(
-            self.top_frame, text="⏳ Checando...",
-            font=("Segoe UI", 9)
-        )
-        self.update_status_lbl.pack(side=tk.LEFT, anchor="w", padx=(12, 0))
-
         self.settings_btn = tk.Button(
-            self.top_frame, text="⚙ Configurações",
+            self.header_top, text="⚙ Config",
             font=("Segoe UI", 9), relief=tk.FLAT,
-            cursor="hand2", padx=6, pady=2,
+            cursor="hand2", padx=8, pady=3,
             command=self._open_config_prompt
         )
         self.settings_btn.pack(side=tk.RIGHT, anchor="e")
 
-        self.api_btn = tk.Button(
-            self.top_frame, text="🔑 API de IA",
-            font=("Segoe UI", 9, "bold"), relief=tk.FLAT,
-            cursor="hand2", padx=6, pady=2,
-            command=self._open_ai_api
+        # Linha 2: Badges de status
+        self.header_badges = tk.Frame(self.top_frame)
+        self.header_badges.pack(fill=tk.X, pady=(6, 0))
+
+        self.version_badge = tk.Label(
+            self.header_badges, text=f"v{_APP_VERSION}",
+            font=("Segoe UI", 9, "bold"), padx=6, pady=1
         )
-        self.api_btn.pack(side=tk.RIGHT, anchor="e", padx=(0, 6))
+        self.version_badge.pack(side=tk.LEFT, anchor="w")
 
         self.ai_status_lbl = tk.Label(
-            self.top_frame, text="",
+            self.header_badges, text="",
             font=("Segoe UI", 9)
         )
-        self.ai_status_lbl.pack(side=tk.TOP, anchor="w", pady=(4, 0))
+        self.ai_status_lbl.pack(side=tk.LEFT, anchor="w", padx=(8, 0))
+
+        self.update_status_lbl = tk.Label(
+            self.header_badges, text="⏳ Checando...",
+            font=("Segoe UI", 9)
+        )
+        self.update_status_lbl.pack(side=tk.LEFT, anchor="w", padx=(8, 0))
 
         self.status_frame = tk.Frame(
-            self.top_frame,
-            padx=8, pady=3,
+            self.header_badges,
+            padx=10, pady=4,
             highlightthickness=1,
             bd=0
         )
-        self.status_frame.pack(side=tk.TOP, anchor="w", pady=(6, 12))
+        self.status_frame.pack(side=tk.RIGHT, anchor="e")
 
         self.status_lbl = tk.Label(
             self.status_frame, text="Carregando contexto...",
@@ -384,7 +410,41 @@ class ChatApp:
         )
         self.status_lbl.pack()
 
+        # Separador após cabeçalho
+        self.header_sep = tk.Frame(self.top_frame, height=1)
+        self.header_sep.pack(fill=tk.X, pady=(12, 0))
 
+        # ── Toolbar de ações rápidas ─────────────────────────────────────────
+        self.toolbar_frame = tk.Frame(self.root)
+        self.toolbar_frame.pack(side=tk.TOP, fill=tk.X, padx=20, pady=(8, 0))
+
+        self.new_chat_btn = tk.Button(
+            self.toolbar_frame, text="💬 Nova Conversa",
+            font=("Segoe UI", 9), relief=tk.FLAT,
+            cursor="hand2", padx=8, pady=3,
+            command=self.new_conversation
+        )
+        self.new_chat_btn.pack(side=tk.LEFT)
+
+        self.reload_ctx_btn = tk.Button(
+            self.toolbar_frame, text="📄 Recarregar Contexto",
+            font=("Segoe UI", 9), relief=tk.FLAT,
+            cursor="hand2", padx=8, pady=3,
+            command=self.load_context
+        )
+        self.reload_ctx_btn.pack(side=tk.LEFT, padx=(6, 0))
+
+        self.copy_reply_btn = tk.Button(
+            self.toolbar_frame, text="📋 Copiar Resposta",
+            font=("Segoe UI", 9), relief=tk.FLAT,
+            cursor="hand2", padx=8, pady=3,
+            command=self.copy_last_reply
+        )
+        self.copy_reply_btn.pack(side=tk.LEFT, padx=(6, 0))
+
+        # Separador após toolbar
+        self.toolbar_sep = tk.Frame(self.toolbar_frame, height=1)
+        self.toolbar_sep.pack(fill=tk.X, pady=(8, 0))
 
         # ── Rodapé ───────────────────────────────────────────────────────────
         _footer_text = f"{_ORG}  ·  {_APP_AUTHOR}  ·  {_LICENSE}  ·  {_MOTTO}"
@@ -392,11 +452,17 @@ class ChatApp:
             self.root, text=_footer_text,
             font=("Segoe UI", 8), anchor="center"
         )
-        self.footer_lbl.pack(side=tk.BOTTOM, fill=tk.X, pady=(0, 4))
+        self.footer_lbl.pack(side=tk.BOTTOM, fill=tk.X, pady=(0, 6))
 
         # ── Área de entrada ──────────────────────────────────────────────────
         self.input_outer = tk.Frame(self.root)
-        self.input_outer.pack(side=tk.BOTTOM, fill=tk.X, padx=24, pady=(8, 12))
+        self.input_outer.pack(side=tk.BOTTOM, fill=tk.X, padx=20, pady=(4, 10))
+
+        self.input_hint = tk.Label(
+            self.input_outer, text="Enter para enviar  ·  Shift+Enter para nova linha",
+            font=("Segoe UI", 8), anchor="w"
+        )
+        self.input_hint.pack(side=tk.BOTTOM, anchor="w", pady=(2, 0))
 
         self.input_border = tk.Frame(self.input_outer, bd=1, relief=tk.SOLID)
         self.input_border.pack(side=tk.LEFT, expand=True, fill=tk.BOTH)
@@ -409,41 +475,57 @@ class ChatApp:
         self.input_text.pack(expand=True, fill=tk.BOTH)
         self.input_text.bind("<Return>", self.on_enter)
         self.input_text.bind("<Shift-Return>", self.on_shift_enter)
+        self.input_text.bind("<Key>", self._on_input_key, add="+")
 
         self.send_btn = tk.Button(
-            self.input_outer, text="Enviar ➤", width=10,
+            self.input_outer, text="Enviar ➤",
             font=("Segoe UI", 11, "bold"), relief=tk.FLAT,
-            cursor="hand2", padx=0, pady=0,
+            cursor="hand2", padx=14, pady=0,
             command=self.send_or_cancel
         )
-        self.send_btn.pack(side=tk.RIGHT, fill=tk.Y, padx=(12, 0))
+        self.send_btn.pack(side=tk.RIGHT, fill=tk.Y, padx=(10, 0))
 
         self.input_sep = tk.Frame(self.root, height=1)
         self.input_sep.pack(side=tk.BOTTOM, fill=tk.X)
 
         # ── Área de chat ──────────────────────────────────────────────────────
         self.chat_border = tk.Frame(self.root, bd=1, relief=tk.SOLID)
-        self.chat_border.pack(expand=True, fill=tk.BOTH, padx=24, pady=(8, 0))
+        self.chat_border.pack(expand=True, fill=tk.BOTH, padx=20, pady=(4, 0))
 
         self.chat_area = scrolledtext.ScrolledText(
             self.chat_border, wrap=tk.WORD,
             font=("Segoe UI", 11), relief=tk.FLAT,
-            padx=12, pady=10, state=tk.DISABLED, bd=0
+            padx=14, pady=12, state=tk.DISABLED, bd=0
         )
         self.chat_area.pack(expand=True, fill=tk.BOTH)
+
+    def _on_input_key(self, event=None):
+        """Redimensiona a área de entrada automaticamente conforme o conteúdo."""
+        self.root.after_idle(self._auto_resize_input)
+
+    def _auto_resize_input(self):
+        """Ajusta a altura da entrada com base no número de linhas (máx. 6)."""
+        try:
+            num_lines = int(self.input_text.index('end-1c').split('.')[0])
+            new_height = max(2, min(6, num_lines))
+            if self.input_text.cget('height') != new_height:
+                self.input_text.configure(height=new_height)
+        except Exception:
+            pass
 
     def append_message(self, role: str, message: str) -> None:
         self.chat_area.config(state=tk.NORMAL)
         if role == "User":
             self.chat_area.insert(tk.END, "Você:\n", "user_tag")
             self.chat_area.insert(tk.END, f"{message}\n", "user_msg")
-            self.chat_area.insert(tk.END, "\n")
         elif role == "Sistema":
-            self.chat_area.insert(tk.END, f"⚠ {message}\n\n", "sys_tag")
+            self.chat_area.insert(tk.END, f"⚠ {message}\n", "sys_tag")
         else:
             self.chat_area.insert(tk.END, "IA:\n", "ai_tag")
             self.chat_area.insert(tk.END, f"{message}\n", "ai_msg")
-            self.chat_area.insert(tk.END, "\n")
+
+        # Separador visual entre mensagens
+        self.chat_area.insert(tk.END, "─" * 60 + "\n\n", "msg_sep")
 
         self.chat_area.see(tk.END)
         self.chat_area.config(state=tk.DISABLED)
@@ -707,7 +789,10 @@ class ChatApp:
         self._reload_doc_text()
 
         self.input_text.delete("1.0", tk.END)
-        display_msg = "Por favor, verifique a consistência do documento."
+        # Exibe o texto exato do prompt de consistência enviado à IA
+        from config_prompt import load_consistency_prompt
+        today_prefix = get_today_date_text()
+        display_msg = f"{today_prefix}\n{load_consistency_prompt()}"
         self.append_message("User", display_msg)
 
         self.is_generating = True
@@ -787,26 +872,14 @@ class ChatApp:
 
     def _on_new_conversation_ready(self, greeting: str) -> None:
         self.update_status("Pronto para conversar")
+        self._update_ai_status()
+        # Exibe o texto exato do prompt enviado como instrução do sistema
+        if self.system_instruction:
+            self.append_message("User", self.system_instruction)
         self.append_message("AI", greeting)
+        if self.doc_text and self.doc_text.strip() and "nenhum documento" not in self.doc_text.lower():
+            self.run_consistency_check()
         LOGGER.info("New conversation started")
-
-    def _open_ai_api(self) -> None:
-        """Abre o diálogo de configuração da API de IA (chave, modelo, teste)."""
-        try:
-            from config_prompt import open_ai_api_dialog
-        except ImportError:
-            from z7_theme import show_error
-            show_error("Erro", "Módulo de configuração da API não disponível.", parent=self.root)
-            return
-
-        def _on_api_saved(api_key: str, model: str) -> None:
-            """Callback chamado quando o usuário salva no diálogo de API."""
-            LOGGER.info("API settings saved – reinitializing client (model=%s)", model)
-            self._model = model
-            # Reinicializa o client OpenAI com a nova chave/modelo
-            threading.Thread(target=self._reinit_client, args=(api_key, model), daemon=True).start()
-
-        open_ai_api_dialog(self.root, self.mode, on_saved=_on_api_saved)
 
     def _reinit_client(self, api_key: str, model: str) -> None:
         """Reinstancia o client OpenAI com nova chave e modelo."""
@@ -1055,10 +1128,9 @@ class ChatApp:
     def _on_ai_ready(self) -> None:
         self.update_status("Pronto para conversar")
         self._update_ai_status()
-        # Exibe o prompt inicial como primeira mensagem do usuário na interface
-        initial_prompt = getattr(self, 'initial_prompt_text', '')
-        if initial_prompt:
-            self.append_message("User", initial_prompt)
+        # Exibe o texto exato do prompt enviado como instrução do sistema
+        if self.system_instruction:
+            self.append_message("User", self.system_instruction)
         self.append_message("AI", getattr(self, 'initial_greeting', "Olá! Como posso ajudar?"))
         if self.doc_text and self.doc_text.strip() and "nenhum documento" not in self.doc_text.lower():
             self.run_consistency_check()
