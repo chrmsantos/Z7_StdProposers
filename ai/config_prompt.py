@@ -16,7 +16,7 @@ LOGGER = configure_component_logger("config_prompt")
 
 GITHUB_REPO_URL = "https://github.com/chrmsantos/Z7_StdProposers"
 
-_APP_VERSION = "8.0.6"
+_APP_VERSION = "8.1.0"
 _APP_AUTHOR  = "CMS"
 _ORG         = "Câmara Municipal de Santa Bárbara d'Oeste"
 _LICENSE     = "GPL-3.0"
@@ -1095,7 +1095,7 @@ def open_api_key_dialog(parent: tk.Tk, theme_mode: str) -> None:
 
 def main() -> None:
     LOGGER.info("Starting prompt configuration UI")
-    
+
     try:
         import win32com.client
         try:
@@ -1105,173 +1105,192 @@ def main() -> None:
         word.StatusBar = "Z7: Abrindo Configuracoes..."
     except Exception as e:
         LOGGER.warning("Could not connect to Word to update status bar: %s", str(e))
-        
+
     root = tk.Tk()
     root.title(f"Configurar Prompt — Z7 StdProposers v{_APP_VERSION}")
-    
+
     screen_width = root.winfo_screenwidth()
     screen_height = root.winfo_screenheight()
-    
-    chat_width = int(screen_width * 2 / 3 * 1.15 * 1.10 * 0.70 * 1.10)
-    chat_height = int(screen_height * 0.92 * 0.90 * 1.05)
-    chat_left = 0
-    chat_top = int(screen_height * 0.02)
-    
-    root.geometry(f"{chat_width}x{chat_height}+{chat_left}+{chat_top}")
+
+    win_width = int(screen_width * 2 / 3 * 1.15 * 1.10 * 0.70 * 1.10)
+    win_height = int(screen_height * 0.92 * 0.90 * 1.05)
+    win_left = 0
+    win_top = int(screen_height * 0.02)
+
+    root.geometry(f"{win_width}x{win_height}+{win_left}+{win_top}")
     root.minsize(300, 500)
-    
+
     theme = AppTheme(root)
-    
-    # Faz a janela aparecer na frente
     root.attributes('-topmost', True)
-    
-    # Botão de tema no canto superior
-    toggle_btn = tk.Button(root, font=("Segoe UI", 9), relief=tk.FLAT, cursor="hand2", command=theme.toggle, bd=0)
-    toggle_btn.place(relx=0.03, rely=0.03)
-    theme.widgets['toggle_btn'] = toggle_btn
-    
-    lbl = tk.Label(root, text="Instruções para a Inteligência Artificial", font=("Segoe UI", 16, "bold"))
-    lbl.pack(pady=(35, 5))
+
+    # ── Cabeçalho ─────────────────────────────────────────────────────────
+    header_frame = tk.Frame(root)
+    header_frame.pack(fill=tk.X, padx=25, pady=(20, 0))
+    theme.widgets['header_frame'] = header_frame
+
+    # Linha 1: Título + versão + tema
+    title_row = tk.Frame(header_frame)
+    title_row.pack(fill=tk.X)
+    theme.widgets['title_row'] = title_row
+
+    lbl = tk.Label(title_row, text="⚙ Configurações do Prompt",
+                   font=("Segoe UI", 16, "bold"))
+    lbl.pack(side=tk.LEFT, anchor="w")
     theme.widgets['title_lbl'] = lbl
-    
-    info_lbl = tk.Label(root, text="Personalize os prompts enviados à IA ao inicializar o chat.", font=("Segoe UI", 10))
-    info_lbl.pack(pady=(0, 20))
+
+    version_badge = tk.Label(title_row, text=f"v{_APP_VERSION}",
+                             font=("Segoe UI", 10, "bold"), padx=6, pady=1)
+    version_badge.pack(side=tk.LEFT, anchor="w", padx=(8, 0))
+    theme.widgets['version_badge'] = version_badge
+
+    toggle_btn = tk.Button(title_row, font=("Segoe UI", 9), relief=tk.FLAT,
+                           cursor="hand2", command=theme.toggle, bd=0)
+    toggle_btn.pack(side=tk.RIGHT, anchor="e")
+    theme.widgets['toggle_btn'] = toggle_btn
+
+    info_lbl = tk.Label(header_frame,
+                        text="Defina o prompt inicial enviado à IA ao analisar o documento.",
+                        font=("Segoe UI", 10))
+    info_lbl.pack(anchor="w", pady=(4, 0))
     theme.widgets['info_lbl'] = info_lbl
 
-    btn_frame = tk.Frame(root)
-    theme.widgets['btn_frame'] = btn_frame
+    # Separador
+    tk.Frame(header_frame, height=1).pack(fill=tk.X, pady=(12, 0))
 
-    # Botão de API de IA (transferred from chat_ia)
-    api_btn_frame = tk.Frame(root)
-    api_btn_frame.pack(fill=tk.X, padx=25, pady=(0, 10))
-    theme.widgets['api_btn_frame'] = api_btn_frame
+    # ── Status bar (API + Update) ─────────────────────────────────────────
+    status_frame = tk.Frame(root)
+    status_frame.pack(fill=tk.X, padx=25, pady=(10, 0))
+    theme.widgets['status_frame'] = status_frame
 
-    api_btn = tk.Button(api_btn_frame, text="🔑 API de IA", font=("Segoe UI", 10, "bold"),
-                        relief=tk.FLAT, cursor="hand2", padx=10, pady=4,
+    # API button
+    api_btn = tk.Button(status_frame, text="🔑 API de IA", font=("Segoe UI", 9, "bold"),
+                        relief=tk.FLAT, cursor="hand2", padx=8, pady=3,
                         command=lambda: open_ai_api_dialog(root, theme.mode))
     api_btn.pack(side=tk.LEFT)
     theme.widgets['api_btn'] = api_btn
 
-    # Badge de status de atualização (lido do arquivo compartilhado com chat_ia)
+    # Update status badge (independent check)
     _colors = z7_theme.get_theme_colors(theme.mode)
-    update_status_val = read_update_status()
-    if update_status_val == "up_to_date":
-        update_text = "✔ App atualizado"
-        update_fg = "#10b981"
-    elif update_status_val == "update_available":
-        update_text = "🔄 Atualização disponível"
-        update_fg = "#f59e0b"
-    elif update_status_val == "error":
-        update_text = "⚠ Erro ao checar atualização"
-        update_fg = "#ef4444"
-    else:
-        update_text = "⏳ Checando atualizações..."
-        update_fg = _colors["fg_muted"]
-    update_status_lbl = tk.Label(api_btn_frame, text=update_text, font=("Segoe UI", 9), fg=update_fg, bg=_colors["bg"])
+    update_status_lbl = tk.Label(status_frame, text="⏳ Checando atualizações...",
+                                 font=("Segoe UI", 9), fg=_colors["fg_muted"],
+                                 bg=_colors["bg"])
     update_status_lbl.pack(side=tk.LEFT, padx=(12, 0))
     theme.widgets['update_status_lbl'] = update_status_lbl
 
-    # Área de texto dos prompts (abas)
+    # Run independent update check in background
+    def _check_updates_bg() -> None:
+        try:
+            data = get_latest_github_release()
+            tag_name = data.get("tag_name", "").strip()
+            if not tag_name:
+                tag_name = data.get("name", "").strip()
+            if not tag_name:
+                root.after(0, lambda: update_status_lbl.config(
+                    text="⚠ Erro ao checar atualização", fg="#ef4444"))
+                return
+            comparison = compare_versions(tag_name, _APP_VERSION)
+            if comparison > 0:
+                root.after(0, lambda: update_status_lbl.config(
+                    text="🔄 Atualização disponível", fg="#f59e0b"))
+            else:
+                root.after(0, lambda: update_status_lbl.config(
+                    text="✔ App atualizado",
+                    fg="#10b981"))
+        except Exception as ex:
+            LOGGER.warning("Background update check failed: %s", ex)
+            root.after(0, lambda: update_status_lbl.config(
+                text="⚠ Erro ao checar atualização", fg="#ef4444"))
+
+    threading.Thread(target=_check_updates_bg, daemon=True).start()
+
+    # ── Área de texto única ───────────────────────────────────────────────
     frame = tk.Frame(root)
     theme.widgets['border_frame'] = frame
 
-    notebook = ttk.Notebook(frame)
+    # Label da área de texto
+    prompt_label = tk.Label(frame, text="PROMPT INICIAL PARA IA",
+                            font=("Segoe UI", 10, "bold"), anchor="w")
+    prompt_label.pack(fill=tk.X, padx=2, pady=(4, 2))
+    theme.widgets['prompt_label'] = prompt_label
 
-    # Aba 1: Prompt do Chat (instrução do sistema enviada automaticamente)
-    chat_tab = tk.Frame(notebook)
-    notebook.add(chat_tab, text=" 💬 Prompt do Chat ")
-    chat_inner = tk.Frame(chat_tab)
-    chat_inner.pack(expand=True, fill=tk.BOTH)
-    chat_text_area = tk.Text(chat_inner, wrap=tk.WORD, font=("Consolas", 11), relief=tk.FLAT, padx=12, pady=12)
-    chat_text_area.pack(side=tk.LEFT, expand=True, fill=tk.BOTH, padx=1, pady=1)
-    chat_scrollbar = tk.Scrollbar(chat_inner, command=chat_text_area.yview)
-    chat_scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
-    chat_text_area.config(yscrollcommand=chat_scrollbar.set)
-    chat_text_area.insert(tk.END, load_chat_system_prompt())
-    theme.widgets['chat_text_area'] = chat_text_area
+    text_inner = tk.Frame(frame)
+    text_inner.pack(expand=True, fill=tk.BOTH)
 
-    # Aba 2: Verificação de Consistência (prompt enviado automaticamente ao inicializar)
-    consistency_tab = tk.Frame(notebook)
-    notebook.add(consistency_tab, text=" 📋 Verificação de Consistência ")
-    consistency_inner = tk.Frame(consistency_tab)
-    consistency_inner.pack(expand=True, fill=tk.BOTH)
-    text_area = tk.Text(consistency_inner, wrap=tk.WORD, font=("Consolas", 11), relief=tk.FLAT, padx=12, pady=12)
+    text_area = tk.Text(text_inner, wrap=tk.WORD, font=("Consolas", 11),
+                        relief=tk.FLAT, padx=12, pady=12)
     text_area.pack(side=tk.LEFT, expand=True, fill=tk.BOTH, padx=1, pady=1)
-    scrollbar = tk.Scrollbar(consistency_inner, command=text_area.yview)
+    scrollbar = tk.Scrollbar(text_inner, command=text_area.yview)
     scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
     text_area.config(yscrollcommand=scrollbar.set)
-    text_area.insert(tk.END, load_consistency_prompt())
+    text_area.insert(tk.END, load_chat_system_prompt())
     theme.widgets['text_area'] = text_area
 
-    notebook.pack(expand=True, fill=tk.BOTH, padx=1, pady=1)
-    theme.widgets['notebook'] = notebook
+    # ── Botões de ação ────────────────────────────────────────────────────
+    btn_frame = tk.Frame(root)
+    theme.widgets['btn_frame'] = btn_frame
 
-    # Estilos de botão
     btn_font = ("Segoe UI", 10, "bold")
 
     def do_save() -> None:
-        chat_prompt = chat_text_area.get("1.0", tk.END).strip()
-        consistency_text = text_area.get("1.0", tk.END).strip()
-
-        if not consistency_text:
-            z7_theme.show_warning("Aviso", "O prompt de Verificação de Consistência não pode estar vazio.", parent=root)
+        prompt_text = text_area.get("1.0", tk.END).strip()
+        if not prompt_text:
+            z7_theme.show_warning("Aviso",
+                                 "O prompt não pode estar vazio.", parent=root)
             return
-
-        # Salva o prompt do chat (instrução do sistema)
-        save_chat_system_prompt(chat_prompt)
-
-        # Salva o prompt de consistência
-        consistency_file = get_consistency_prompt_file_path()
-        try:
-            consistency_file.write_text(consistency_text, encoding='utf-8')
-            LOGGER.info("Consistency prompt saved successfully")
-        except Exception as e:
-            log_exception(LOGGER, "Failed to save consistency prompt", e)
-            z7_theme.show_error("Erro", f"Erro ao salvar prompt de consistência:\n{e}", parent=root)
-            return
-
+        save_chat_system_prompt(prompt_text)
         root.destroy()
 
-    save_btn = tk.Button(btn_frame, text="Salvar Configuração", width=20, bg="#2563eb", fg="white", font=btn_font, relief=tk.FLAT, activebackground="#1d4ed8", activeforeground="white", cursor="hand2", command=do_save)
+    save_btn = tk.Button(btn_frame, text="💾  Salvar", width=18,
+                         bg="#2563eb", fg="white", font=btn_font,
+                         relief=tk.FLAT, activebackground="#1d4ed8",
+                         activeforeground="white", cursor="hand2",
+                         command=do_save)
     save_btn.pack(side=tk.RIGHT, padx=25)
-    
-    cancel_btn = tk.Button(btn_frame, text="Cancelar", width=15, font=btn_font, relief=tk.FLAT, cursor="hand2", command=root.destroy)
+
+    cancel_btn = tk.Button(btn_frame, text="Cancelar", width=12,
+                           font=btn_font, relief=tk.FLAT, cursor="hand2",
+                           command=root.destroy)
     cancel_btn.pack(side=tk.RIGHT, padx=5)
 
     def do_restore() -> None:
-        chat_text_area.delete("1.0", tk.END)
-        chat_text_area.insert(tk.END, DEFAULT_CHAT_SYSTEM_PROMPT)
         text_area.delete("1.0", tk.END)
-        text_area.insert(tk.END, DEFAULT_CONSISTENCY_PROMPT)
+        text_area.insert(tk.END, DEFAULT_CHAT_SYSTEM_PROMPT)
 
-    restore_btn = tk.Button(btn_frame, text="Restaurar Padrão", width=18, font=btn_font, relief=tk.FLAT, cursor="hand2", command=do_restore)
+    restore_btn = tk.Button(btn_frame, text="Restaurar Padrão", width=16,
+                            font=btn_font, relief=tk.FLAT, cursor="hand2",
+                            command=do_restore)
     restore_btn.pack(side=tk.LEFT, padx=25)
 
     import webbrowser
-    github_btn = tk.Button(btn_frame, text="⧉ GitHub", font=("Segoe UI", 9), relief=tk.FLAT, cursor="hand2",
+    github_btn = tk.Button(btn_frame, text="⧉ GitHub", font=("Segoe UI", 9),
+                           relief=tk.FLAT, cursor="hand2",
                            command=lambda: webbrowser.open(GITHUB_REPO_URL))
     github_btn.pack(side=tk.LEFT, padx=(0, 5))
     theme.widgets.setdefault('sec_btns', []).append(github_btn)
 
-    update_btn = tk.Button(btn_frame, text="🔄 Atualizar...", font=("Segoe UI", 9, "bold"), relief=tk.FLAT, cursor="hand2",
+    update_btn = tk.Button(btn_frame, text="🔄 Atualizar...",
+                           font=("Segoe UI", 9, "bold"), relief=tk.FLAT,
+                           cursor="hand2",
                            command=lambda: check_for_updates_ui(root))
     update_btn.pack(side=tk.LEFT, padx=(5, 5))
     theme.widgets.setdefault('sec_btns', []).append(update_btn)
 
     theme.widgets['sec_btns'] = [cancel_btn, restore_btn, github_btn, update_btn]
-    
-    # Rodapé
+
+    # ── Rodapé ────────────────────────────────────────────────────────────
     _footer_text = f"{_ORG}  ·  {_APP_AUTHOR}  ·  {_LICENSE}  ·  {_MOTTO}"
-    footer_lbl = tk.Label(root, text=_footer_text, font=("Segoe UI", 8), anchor="center")
+    footer_lbl = tk.Label(root, text=_footer_text, font=("Segoe UI", 8),
+                          anchor="center")
     theme.widgets['footer_lbl'] = footer_lbl
 
     # Aplica o tema inicial
     theme.apply()
 
-    # Pack in order so btn_frame is fixed at the bottom
+    # Pack order: footer and buttons fixed at bottom, text area fills rest
     footer_lbl.pack(side=tk.BOTTOM, fill=tk.X, pady=(0, 5))
-    btn_frame.pack(side=tk.BOTTOM, fill=tk.X, pady=(20, 5))
-    frame.pack(side=tk.TOP, expand=True, fill=tk.BOTH, padx=25, pady=(0, 10))
+    btn_frame.pack(side=tk.BOTTOM, fill=tk.X, pady=(15, 5))
+    status_frame.pack(fill=tk.X, padx=25, pady=(10, 0))
+    frame.pack(side=tk.TOP, expand=True, fill=tk.BOTH, padx=25, pady=(4, 10))
 
     root.mainloop()
 

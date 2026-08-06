@@ -91,6 +91,53 @@ function Package-Artifact {
 
 
 
+# ── Tcl/Tk environment for PyInstaller + tkinter ──────────────────────
+# PyInstaller's _tkinter hook needs TCL_LIBRARY / TK_LIBRARY to bundle the
+# Tcl/Tk data directories (_tcl_data / _tk_data).  Detect them from the
+# active Python and export before invoking PyInstaller.
+function Set-TkinterEnvironment {
+	Write-Host "Detectando Tcl/Tk para empacotamento..."
+	$pyLines = & python -c @"
+import os, sys
+prefix = sys.prefix
+tcl_base = os.path.join(prefix, 'tcl')
+if os.path.isdir(tcl_base):
+    # Prefer the most specific versioned directory (e.g. tcl8.6 over tcl8)
+    tcl_best = ''
+    tk_best  = ''
+    for name in os.listdir(tcl_base):
+        full = os.path.join(tcl_base, name)
+        if not os.path.isdir(full):
+            continue
+        low = name.lower()
+        if low.startswith('tcl') and '.' in low:
+            if low > tcl_best:
+                tcl_best = low
+                print('TCL_LIBRARY=' + full)
+        elif low.startswith('tk') and '.' in low:
+            if low > tk_best:
+                tk_best = low
+                print('TK_LIBRARY=' + full)
+"@ 2>&1
+
+	foreach ($line in $pyLines) {
+		$s = "$line".Trim()
+		if ($s -match '^TCL_LIBRARY=(.+)$') {
+			$env:TCL_LIBRARY = $Matches[1]
+			Write-Host "  TCL_LIBRARY = $env:TCL_LIBRARY"
+		}
+		elseif ($s -match '^TK_LIBRARY=(.+)$') {
+			$env:TK_LIBRARY = $Matches[1]
+			Write-Host "  TK_LIBRARY  = $env:TK_LIBRARY"
+		}
+	}
+
+	if (-not $env:TCL_LIBRARY -or -not $env:TK_LIBRARY) {
+		Write-Warning "Nao foi possivel detectar TCL_LIBRARY/TK_LIBRARY. O executavel pode falhar ao iniciar."
+	}
+}
+Set-TkinterEnvironment
+
 Write-Host "Compilando config_prompt.py..."
 Invoke-PyInstaller -ScriptName "config_prompt.py"
 Install-Executable -Name "config_prompt"

@@ -12,11 +12,17 @@ _DEFAULT_MODEL = 'deepseek/deepseek-chat'
 _OPENROUTER_BASE_URL = 'https://openrouter.ai/api/v1'
 _MAX_CONTEXT_CHARS = 150_000
 
-_APP_VERSION = "8.0.6"
+_APP_VERSION = "8.1.0"
 _APP_AUTHOR  = "CMS"
 _ORG         = "Câmara Municipal de Santa Bárbara d'Oeste"
 _LICENSE     = "GPL-3.0"
 _MOTTO       = "Dharma, virtude e gratidão."
+
+# Fixed first user message displayed when chat starts
+_FIRST_USER_MSG = (
+    "Leia o documento, identifique erros e proponha sugestões de correção. "
+    "Atenda às tarefas descritas e detalhadas nas configurações de prompt."
+)
 
 def get_today_date_text() -> str:
     """Retorna a data atual formatada como 'Hoje é DD de MM de AAAA.'"""
@@ -68,13 +74,11 @@ class ChatApp:
         self._context_pending = False
         self._doc_load_error = ""
         self.current_status_text = "Carregando contexto..."
-        self._update_status = "checking"
 
         self.build_ui()
         self.apply_theme()
         
         self._update_ai_status()
-        self._check_for_updates_silent()
 
         self._load_doc_text_main_thread()
         self.init_ai()
@@ -211,8 +215,7 @@ class ChatApp:
         if hasattr(self, 'version_badge'):
             self.version_badge.configure(bg=colors["btn_primary_bg"], fg="white")
 
-        # Refresh all status badges with current mode
-        self._set_update_status(self._update_status)
+        # Refresh AI status badge
         self._update_ai_status()
         self.update_status(self.current_status_text)
 
@@ -254,41 +257,6 @@ class ChatApp:
         except Exception:
             pass
 
-    def _set_update_status(self, status: str) -> None:
-        """Atualiza o badge de status de atualização."""
-        self._update_status = status
-        if not hasattr(self, 'update_status_lbl'):
-            return
-
-        colors = z7_theme.get_theme_colors(self.mode)
-
-        if status == "checking":
-            text = "⏳ Checando..."
-            fg_color = colors["fg_muted"]
-        elif status == "up_to_date":
-            text = "✔ App atualizado"
-            fg_color = "#10b981" if self.mode == "light" else "#34d399"
-        elif status == "update_available":
-            text = "🔄 Atualização disponível"
-            fg_color = "#f59e0b" if self.mode == "light" else "#fbbf24"
-        elif status == "error":
-            text = "⚠ Erro ao checar"
-            fg_color = "#ef4444"
-        else:
-            text = ""
-            fg_color = colors["fg_muted"]
-
-        def _apply():
-            try:
-                self.update_status_lbl.config(text=text, fg=fg_color, bg=colors["bg"])
-            except Exception:
-                pass
-
-        try:
-            self.root.after(0, _apply)
-        except Exception:
-            pass
-
     def _update_ai_status(self) -> None:
         """Atualiza o badge de status da IA (modelo + validação)."""
         if not hasattr(self, 'ai_status_lbl'):
@@ -316,44 +284,6 @@ class ChatApp:
             self.root.after(0, _apply)
         except Exception:
             pass
-
-    @staticmethod
-    def _write_update_status_file(status: str) -> None:
-        """Escreve o status de atualização em arquivo compartilhado para config_prompt."""
-        import json
-        from z7_logging import get_data_dir
-        try:
-            status_file = get_data_dir() / "update_status.json"
-            status_file.write_text(json.dumps({"status": status}), encoding="utf-8")
-        except Exception:
-            pass
-
-    def _check_for_updates_silent(self) -> None:
-        """Verifica atualizações silenciosamente em background."""
-        def _run():
-            try:
-                from config_prompt import get_latest_github_release, compare_versions
-                data = get_latest_github_release()
-                tag_name = data.get("tag_name", "").strip()
-                if not tag_name:
-                    tag_name = data.get("name", "").strip()
-                if not tag_name:
-                    self._write_update_status_file("error")
-                    self.root.after(0, lambda: self._set_update_status("error"))
-                    return
-                comparison = compare_versions(tag_name, _APP_VERSION)
-                if comparison > 0:
-                    self._write_update_status_file("update_available")
-                    self.root.after(0, lambda: self._set_update_status("update_available"))
-                else:
-                    self._write_update_status_file("up_to_date")
-                    self.root.after(0, lambda: self._set_update_status("up_to_date"))
-            except Exception as e:
-                LOGGER.warning("Silent update check failed: %s", e)
-                self._write_update_status_file("error")
-                self.root.after(0, lambda: self._set_update_status("error"))
-
-        threading.Thread(target=_run, daemon=True).start()
 
     def build_ui(self) -> None:
         # ── Cabeçalho ────────────────────────────────────────────────────────
@@ -393,12 +323,6 @@ class ChatApp:
             font=("Segoe UI", 9)
         )
         self.ai_status_lbl.pack(side=tk.LEFT, anchor="w", padx=(8, 0))
-
-        self.update_status_lbl = tk.Label(
-            self.header_badges, text="⏳ Checando...",
-            font=("Segoe UI", 9)
-        )
-        self.update_status_lbl.pack(side=tk.LEFT, anchor="w", padx=(8, 0))
 
         self.status_frame = tk.Frame(
             self.header_badges,
@@ -737,70 +661,37 @@ class ChatApp:
 
         self.root.after(0, self._on_message_received, reply)
 
-    def run_grammar_check(self) -> None:
-        if self.is_generating or not self.client:
-            return
-        
-        self._reload_doc_text()
-        
-        self.input_text.delete("1.0", tk.END)
-        display_msg = "Por favor, corrija a gramática do documento."
-        self.append_message("User", display_msg)
-
+    def _start_initial_analysis(self) -> None:
+        """Envia o prompt configurado + documento para a IA realizar a análise inicial."""
         self.is_generating = True
         self._cancel_requested = False
-        self.update_status("IA corrigindo gramática...")
+        self.update_status("IA analisando documento...")
         self.send_btn.config(text="Cancelar")
+        threading.Thread(target=self._initial_analysis_thread, daemon=True).start()
 
-        threading.Thread(target=self._run_task_thread, args=("grammar",), daemon=True).start()
-
-    def run_consistency_check(self) -> None:
-        if self.is_generating or not self.client:
-            return
-
-        self._reload_doc_text()
-
-        self.input_text.delete("1.0", tk.END)
-        # Exibe o texto exato do prompt de consistência enviado à IA
-        from config_prompt import load_consistency_prompt
-        today_prefix = get_today_date_text()
-        display_msg = f"{today_prefix}\n{load_consistency_prompt()}"
-        self.append_message("User", display_msg)
-
-        self.is_generating = True
-        self._cancel_requested = False
-        self.update_status("IA verificando consistência...")
-        self.send_btn.config(text="Cancelar")
-
-        threading.Thread(target=self._run_task_thread, args=("consistency",), daemon=True).start()
-
-    def _run_task_thread(self, task_type: str) -> None:
+    def _initial_analysis_thread(self) -> None:
         try:
-            from config_prompt import load_prompt, load_consistency_prompt
-            
             if not self.doc_text or not self.doc_text.strip() or "nenhum documento" in self.doc_text.lower():
-                reply = "Não há contexto de documento carregado para realizar esta tarefa."
+                reply = "Não há contexto de documento carregado para realizar a análise."
                 self.root.after(0, self._on_message_received, reply)
                 return
 
-            if task_type == "grammar":
-                base_prompt = load_prompt()
-            else:
-                base_prompt = load_consistency_prompt()
-                
             today_prefix = get_today_date_text()
-            prompt = f"{today_prefix}\n{base_prompt}\n\n---INICIO DO DOCUMENTO---\n{self.doc_text}\n---FIM DO DOCUMENTO---\n"
-            
-            LOGGER.info(f"Sending {task_type} task to AI chat")
-            
+            prompt = (
+                f"{today_prefix}\n"
+                f"{_FIRST_USER_MSG}\n\n"
+                f"---INICIO DO DOCUMENTO---\n{self.doc_text}\n---FIM DO DOCUMENTO---\n"
+            )
+
+            LOGGER.info("Sending initial analysis request to AI")
             self.messages.append({"role": "user", "content": prompt})
             reply = self._call_api()
             self.messages.append({"role": "assistant", "content": reply})
         except Exception as e:
-            log_exception(LOGGER, f"{task_type} task failed", e)
-            self._set_word_status(f"Z7: Erro na tarefa {task_type}.")
-            reply = f"Erro ao processar a solicitação: {str(e)}"
-            
+            log_exception(LOGGER, "Initial analysis failed", e)
+            self._set_word_status("Z7: Erro na análise inicial.")
+            reply = f"Erro ao processar a análise: {str(e)}"
+
         self.root.after(0, self._on_message_received, reply)
 
     def new_conversation(self) -> None:
@@ -820,37 +711,36 @@ class ChatApp:
             today_prefix = get_today_date_text()
             chat_system_prompt = load_chat_system_prompt()
             self.system_instruction = f"{today_prefix} {chat_system_prompt}"
-            self.initial_prompt_text = chat_system_prompt
 
             # Pré-popula histórico com contexto do documento
             self._reload_doc_text()
             self.messages = []
-            if self.doc_text and self.doc_text.strip() and "nenhum documento" not in self.doc_text.lower():
+            has_doc = (self.doc_text and self.doc_text.strip()
+                       and "nenhum documento" not in self.doc_text.lower())
+            if has_doc:
                 ctx_user_msg = (
                     f"Abaixo está o texto do documento no Word (contexto desta conversa):\n\n"
                     f"{self.doc_text}"
                 )
                 self.messages.append({"role": "user", "content": ctx_user_msg})
                 self.messages.append({"role": "assistant", "content": "Entendido! Contexto atualizado."})
-                greeting = "✅ Contexto atualizado! Como posso ajudar?"
                 LOGGER.info("New conversation: document context pre-seeded in history")
-            else:
-                greeting = "💬 Nova conversa reiniciada! Como posso ajudar?"
 
-            self.root.after(0, lambda g=greeting: self._on_new_conversation_ready(g))
+            self.root.after(0, self._on_new_conversation_ready)
         except Exception as e:
             log_exception(LOGGER, "Failed to start new conversation", e)
             self.root.after(0, lambda: self.update_status("Erro ao iniciar nova conversa."))
 
-    def _on_new_conversation_ready(self, greeting: str) -> None:
+    def _on_new_conversation_ready(self) -> None:
         self.update_status("Pronto para conversar")
         self._update_ai_status()
-        # Exibe o texto exato do prompt enviado como instrução do sistema
-        if self.system_instruction:
-            self.append_message("User", self.system_instruction)
-        self.append_message("AI", greeting)
+        # Exibe a mensagem fixa pré-definida
+        self.append_message("User", _FIRST_USER_MSG)
+        # Inicia a análise inicial se houver documento
         if self.doc_text and self.doc_text.strip() and "nenhum documento" not in self.doc_text.lower():
-            self.run_consistency_check()
+            self._start_initial_analysis()
+        else:
+            self.append_message("AI", "⚠ Nenhum documento ativo encontrado. Abra um documento no Word e reinicie a conversa.")
         LOGGER.info("New conversation started")
 
     def _reinit_client(self, api_key: str, model: str) -> None:
@@ -1100,12 +990,17 @@ class ChatApp:
     def _on_ai_ready(self) -> None:
         self.update_status("Pronto para conversar")
         self._update_ai_status()
-        # Exibe o texto exato do prompt enviado como instrução do sistema
-        if self.system_instruction:
-            self.append_message("User", self.system_instruction)
-        self.append_message("AI", getattr(self, 'initial_greeting', "Olá! Como posso ajudar?"))
+        # Exibe a mensagem fixa pré-definida
+        self.append_message("User", _FIRST_USER_MSG)
+        # Inicia a análise inicial se houver documento
         if self.doc_text and self.doc_text.strip() and "nenhum documento" not in self.doc_text.lower():
-            self.run_consistency_check()
+            self._start_initial_analysis()
+        else:
+            error_detail = getattr(self, '_doc_load_error', '')
+            if error_detail:
+                self.append_message("AI", f"⚠ Não consegui acessar o documento.\n\nErro: {error_detail}")
+            else:
+                self.append_message("AI", "⚠ Nenhum documento ativo encontrado. Abra um documento no Word.")
 
     def send_message(self) -> None:
         if self.is_generating or not self.client:
