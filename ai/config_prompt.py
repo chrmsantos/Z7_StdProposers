@@ -749,6 +749,8 @@ class AppTheme:
         btn_sec_bg = colors["btn_sec_bg"]
         btn_sec_fg = colors["btn_sec_fg"]
         btn_sec_hover = colors["btn_sec_hover"]
+        select_bg = "#6366f1" if self.mode == "dark" else "#7c3aed"
+        select_fg = "#ffffff"
             
         self.root.configure(bg=bg)
         
@@ -760,7 +762,7 @@ class AppTheme:
         if 'title_lbl' in self.widgets:
             self.widgets['title_lbl'].configure(bg=bg, fg=fg)
         if 'version_badge' in self.widgets:
-            self.widgets['version_badge'].configure(bg=border, fg=fg_muted)
+            self.widgets['version_badge'].configure(bg=colors["btn_primary_bg"], fg="white")
         if 'info_lbl' in self.widgets:
             self.widgets['info_lbl'].configure(bg=bg, fg=fg_muted)
         if 'separator' in self.widgets:
@@ -785,9 +787,15 @@ class AppTheme:
         if 'text_inner' in self.widgets:
             self.widgets['text_inner'].configure(bg=border)
         if 'text_area' in self.widgets:
-            self.widgets['text_area'].configure(bg=text_bg, fg=fg, insertbackground=fg)
+            self.widgets['text_area'].configure(
+                bg=text_bg, fg=fg, insertbackground=fg,
+                selectbackground=select_bg, selectforeground=select_fg,
+                inactiveselectbackground=select_bg)
         if 'chat_text_area' in self.widgets:
-            self.widgets['chat_text_area'].configure(bg=text_bg, fg=fg, insertbackground=fg)
+            self.widgets['chat_text_area'].configure(
+                bg=text_bg, fg=fg, insertbackground=fg,
+                selectbackground=select_bg, selectforeground=select_fg,
+                inactiveselectbackground=select_bg)
         if 'notebook' in self.widgets:
             try:
                 style = ttk.Style()
@@ -846,6 +854,9 @@ def open_ai_api_dialog(
     btn_sec_fg   = colors["btn_sec_fg"]
     btn_sec_hover = colors["btn_sec_hover"]
     btn_primary  = colors.get("btn_primary_bg", "#2563eb")
+    btn_primary_hover = colors.get("btn_primary_hover", "#4f46e5")
+    select_bg = "#6366f1" if theme_mode == "dark" else "#7c3aed"
+    select_fg = "#ffffff"
 
     _RE_API_KEY = _re.compile(
         r"^(sk-or-v1-[0-9a-zA-F]{64}|sk-[0-9A-Za-z\-_]{16,}|[0-9A-Za-z\-_]{16,})$"
@@ -896,6 +907,7 @@ def open_ai_api_dialog(
         api_frame, textvariable=api_var, font=("Segoe UI", 11),
         relief=tk.FLAT, bd=2, show="•", bg=text_bg, fg=fg,
         insertbackground=fg,
+        selectbackground=select_bg, selectforeground=select_fg,
     )
     api_entry.pack(side=tk.LEFT, fill=tk.X, expand=True)
     api_entry.focus_set()
@@ -925,6 +937,7 @@ def open_ai_api_dialog(
     model_entry = tk.Entry(
         dialog, textvariable=model_var, font=("Segoe UI", 11),
         relief=tk.FLAT, bd=2, bg=text_bg, fg=fg, insertbackground=fg,
+        selectbackground=select_bg, selectforeground=select_fg,
     )
     model_entry.pack(fill=tk.X, padx=22)
 
@@ -941,6 +954,8 @@ def open_ai_api_dialog(
         output_frame, wrap=tk.WORD, font=("Consolas", 10),
         relief=tk.FLAT, bd=0, padx=10, pady=8,
         bg=text_bg, fg=fg, insertbackground=fg,
+        selectbackground=select_bg, selectforeground=select_fg,
+        inactiveselectbackground=select_bg,
         state=tk.DISABLED, height=6,
     )
     output_box.pack(fill=tk.BOTH, expand=True, padx=1, pady=1)
@@ -969,7 +984,7 @@ def open_ai_api_dialog(
         dialog, text="💾  Salvar", font=("Segoe UI", 12, "bold"),
         relief=tk.FLAT, cursor="hand2", pady=8,
         bg=btn_primary, fg="white",
-        activebackground="#1d4ed8", activeforeground="white",
+        activebackground=btn_primary_hover, activeforeground="white",
     )
     save_btn.pack(fill=tk.X, padx=22, pady=(14, 4))
 
@@ -1166,7 +1181,7 @@ def main() -> None:
 
     version_badge = tk.Label(title_row, text=f"v{_APP_VERSION}",
                              font=("Segoe UI", 10, "bold"), padx=6, pady=1,
-                             bg=_c["border"], fg=_c["fg_muted"])
+                             bg=_c["btn_primary_bg"], fg="white")
     version_badge.pack(side=tk.LEFT, anchor="w", padx=(8, 0))
     theme.widgets['version_badge'] = version_badge
 
@@ -1251,9 +1266,13 @@ def main() -> None:
     text_inner.pack(expand=True, fill=tk.BOTH)
     theme.widgets['text_inner'] = text_inner
 
+    _select_bg = "#6366f1" if theme.mode == "dark" else "#7c3aed"
+    _select_fg = "#ffffff"
     text_area = tk.Text(text_inner, wrap=tk.WORD, font=("Consolas", 11),
                         relief=tk.FLAT, padx=12, pady=12,
-                        bg=_c["text_bg"], fg=_c["fg"], insertbackground=_c["fg"])
+                        bg=_c["text_bg"], fg=_c["fg"], insertbackground=_c["fg"],
+                        selectbackground=_select_bg, selectforeground=_select_fg,
+                        inactiveselectbackground=_select_bg)
     text_area.pack(side=tk.LEFT, expand=True, fill=tk.BOTH, padx=1, pady=1)
     scrollbar = tk.Scrollbar(text_inner, command=text_area.yview)
     scrollbar.pack(side=tk.RIGHT, fill=tk.Y)

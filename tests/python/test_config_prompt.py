@@ -110,9 +110,9 @@ class TestRestoreDefault(unittest.TestCase):
             root.withdraw()
             text_widget = tk.Text(root)
             text_widget.insert("1.0", "old text")
-            mod.restore_default(text_widget)
+            mod.restore_default_consistency(text_widget)
             content = text_widget.get("1.0", tk.END).strip()
-            self.assertEqual(content, mod.DEFAULT_PROMPT)
+            self.assertEqual(content, mod.DEFAULT_CONSISTENCY_PROMPT)
             root.destroy()
         except tk.TclError:
             self.skipTest("Tkinter display not available")

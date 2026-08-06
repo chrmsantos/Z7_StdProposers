@@ -897,6 +897,10 @@ Public Function PreviousFormatting(doc As Document) As Boolean
     FormatSecondParagraph doc
     LogStepComplete "Formatacao do paragrafo 2 (ementa)"
 
+    LogStepStart "Formatacao do vocativo (recuo 2,5 cm, justificado)"
+    FormatVocativoParagraphs doc
+    LogStepComplete "Formatacao do vocativo (recuo 2,5 cm, justificado)"
+
     LogStepStart "Formatacao de considerandos"
     FormatConsiderandoParagraphs doc
     LogStepComplete "Formatacao de considerandos"
@@ -1995,7 +1999,45 @@ ErrorHandler:
 End Function
 
 '================================================================================
-' HELPER FUNCTIONS FOR BLANK LINES - Funcoes auxiliares para linhas em branco
+' FORMATACAO DO VOCATIVO - Recuo 1a linha 2,5 cm + Texto Justificado
+'================================================================================
+Public Function FormatVocativoParagraphs(doc As Document) As Boolean
+    On Error GoTo ErrorHandler
+
+    Dim rng As Range
+    Set rng = GetVocativoRange(doc)
+    If rng Is Nothing Then
+        FormatVocativoParagraphs = True
+        Exit Function
+    End If
+
+    Dim i As Long
+    For i = vocativoStartIndex To vocativoEndIndex
+        If i < 1 Or i > doc.Paragraphs.Count Then Exit For
+
+        Dim para As Paragraph
+        Set para = doc.Paragraphs(i)
+
+        With para.Range.ParagraphFormat
+            .leftIndent = CentimetersToPoints(0)
+            .firstLineIndent = CentimetersToPoints(2.5)
+            .RightIndent = 0
+        End With
+
+        para.Range.ParagraphFormat.Alignment = wdAlignParagraphJustify
+    Next i
+
+    LogMessage "Vocativo formatado: recuo 1a linha 2,5 cm, texto justificado", LOG_LEVEL_INFO
+    FormatVocativoParagraphs = True
+    Exit Function
+
+ErrorHandler:
+    LogMessage "Erro na formatacao do vocativo: " & Err.Description, LOG_LEVEL_ERROR
+    FormatVocativoParagraphs = False
+End Function
+
+'================================================================================
+' HELPER FUNCTIONS FOR BLANK LINE - Funcoes auxiliares para linhas em branco
 '================================================================================
 ' Nota: CountBlankLinesBefore ja esta definida nas linhas 918-958
 ' (secao de identificacao de estrutura do documento)

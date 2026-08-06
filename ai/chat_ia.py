@@ -446,63 +446,152 @@ class ChatApp:
         self.update_status("Resposta copiada!")
         self.root.after(2000, lambda: self.update_status(old_status))
 
-    def _read_word_doc_text(self, word) -> str:
-        """Lê o texto do documento ativo do Word com retry e múltiplos fallbacks.
+    # ------------------------------------------------------------------
+    # Leitura robusta do documento do Word
+    # ------------------------------------------------------------------
+    @staticmethod
+    def _word_doc_counts(word) -> tuple:
+        """Retorna (docs_normais, docs_protected_view) de forma defensiva.
 
-        Lida com RPC_E_CALL_REJECTED (Word ocupado/modal) tentando novamente,
-        e usa ActiveDocument -> Documents(1) -> ActiveWindow -> Selection.
+        Documentos abertos a partir de pastas temporárias (%%LocalAppData%%\\Temp),
+        anexos de e-mail ou downloads são abertos pelo Word em Protected View e
+        NÃO constam em Documents.Count — apenas em ProtectedViewWindows.Count.
+        """
+        normal = 0
+        protected = 0
+        try:
+            normal = int(word.Documents.Count)
+        except Exception as e:
+            LOGGER.debug("Could not read Documents.Count: %s", e)
+        try:
+            protected = int(word.ProtectedViewWindows.Count)
+        except Exception as e:
+            LOGGER.debug("Could not read ProtectedViewWindows.Count: %s", e)
+        return normal, protected
+
+    @staticmethod
+    def _is_no_doc_error(err: Exception) -> bool:
+        """Detecta o erro COM 'nenhum documento foi aberto' (PT/EN) ou coleção vazia."""
+        msg = str(err).lower()
+        return ("nenhum documento" in msg or "no document" in msg
+                or "count == 0" in msg)
+
+    @staticmethod
+    def _is_rpc_busy_error(err: Exception) -> bool:
+        """Detecta RPC_E_CALL_REJECTED / RPC_E_SERVERCALL_RETRYLATER (Word ocupado/modal)."""
+        hresult = getattr(err, 'hresult', None)
+        if hresult is None:
+            return False
+        try:
+            hresult = int(hresult)
+        except (TypeError, ValueError):
+            return False
+        # FACILITY_RPC (0x8001xxxx): CALL_REJECTED, SERVERCALL_RETRYLATER, SERVERCALL_REJECTED
+        if (hresult & 0xFFFF0000) == 0x80010000:
+            return True
+        return (hresult & 0xFFFF) == 0x2711  # compatibilidade com verificação legada
+
+    def _iter_doc_read_methods(self, word) -> list:
+        """Retorna lista ordenada de (nome, callable) para extrair o texto do documento.
+
+        Além dos caminhos tradicionais (ActiveDocument, Documents, ActiveWindow,
+        Selection), cobre Protected View — cenário típico de documentos abertos
+        a partir de %LocalAppData%\\Temp, anexos de e-mail ou downloads, nos quais
+        ActiveDocument/Documents lançam 'nenhum documento foi aberto'
+        (hresult interno -2146824040) mesmo havendo documento visível na tela.
+        """
+        def _active_document():
+            return word.ActiveDocument.Content.Text
+
+        def _documents_collection():
+            if int(word.Documents.Count) > 0:
+                return word.Documents(1).Content.Text
+            raise RuntimeError("Documents.Count == 0")
+
+        def _active_window():
+            return word.ActiveWindow.Document.Content.Text
+
+        def _selection():
+            return word.Selection.Document.Content.Text
+
+        def _protected_view():
+            if int(word.ProtectedViewWindows.Count) > 0:
+                return word.ProtectedViewWindows(1).Document.Content.Text
+            raise RuntimeError("ProtectedViewWindows.Count == 0")
+
+        def _windows_collection():
+            if int(word.Windows.Count) > 0:
+                return word.Windows(1).Document.Content.Text
+            raise RuntimeError("Windows.Count == 0")
+
+        return [
+            ("ActiveDocument", _active_document),
+            ("Documents(1)", _documents_collection),
+            ("ActiveWindow.Document", _active_window),
+            ("Selection.Document", _selection),
+            ("ProtectedViewWindows(1).Document", _protected_view),
+            ("Windows(1).Document", _windows_collection),
+        ]
+
+    def _read_word_doc_text(self, word) -> str:
+        """Lê o texto do documento do Word com múltiplos fallbacks e retries.
+
+        Estratégia em camadas:
+        - Em cada tentativa, percorre TODOS os métodos de leitura, incluindo
+          Protected View (essencial para documentos abertos do Temp/Internet,
+          que não aparecem em ActiveDocument/Documents).
+        - Entre tentativas, aguarda progressivamente — cobre RPC_E_CALL_REJECTED
+          (Word ocupado/modal) e documento ainda em carregamento na abertura do chat.
+        - Só desiste após esgotar as tentativas, produzindo mensagem amigável
+          quando a causa raiz é 'nenhum documento aberto'.
         """
         import time
 
+        max_attempts = 5
         last_err = None
+        saw_no_doc = False
 
-        for attempt in range(1, 6):
-            try:
-                # Método 1: ActiveDocument
+        for attempt in range(1, max_attempts + 1):
+            for name, read_fn in self._iter_doc_read_methods(word):
                 try:
-                    return word.ActiveDocument.Content.Text or ""
-                except Exception as e_ad:
-                    last_err = e_ad
-                    # Método 2: Documents collection
-                    try:
-                        if word.Documents.Count > 0:
-                            return word.Documents(1).Content.Text or ""
-                    except Exception as e_docs:
-                        last_err = e_docs
-                        # Método 3: ActiveWindow.Document
-                        try:
-                            return word.ActiveWindow.Document.Content.Text or ""
-                        except Exception as e_aw:
-                            last_err = e_aw
-                            # Método 4: Selection.Document
-                            try:
-                                return word.Selection.Document.Content.Text or ""
-                            except Exception as e_sel:
-                                last_err = e_sel
-                                raise
-            except Exception as e:
-                last_err = e
-                hresult = getattr(e, 'hresult', None)
-                # Se o Word rejeitou a chamada (ocupado/modal), espera e tenta de novo
-                if hresult is not None and (hresult & 0xFFFF) == 0x2711:  # RPC_E_CALL_REJECTED
-                    LOGGER.info("Word busy (RPC_E_CALL_REJECTED), retry %d/5", attempt)
-                    time.sleep(0.6 * attempt)
-                    continue
-                # Se é erro de "nenhum documento aberto", não adianta repetir
-                err_str = str(e).lower()
-                if "nenhum documento" in err_str or "no document" in err_str:
-                    raise Exception(
-                        "O Microsoft Word está aberto, mas nenhum documento foi encontrado. "
-                        "Abra um documento no Word e tente novamente."
-                    )
-                raise
+                    text = read_fn()
+                    if text is None:
+                        LOGGER.warning("Read method %s returned None; treating as empty", name)
+                        text = ""
+                    LOGGER.info("Document text read via %s (%d chars, attempt %d/%d)",
+                                name, len(text), attempt, max_attempts)
+                    return text
+                except Exception as e:
+                    last_err = e
+                    if self._is_no_doc_error(e):
+                        saw_no_doc = True
+                    LOGGER.debug("Read method %s failed (attempt %d/%d): %s",
+                                 name, attempt, max_attempts, e)
+
+            if attempt < max_attempts:
+                delay = 0.6 * attempt
+                if last_err is not None and self._is_rpc_busy_error(last_err):
+                    LOGGER.info("Word busy (RPC), retry %d/%d in %.1fs",
+                                attempt, max_attempts, delay)
+                else:
+                    LOGGER.info("No readable document yet (attempt %d/%d); retrying in %.1fs",
+                                attempt, max_attempts, delay)
+                time.sleep(delay)
+
+        if saw_no_doc:
+            raise Exception(
+                "O Microsoft Word está aberto, mas nenhum documento foi encontrado. "
+                "Abra um documento no Word e tente novamente."
+            )
         raise last_err if last_err else Exception("Falha desconhecida ao ler documento do Word")
 
     def _find_word_with_documents(self):
-        """Varre a Running Object Table e retorna a instância do Word que tem documentos abertos.
+        """Varre a Running Object Table e retorna a instância do Word que tem documentos.
 
         Quando há múltiplos processos WINWORD.EXE, GetActiveObject pode retornar
         uma instância vazia (tela inicial), causando 'nenhum documento foi aberto'.
+        Documentos em Protected View (Temp/Internet/anexos) também são contados,
+        pois NÃO aparecem em Documents.Count.
         """
         import pythoncom
         import win32com.client
@@ -527,45 +616,49 @@ class ChatApp:
                     unk = rot.GetObject(mk)
                     disp = unk.QueryInterface(pythoncom.IID_IDispatch)
                     word = win32com.client.Dispatch(disp)
-                    docs_count = int(word.Documents.Count)
-                    LOGGER.info("ROT Word instance '%s': Documents.Count=%d", name, docs_count)
-                    candidates.append((docs_count, word))
+                    normal, protected = self._word_doc_counts(word)
+                    score = normal + protected
+                    LOGGER.info("ROT Word instance '%s': Documents=%d, ProtectedView=%d",
+                                name, normal, protected)
+                    candidates.append((score, word))
                 except Exception as e_cand:
                     LOGGER.warning("Failed to inspect ROT Word instance '%s': %s", name, e_cand)
         except Exception as e_rot:
             LOGGER.warning("ROT enumeration failed: %s", e_rot)
 
-        # Prefere instância com documentos abertos
+        # Prefere instância com documentos acessíveis (normais ou Protected View)
         candidates.sort(key=lambda c: c[0], reverse=True)
-        for docs_count, word in candidates:
-            if docs_count > 0:
-                LOGGER.info("Selected Word instance with %d open document(s)", docs_count)
+        for score, word in candidates:
+            if score > 0:
+                LOGGER.info("Selected Word instance with %d accessible document(s)", score)
                 return word
         # Se nenhuma tem documento, retorna a primeira (se houver) para erro coerente
         if candidates:
+            LOGGER.warning("No Word instance reports accessible documents; using first ROT instance")
             return candidates[0][1]
         return None
 
     def _get_word_app(self):
-        """Obtém uma referência COM para o Word, preferindo instância com documentos abertos."""
+        """Obtém uma referência COM para o Word, preferindo instância com documentos acessíveis."""
         import win32com.client
 
-        # 1) Procura na ROT uma instância do Word com documentos abertos
+        # 1) Procura na ROT uma instância do Word com documentos (normais ou Protected View)
         try:
             word = self._find_word_with_documents()
             if word is not None:
-                try:
-                    if int(word.Documents.Count) > 0:
-                        return word
-                except Exception:
-                    pass
+                normal, protected = self._word_doc_counts(word)
+                if normal + protected > 0:
+                    return word
+                LOGGER.warning("ROT Word instance has no accessible documents yet; trying classic fallbacks")
         except Exception as e_rot:
             LOGGER.warning("_find_word_with_documents failed: %s", e_rot)
 
         # 2) Fallbacks tradicionais
         try:
             word = win32com.client.GetActiveObject("Word.Application")
-            LOGGER.info("Got active Word object via GetActiveObject")
+            normal, protected = self._word_doc_counts(word)
+            LOGGER.info("Got active Word object via GetActiveObject (Documents=%d, ProtectedView=%d)",
+                        normal, protected)
             return word
         except Exception as e1:
             LOGGER.warning("GetActiveObject failed: %s", e1)
@@ -580,42 +673,51 @@ class ChatApp:
         return word
 
     def _reload_doc_text(self) -> bool:
-        """Tenta atualizar self.doc_text com o conteúdo atual do Word na thread principal."""
+        """Tenta atualizar self.doc_text com o conteúdo atual do Word na thread principal.
+
+        Faz até 2 ciclos completos de conexão+leitura; em cada ciclo, uma falha
+        de leitura provoca reconexão (referência COM pode estar obsoleta).
+        """
         import pythoncom
         # Garante COM inicializado nesta thread (crucial em executável compilado)
         try:
             pythoncom.CoInitialize()
         except Exception:
             pass
-        try:
-            if not self.word_app:
-                self.word_app = self._get_word_app()
+
+        last_err = None
+        for attempt in range(1, 3):
             try:
-                raw_text = self._read_word_doc_text(self.word_app)
-            except Exception:
-                # Referência pode estar obsoleta (Word reiniciado); reconecta
-                LOGGER.info("word_app stale, reconnecting to Word")
-                self.word_app = self._get_word_app()
-                raw_text = self._read_word_doc_text(self.word_app)
-            if raw_text is None:
-                raw_text = ""
-                LOGGER.warning("Document text returned None from COM, treating as empty")
-            self._doc_load_error = ""
+                if not self.word_app:
+                    self.word_app = self._get_word_app()
+                try:
+                    raw_text = self._read_word_doc_text(self.word_app)
+                except Exception:
+                    # Referência pode estar obsoleta (Word reiniciado); reconecta
+                    LOGGER.info("word_app stale or unreadable, reconnecting to Word")
+                    self.word_app = self._get_word_app()
+                    raw_text = self._read_word_doc_text(self.word_app)
+                if raw_text is None:
+                    raw_text = ""
+                    LOGGER.warning("Document text returned None from COM, treating as empty")
+                self._doc_load_error = ""
 
-            if len(raw_text) > _MAX_CONTEXT_CHARS:
-
-                cut = raw_text.rfind(' ', 0, _MAX_CONTEXT_CHARS)
-                if cut == -1:
-                    cut = _MAX_CONTEXT_CHARS
-                self.doc_text = raw_text[:cut]
-                self._doc_truncated = True
-            else:
-                self.doc_text = raw_text
-                self._doc_truncated = False
-            return True
-        except Exception as e:
-            LOGGER.warning(f"Failed to reload document text: {e}")
-            return False
+                if len(raw_text) > _MAX_CONTEXT_CHARS:
+                    cut = raw_text.rfind(' ', 0, _MAX_CONTEXT_CHARS)
+                    if cut == -1:
+                        cut = _MAX_CONTEXT_CHARS
+                    self.doc_text = raw_text[:cut]
+                    self._doc_truncated = True
+                else:
+                    self.doc_text = raw_text
+                    self._doc_truncated = False
+                return True
+            except Exception as e:
+                last_err = e
+                LOGGER.warning("Failed to reload document text (attempt %d/2): %s", attempt, e)
+                self.word_app = None  # força reconexão completa na próxima tentativa
+        LOGGER.warning("Failed to reload document text: %s", last_err)
+        return False
 
     def load_context(self) -> None:
         """Recarrega o texto do documento e envia para a IA confirmar o novo contexto."""
@@ -816,44 +918,76 @@ class ChatApp:
         return "break"
 
     def _load_doc_text_main_thread(self) -> None:
-        """Lê o texto do documento ativo na thread principal (COM funciona corretamente aqui)."""
+        """Lê o texto do documento ativo na thread principal (COM funciona corretamente aqui).
+
+        Programação defensiva em camadas para garantir que o inteiro teor do
+        documento ativo — salvo ou não, normal ou em Protected View — seja
+        sempre obtido como contexto inicial:
+        1. Conexão: _get_word_app escolhe a instância do Word com documentos
+           acessíveis (incluindo Protected View) via Running Object Table.
+        2. Leitura: _read_word_doc_text tenta 6 métodos em 5 rodadas de retry.
+        3. Reconexão: se conectar+ler falhar, descarta a referência e repete
+           todo o ciclo (até 3 vezes) — cobre o caso de o documento ainda
+           estar sendo carregado quando o chat abre.
+        """
         import pythoncom
-        
+        import time
+
         # Inicializa COM na thread principal (necessário para executável compilado)
         try:
             pythoncom.CoInitialize()
         except Exception:
             pass  # Já pode estar inicializado
-        
+
+        raw_text = None
+        last_error = None
+        max_cycles = 3
+
+        for cycle in range(1, max_cycles + 1):
+            try:
+                # Tenta obter instância ativa do Word
+                try:
+                    word = self._get_word_app()
+                except Exception as e_conn:
+                    raise Exception(
+                        f"Não foi possível conectar ao Microsoft Word. "
+                        f"Verifique se o Word está aberto com um documento.\n"
+                        f"Detalhes: {e_conn}"
+                    )
+
+                self.word_app = word
+
+                # Lê o texto com retry + fallbacks (ActiveDocument, Documents, Protected View, etc.)
+                # IMPORTANTE: lê o texto ANTES de rodar macros, pois o backup pode trocar o documento ativo
+                raw_text = self._read_word_doc_text(word)
+
+                # Backup não crítico: só existe ActiveDocument fora de Protected View
+                try:
+                    backup_doc = None
+                    try:
+                        backup_doc = word.ActiveDocument
+                    except Exception:
+                        LOGGER.info("Skipping backup: document likely in Protected View (no ActiveDocument)")
+                    if backup_doc is not None:
+                        word.Application.Run("CreateDocumentBackup", backup_doc)
+                        LOGGER.info("Document backup created successfully.")
+                except Exception as backup_e:
+                    LOGGER.warning("Could not run CreateDocumentBackup macro: %s", str(backup_e))
+
+                LOGGER.info("Got document text (%d chars, cycle %d/%d)", len(raw_text), cycle, max_cycles)
+                break  # sucesso — sai do loop de ciclos
+            except Exception as e:
+                last_error = e
+                LOGGER.warning("Document load cycle %d/%d failed: %s", cycle, max_cycles, e)
+                self.word_app = None  # força reconexão completa no próximo ciclo
+                raw_text = None
+                if cycle < max_cycles:
+                    time.sleep(1.0 * cycle)
+
         try:
-            # Tenta obter instância ativa do Word
-            try:
-                word = self._get_word_app()
-            except Exception as e_conn:
-                raise Exception(
-                    f"Não foi possível conectar ao Microsoft Word. "
-                    f"Verifique se o Word está aberto com um documento.\n"
-                    f"Detalhes: {e_conn}"
-                )
-
-            self.word_app = word
-
-            # Lê o texto do documento com retry + fallbacks (ActiveDocument, Documents, etc.)
-            # IMPORTANTE: lê o texto ANTES de rodar macros, pois o backup pode trocar o documento ativo
-            raw_text = self._read_word_doc_text(word)
-
-            try:
-                word.Application.Run("CreateDocumentBackup", word.ActiveDocument)
-                LOGGER.info("Document backup created successfully.")
-            except Exception as backup_e:
-                LOGGER.warning("Could not run CreateDocumentBackup macro: %s", str(backup_e))
-            LOGGER.info("Got document text (%d chars)", len(raw_text))
-
             if raw_text is None:
+                raise last_error if last_error else Exception("Falha desconhecida ao ler documento do Word")
 
-                raw_text = ""
-                LOGGER.warning("Document text returned None from COM, treating as empty")
-            
             if len(raw_text) > _MAX_CONTEXT_CHARS:
                 cut = raw_text.rfind(' ', 0, _MAX_CONTEXT_CHARS)
                 if cut == -1:
