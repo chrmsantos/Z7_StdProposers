@@ -12,7 +12,7 @@ _DEFAULT_MODEL = 'deepseek/deepseek-chat'
 _OPENROUTER_BASE_URL = 'https://openrouter.ai/api/v1'
 _MAX_CONTEXT_CHARS = 150_000
 
-_APP_VERSION = "8.1.0"
+_APP_VERSION = "8.1.1"
 _APP_AUTHOR  = "CMS"
 _ORG         = "Câmara Municipal de Santa Bárbara d'Oeste"
 _LICENSE     = "GPL-3.0"
@@ -310,7 +310,7 @@ class ChatApp:
         self.version_badge.pack(side=tk.LEFT, anchor="w", padx=(8, 0))
 
         self.settings_btn = tk.Button(
-            self.header_top, text="⚙ Config",
+            self.header_top, text="⚙ Configurações",
             font=("Segoe UI", 9), relief=tk.FLAT,
             cursor="hand2", padx=8, pady=3,
             command=self._open_config_prompt

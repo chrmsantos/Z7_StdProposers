@@ -75,7 +75,6 @@ Public Const CHAT_IA_SCRIPT_RELATIVE_PATH As String = "\AppData\Local\Z7\Apps\Z7
 '================================================================================
 ' CONSTANTES DE SISTEMA
 '================================================================================
-Public Const Z7_STDPROPOSERS_VERSION As String = "8.0.8"
 Public Const MIN_SUPPORTED_VERSION As Long = 14
 Public Const REQUIRED_STRING As String = "$NUMERO$/$ANO$"
 Public Const MAX_BACKUP_FILES As Long = 10
@@ -352,7 +351,7 @@ Public Sub ShowUserFriendlyError(errNum As Long, errDesc As String)
                   "Verifique o log."
     End Select
 
-    MsgBox msg, vbCritical, "Z7_StdProposers v" & Z7_STDPROPOSERS_VERSION
+    MsgBox msg, vbCritical, "Z7_StdProposers"
 End Sub
 
 '================================================================================
@@ -770,7 +769,7 @@ Public Function GetRemoteVersion() As String
 
     ' Alguns MSXML podem falhar no header User-Agent; nao e critico
     On Error Resume Next
-    http.setRequestHeader "User-Agent", "Z7_STDPROPOSERS/" & Z7_STDPROPOSERS_VERSION
+    http.setRequestHeader "User-Agent", "Z7_STDPROPOSERS"
     ' Aplica timeouts condicionalmente se ServerXMLHTTP estiver em uso
     If usedServerHttp Then
         http.setTimeouts 5000, 5000, 10000, 10000
