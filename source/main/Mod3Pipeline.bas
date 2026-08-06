@@ -905,6 +905,10 @@ Public Function PreviousFormatting(doc As Document) As Boolean
     FormatConsiderandoParagraphs doc
     LogStepComplete "Formatacao de considerandos"
 
+    LogStepStart "Insercao de linhas em branco (justificativa, plenario, prefeito)"
+    InsertJustificativaBlankLines doc
+    LogStepComplete "Insercao de linhas em branco (justificativa, plenario, prefeito)"
+
     LogStepStart "Aplicacao de substituicoes de texto"
     ApplyTextReplacements doc
     LogStepComplete "Aplicacao de substituicoes de texto"
