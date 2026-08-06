@@ -5215,11 +5215,22 @@ Public Sub InsertJustificativaBlankLines(doc As Document)
     Next i
 
     If prefeitoIndex > 0 Then
+        ' Formata o paragrafo: recuo da 1a linha 2,5 cm + texto justificado
+        Dim paraPrefeito As Paragraph
+        Set paraPrefeito = doc.Paragraphs(prefeitoIndex)
+
+        With paraPrefeito.Range.ParagraphFormat
+            .leftIndent = CentimetersToPoints(0)
+            .firstLineIndent = CentimetersToPoints(2.5)
+            .RightIndent = 0
+        End With
+        paraPrefeito.Range.ParagraphFormat.Alignment = wdAlignParagraphJustify
+
         ' Remove linhas vazias depois e insere exatamente 2
         RemoveBlankLinesAfter doc, prefeitoIndex
         InsertBlankLinesAfter doc, prefeitoIndex, 2
 
-        LogMessage "2 linhas em branco inseridas apos 'Excelentissimo Senhor Prefeito Municipal,'", LOG_LEVEL_INFO
+        LogMessage "Paragrafo 'Excelentissimo Senhor Prefeito Municipal,' formatado (recuo 2,5 cm, justificado) e 2 linhas em branco inseridas", LOG_LEVEL_INFO
     End If
 
     Exit Sub
