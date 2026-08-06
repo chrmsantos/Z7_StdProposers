@@ -57,7 +57,6 @@ class ChatApp:
         self.chat_width_px = chat_width
         self.root.geometry(f"{chat_width}x{chat_height}+{chat_left}+{chat_top}")
         self.root.minsize(300, 500)
-        self.root.attributes('-topmost', True)
         
         self.resize_word_window(screen_width, screen_height)
         
@@ -82,6 +81,10 @@ class ChatApp:
 
         self._load_doc_text_main_thread()
         self.init_ai()
+
+        # Bring window to front on startup without staying always-on-top
+        self.root.lift()
+        self.root.focus_force()
 
     def resize_word_window(self, screen_width: int, screen_height: int) -> None:
         try:

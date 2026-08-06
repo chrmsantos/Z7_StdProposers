@@ -835,8 +835,10 @@ def open_ai_api_dialog(
     dialog.resizable(False, False)
     dialog.transient(parent)
     dialog.grab_set()
-    dialog.attributes('-topmost', True)
     dialog.configure(bg=bg)
+
+    # Bring dialog to front without staying always-on-top
+    dialog.after(10, dialog.lift)
 
     # Centres dialog over parent
     dialog.update_idletasks()
@@ -1121,7 +1123,6 @@ def main() -> None:
     root.minsize(300, 500)
 
     theme = AppTheme(root)
-    root.attributes('-topmost', True)
 
     # ── Cabeçalho ─────────────────────────────────────────────────────────
     header_frame = tk.Frame(root)
@@ -1291,6 +1292,10 @@ def main() -> None:
     btn_frame.pack(side=tk.BOTTOM, fill=tk.X, pady=(15, 5))
     status_frame.pack(fill=tk.X, padx=25, pady=(10, 0))
     frame.pack(side=tk.TOP, expand=True, fill=tk.BOTH, padx=25, pady=(4, 10))
+
+    # Bring window to front on startup without staying always-on-top
+    root.lift()
+    root.focus_force()
 
     root.mainloop()
 
