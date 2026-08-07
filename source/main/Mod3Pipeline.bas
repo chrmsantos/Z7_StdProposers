@@ -190,7 +190,7 @@ ErrorHandler:
 End Function
 
 '--------------------------------------------------------------------------------
-' SafeReplaceText - Substitui o texto de um range mantendo a formataÃ§Ã£o original
+' SafeReplaceText - Substitui o texto de um range mantendo a formatação original
 '--------------------------------------------------------------------------------
 Public Sub SafeReplaceText(ByVal rng As Range, ByVal newText As String)
     If rng Is Nothing Then Exit Sub
@@ -198,16 +198,16 @@ Public Sub SafeReplaceText(ByVal rng As Range, ByVal newText As String)
     Dim origFont As Font
     Dim origParaFormat As ParagraphFormat
     
-    ' Salva a formataÃ§Ã£o original com seguranÃ§a
+    ' Salva a formatação original com segurança
     On Error Resume Next
     Set origFont = rng.Font.Duplicate
     Set origParaFormat = rng.ParagraphFormat.Duplicate
     On Error GoTo 0
     
-    ' Realiza a substituiÃ§Ã£o
+    ' Realiza a substituição
     rng.text = newText
     
-    ' Restaura a formataÃ§Ã£o original no novo range (que agora contÃ©m o novo texto)
+    ' Restaura a formatação original no novo range (que agora contém o novo texto)
     On Error Resume Next
     If Not origFont Is Nothing Then rng.Font = origFont
     If Not origParaFormat Is Nothing Then rng.ParagraphFormat = origParaFormat
@@ -901,6 +901,10 @@ Public Function PreviousFormatting(doc As Document) As Boolean
     FormatVocativoParagraphs doc
     LogStepComplete "Formatacao do vocativo (recuo 2,5 cm, justificado)"
 
+    LogStepStart "Formatacao dos paragrafos 2-4 apos Ementa (justificado, recuo 2,5 cm)"
+    FormatPostEmentaBodyParagraphs doc
+    LogStepComplete "Formatacao dos paragrafos 2-4 apos Ementa (justificado, recuo 2,5 cm)"
+
     LogStepStart "Formatacao de considerandos"
     FormatConsiderandoParagraphs doc
     LogStepComplete "Formatacao de considerandos"
@@ -1306,7 +1310,7 @@ Public Sub RemoveEmentaTrailingMunicipioSuffix(doc As Document)
     ' Construcao ASCII-safe de ",neste municipio" (com e sem acento)
     Dim municipio1 As String
     Dim municipio2 As String
-    municipio1 = "mun" & ChrW(237) & "cipio" ' municÃ­pio (com acento)
+    municipio1 = "mun" & ChrW(237) & "cipio" ' município (com acento)
     municipio2 = "municipio"               ' municipio (sem acento)
     
     Dim suffix1 As String, suffix2 As String
@@ -1405,10 +1409,10 @@ ErrorHandler:
 End Sub
 
 '================================================================================
-' EMENTA - Remove aspas envolventes ("...", â€œ...â€, â€˜...â€™, '...')
+' EMENTA - Remove aspas envolventes ("...", “...”, ‘...’, '...')
 ' Regras:
 ' - Remove aspas duplas ou simples do inicio e fim do paragrafo da ementa
-' - Trata aspas ASCII (" ') e tipograficas (â€œ â€ â€˜ â€™)
+' - Trata aspas ASCII (" ') e tipograficas (“ ” ‘ ’)
 ' - So remove se ambos os lados tiverem aspas correspondentes
 '================================================================================
 Public Sub RemoveEmentaQuotes(doc As Document)
@@ -1449,9 +1453,9 @@ Public Sub RemoveEmentaQuotes(doc As Document)
     closeOffset = 1
 
     If firstCh = Chr(34) And lastCh = Chr(34) Then isMatch = True          ' " ... "
-    If firstCh = ChrW(8220) And lastCh = ChrW(8221) Then isMatch = True   ' â€œ ... â€
+    If firstCh = ChrW(8220) And lastCh = ChrW(8221) Then isMatch = True   ' “ ... ”
     If firstCh = Chr(39) And lastCh = Chr(39) Then isMatch = True          ' ' ... '
-    If firstCh = ChrW(8216) And lastCh = ChrW(8217) Then isMatch = True   ' â€˜ ... â€™
+    If firstCh = ChrW(8216) And lastCh = ChrW(8217) Then isMatch = True   ' ‘ ... ’
 
     ' Caso 2: ponto final apos aspa de fechamento ("texto".)
     If Not isMatch And lastCh = "." And Len(txt) >= 3 Then
@@ -1486,7 +1490,7 @@ End Sub
 
 '================================================================================
 ' EMENTA - Substitui "Indica ao DAE" ou "Sugere ao DAE" por "Indica ao Poder Executivo Municipal"
-' em indicaÃ§Ãµes (documentos cujo tÃ­tulo comeÃ§a com "INDICAÃ‡ÃƒO").
+' em indicações (documentos cujo título começa com "INDICAÇÃO").
 '================================================================================
 Public Sub ProcessEmentaIndicacao(doc As Document)
     On Error GoTo ErrorHandler
@@ -1503,8 +1507,8 @@ Public Sub ProcessEmentaIndicacao(doc As Document)
     Dim lowerTitle As String
     lowerTitle = LCase$(titleText)
 
-    ' Verifica se o tÃ­tulo comeÃ§a com "INDICAÃ‡ÃƒO" ou "INDICACAO"
-    If Left$(lowerTitle, 9) = "indicaÃ§Ã£o" Or Left$(lowerTitle, 9) = "indicacao" Then
+    ' Verifica se o título começa com "INDICAÇÃO" ou "INDICACAO"
+    If Left$(lowerTitle, 9) = "indicação" Or Left$(lowerTitle, 9) = "indicacao" Then
         Dim ementaRng As Range
         Set ementaRng = GetEmentaRange(doc)
         If ementaRng Is Nothing Then Exit Sub
@@ -1512,7 +1516,7 @@ Public Sub ProcessEmentaIndicacao(doc As Document)
         Dim ementaText As String
         ementaText = ementaRng.text
 
-        ' Remove o parÃ¡grafo vbCr final para manipulaÃ§Ã£o de string
+        ' Remove o parágrafo vbCr final para manipulação de string
         Dim hasCr As Boolean
         hasCr = (Right$(ementaText, 1) = vbCr)
         
@@ -1529,7 +1533,7 @@ Public Sub ProcessEmentaIndicacao(doc As Document)
         Dim modified As Boolean
         modified = False
 
-        ' Verifica se comeÃ§a com "Indica ao DAE" ou "Sugere ao DAE" (13 caracteres)
+        ' Verifica se começa com "Indica ao DAE" ou "Sugere ao DAE" (13 caracteres)
         If Len(lowerTrimEmenta) >= 13 Then
             If Left$(lowerTrimEmenta, 13) = "indica ao dae" Then
                 trimEmenta = "Indica ao Poder Executivo Municipal" & Mid$(trimEmenta, 14)
@@ -2211,6 +2215,67 @@ ErrorHandler:
     LogMessage "Erro na formatacao do vocativo: " & Err.Description, LOG_LEVEL_ERROR
     FormatVocativoParagraphs = False
 End Function
+
+
+'================================================================================
+' FORMAT POST-EMENTA BODY PARAGRAPHS (2o ao 4o paragrafo apos Ementa)
+' Recuo 1a linha 2,5 cm + Texto Justificado
+'================================================================================
+Public Sub FormatPostEmentaBodyParagraphs(doc As Document)
+    On Error GoTo ErrorHandler
+
+    If doc Is Nothing Then Exit Sub
+    If ementaParaIndex <= 0 Or ementaParaIndex > doc.Paragraphs.count Then Exit Sub
+
+    Dim para As Paragraph
+    Dim paraText As String
+    Dim i As Long
+    Dim nonBlankCount As Long
+    Dim formattedCount As Long
+
+    nonBlankCount = 0
+    formattedCount = 0
+
+    ' Percorre os paragrafos apos a Ementa, pulando linhas em branco
+    For i = ementaParaIndex + 1 To doc.Paragraphs.count
+        If i > doc.Paragraphs.count Then Exit For
+
+        Set para = doc.Paragraphs(i)
+        paraText = Trim(Replace(Replace(para.Range.text, vbCr, ""), vbLf, ""))
+
+        ' Ignora paragrafos vazios (linhas em branco)
+        If paraText = "" And Not HasVisualContent(para) Then
+            GoTo NextPara
+        End If
+
+        nonBlankCount = nonBlankCount + 1
+
+        ' Aplica formatacao apenas ao 2o, 3o e 4o paragrafo nao-vazio apos a Ementa
+        If nonBlankCount >= 2 And nonBlankCount <= 4 Then
+            With para.Range.ParagraphFormat
+                .leftIndent = CentimetersToPoints(0)
+                .firstLineIndent = CentimetersToPoints(2.5)
+                .RightIndent = 0
+                .Alignment = wdAlignParagraphJustify
+            End With
+            formattedCount = formattedCount + 1
+        End If
+
+        ' Para apos encontrar o 4o paragrafo nao-vazio
+        If nonBlankCount >= 4 Then Exit For
+
+NextPara:
+    Next i
+
+    If formattedCount > 0 Then
+        LogMessage "Paragrafos 2-4 apos Ementa formatados: " & formattedCount & " (justificado, recuo 2,5 cm)", LOG_LEVEL_INFO
+    End If
+
+    Exit Sub
+
+ErrorHandler:
+    LogMessage "Erro na formatacao dos paragrafos pos-Ementa: " & Err.Description, LOG_LEVEL_WARNING
+End Sub
 
 '================================================================================
 ' HELPER FUNCTIONS FOR BLANK LINE - Funcoes auxiliares para linhas em branco
@@ -4283,7 +4348,7 @@ NextVariant:
     ' Funcionalidade 14: Substitui "in loco" (com aspas) por in loco (italico, sem aspas)
     FormatInLocoItalic doc
 
-    ' Funcionalidade 16: "Ãrea PÃºblica" e "RoÃ§agem" sempre em minusculas (ChrW seguro)
+    ' Funcionalidade 16: "Área Pública" e "Roçagem" sempre em minusculas (ChrW seguro)
     Dim areaPublicaCount As Long
     Dim rocagemCount As Long
     areaPublicaCount = ExecuteFindReplace(doc, "" & ChrW(193) & "rea P" & ChrW(250) & "blica", "" & ChrW(225) & "rea p" & ChrW(250) & "blica", True)
@@ -4296,7 +4361,7 @@ NextVariant:
         LogMessage "Substituicao aplicada: 'Area Publica' e 'Rocagem' em minusculas (" & (areaPublicaCount + rocagemCount) & "x)", LOG_LEVEL_INFO
     End If
 
-    ' Funcionalidade 17: "retorne Ã  esta Casa de Leis com as seguintes respostas" -> "retorne Ã  esta Casa de Leis com as seguintes informaÃ§Ãµes" (ChrW seguro)
+    ' Funcionalidade 17: "retorne à esta Casa de Leis com as seguintes respostas" -> "retorne à esta Casa de Leis com as seguintes informações" (ChrW seguro)
     Dim casaLeisRespostasCount As Long
     casaLeisRespostasCount = ExecuteFindReplace(doc, "retorne " & ChrW(224) & " esta Casa de Leis com as seguintes respostas", "retorne " & ChrW(224) & " esta Casa de Leis com as seguintes informa" & ChrW(231) & ChrW(245) & "es", False)
     If casaLeisRespostasCount > 0 Then
@@ -4310,32 +4375,32 @@ NextVariant:
         LogMessage "Substituicao aplicada: ' Jd ' -> ' Jd. ' (" & jdCount & "x)", LOG_LEVEL_INFO
     End If
 
-    ' Substitui " aos nÂº " / " aos nÂ° " por " ao nÂº " / " ao nÂ° "
+    ' Substitui " aos nº " / " aos n° " por " ao nº " / " ao n° "
     Dim aosNoCount As Long
     aosNoCount = ExecuteFindReplace(doc, " aos n" & Chr(186) & " ", " ao n" & Chr(186) & " ", True)
     aosNoCount = aosNoCount + ExecuteFindReplace(doc, " aos n" & Chr(176) & " ", " ao n" & Chr(176) & " ", True)
     If aosNoCount > 0 Then
-        LogMessage "Substituicao aplicada: ' aos nÂº ' -> ' ao nÂº ' (" & aosNoCount & "x)", LOG_LEVEL_INFO
+        LogMessage "Substituicao aplicada: ' aos nº ' -> ' ao nº ' (" & aosNoCount & "x)", LOG_LEVEL_INFO
     End If
 
-    ' Substitui " nos nÂº " / " nos nÂ° " por " no nÂº " / " no nÂ° "
+    ' Substitui " nos nº " / " nos n° " por " no nº " / " no n° "
     Dim nosNoCount As Long
     nosNoCount = ExecuteFindReplace(doc, " nos n" & Chr(186) & " ", " no n" & Chr(186) & " ", True)
     nosNoCount = nosNoCount + ExecuteFindReplace(doc, " nos n" & Chr(176) & " ", " no n" & Chr(176) & " ", True)
     If nosNoCount > 0 Then
-        LogMessage "Substituicao aplicada: ' nos nÂº ' -> ' no nÂº ' (" & nosNoCount & "x)", LOG_LEVEL_INFO
+        LogMessage "Substituicao aplicada: ' nos nº ' -> ' no nº ' (" & nosNoCount & "x)", LOG_LEVEL_INFO
     End If
 
-    ' Substitui NÂº por nÂ° exceto no titulo
+    ' Substitui Nº por n° exceto no titulo
     ReplaceNoWithNoExceptTitle doc
 
-    ' Substitui parÃ¡grafos contendo unicamente a string 'tikinho tk"'
+    ' Substitui parágrafos contendo unicamente a string 'tikinho tk"'
     ReplaceTikinhoTkParagraphs doc
     
-    ' Garante espaÃ§o nÃ£o separÃ¡vel apÃ³s nÂº/nÂ° antes de algarismos
+    ' Garante espaço não separável após nº/n° antes de algarismos
     EnsureNonBreakingSpaceAfterNo doc
 
-    ' Substitui todos os espaÃ§os nÃ£o separÃ¡veis por espaÃ§os comuns, exceto apÃ³s nÂº/nÂ° antes de algarismos
+    ' Substitui todos os espaços não separáveis por espaços comuns, exceto após nº/n° antes de algarismos
     ReplaceNonBreakingSpacesExceptAfterNo doc
 
     ApplyTextReplacements = True
@@ -5188,7 +5253,7 @@ Public Sub ApplyVereadorParagraphFormatting(para As Paragraph)
     ' Estilo e fonte normal
     para.Style = "Normal"
 
-    ' NOTA: ListFormat.RemoveNumbers removido â€” marcadores/numeracao nao devem ser editados
+    ' NOTA: ListFormat.RemoveNumbers removido -- marcadores/numeracao nao devem ser editados
     On Error Resume Next
     With para.Range.Font
         .Bold = False
@@ -5775,7 +5840,7 @@ Public Sub RestaurarBackup()
     docBaseName = fso.GetBaseName(doc.Name)
     docExtension = fso.GetExtensionName(doc.Name)
 
-    ' Coleta nomes de todos os backups do documento (nome = yyyy-mm-dd_HHmmss â†’ ordem cronologica)
+    ' Coleta nomes de todos os backups do documento (nome = yyyy-mm-dd_HHmmss -> ordem cronologica)
     Dim folder As Object
     Set folder = fso.GetFolder(backupFolder)
 
@@ -6656,7 +6721,7 @@ Public Sub RemoverLinhasEmBrancoExtras(doc As Document)
         .Replacement.text = "Indica ao Poder Executivo Municipal que efetue"
         If .Execute(Replace:=2) Then replacedCount = replacedCount + 1
 
-        .text = "Indica ao Poder Executivo Municipal e aos Ã³rgÃ£os competentes"
+        .text = "Indica ao Poder Executivo Municipal e aos órgãos competentes"
         .Replacement.text = "Indica ao Poder Executivo Municipal"
         If .Execute(Replace:=2) Then replacedCount = replacedCount + 1
 
@@ -6753,7 +6818,7 @@ Public Sub RemoverLinhasEmBrancoExtras(doc As Document)
     
     ' CORRECAO CRITICA (Index Staleness):
     ' Como linhas em branco foram deletadas fisicamente, os indices globais (titulo, ementa, justificativa) 
-    ' agora apontam para o limbo (desalinhados). ForÃ§amos a reconstruÃ§Ã£o do cache antes de prosseguir.
+    ' agora apontam para o limbo (desalinhados). Forçamos a reconstrução do cache antes de prosseguir.
     If removedCount > 0 Then
         LogMessage "Reconstruindo cache arquitetural devido as delecoes fisicas...", LOG_LEVEL_INFO
         ClearParagraphCache
@@ -7368,7 +7433,7 @@ ErrorHandler:
 End Sub
 
 '================================================================================
-' SUBSTITUI "NÂº" POR "nÂ°" EXCENTUANDO O TITULO DO DOCUMENTO
+' SUBSTITUI "Nº" POR "n°" EXCENTUANDO O TITULO DO DOCUMENTO
 '================================================================================
 Public Sub ReplaceNoWithNoExceptTitle(doc As Document)
     On Error GoTo ErrorHandler
@@ -7380,12 +7445,12 @@ Public Sub ReplaceNoWithNoExceptTitle(doc As Document)
     Set searchRng = doc.Range
 
     Dim findTexts(0 To 2) As String
-    findTexts(0) = "N" & Chr(186)  ' NÂº (maiusculo, ordinal)
-    findTexts(1) = "N" & Chr(176)  ' NÂ° (maiusculo, grau)
-    findTexts(2) = "n" & Chr(186)  ' nÂº (minusculo, ordinal)
+    findTexts(0) = "N" & Chr(186)  ' Nº (maiusculo, ordinal)
+    findTexts(1) = "N" & Chr(176)  ' N° (maiusculo, grau)
+    findTexts(2) = "n" & Chr(186)  ' nº (minusculo, ordinal)
 
     Dim replaceText As String
-    replaceText = "n" & Chr(176)   ' nÂ° (minusculo, grau)
+    replaceText = "n" & Chr(176)   ' n° (minusculo, grau)
 
     Dim i As Integer
     Dim foundCount As Long
@@ -7424,13 +7489,13 @@ Public Sub ReplaceNoWithNoExceptTitle(doc As Document)
     Next i
 
     If foundCount > 0 Then
-        LogMessage "Substituicao aplicada: 'NÂº'/'NÂ°'/'nÂº' por 'nÂ°' (" & foundCount & "x), exceto no titulo", LOG_LEVEL_INFO
+        LogMessage "Substituicao aplicada: 'Nº'/'N°'/'nº' por 'n°' (" & foundCount & "x), exceto no titulo", LOG_LEVEL_INFO
     End If
 
     Exit Sub
 
 ErrorHandler:
-    LogMessage "Erro ao substituir 'NÂº' por 'nÂ°': " & Err.Description, LOG_LEVEL_WARNING
+    LogMessage "Erro ao substituir 'Nº' por 'n°': " & Err.Description, LOG_LEVEL_WARNING
 End Sub
 
 
@@ -7482,7 +7547,7 @@ End Function
 
 
 '================================================================================
-' REPLACE NON BREAKING SPACES EXCEPT AFTER NO - Substitui espacos nao separaveis por comuns, exceto apos nÂº/nÂ°
+' REPLACE NON BREAKING SPACES EXCEPT AFTER NO - Substitui espacos nao separaveis por comuns, exceto apos nº/n°
 '================================================================================
 Public Sub ReplaceNonBreakingSpacesExceptAfterNo(doc As Document)
     On Error GoTo ErrorHandler
@@ -7496,7 +7561,7 @@ Public Sub ReplaceNonBreakingSpacesExceptAfterNo(doc As Document)
     Dim noDegreeLower As String: noDegreeLower = "n" & Chr(176)
     Dim noDegreeUpper As String: noDegreeUpper = "N" & Chr(176)
     
-    ' 1. Protege os espacos nao separaveis que devem ser mantidos (apos nÂº/nÂ° e antes de algarismos)
+    ' 1. Protege os espacos nao separaveis que devem ser mantidos (apos nº/n° e antes de algarismos)
     For i = 0 To 9
         digit = CStr(i)
         ExecuteFindReplace doc, noOrdinalLower & nbsp & digit, noOrdinalLower & tempMarker & digit, True
@@ -7523,7 +7588,7 @@ ErrorHandler:
 End Sub
 
 '================================================================================
-' ENSURE NON BREAKING SPACE AFTER NO - Garante espaco nao separavel apos nÂº/nÂ°
+' ENSURE NON BREAKING SPACE AFTER NO - Garante espaco nao separavel apos nº/n°
 '================================================================================
 Public Sub EnsureNonBreakingSpaceAfterNo(doc As Document)
     On Error GoTo ErrorHandler
@@ -7539,13 +7604,13 @@ Public Sub EnsureNonBreakingSpaceAfterNo(doc As Document)
     For i = 0 To 9
         digit = CStr(i)
         
-        ' 1. nÂº seguida de algarismo sem espaco -> com espaco nao separavel
+        ' 1. nº seguida de algarismo sem espaco -> com espaco nao separavel
         ExecuteFindReplace doc, noOrdinalLower & digit, noOrdinalLower & nbsp & digit, True
         ExecuteFindReplace doc, noOrdinalUpper & digit, noOrdinalUpper & nbsp & digit, True
         ExecuteFindReplace doc, noDegreeLower & digit, noDegreeLower & nbsp & digit, True
         ExecuteFindReplace doc, noDegreeUpper & digit, noDegreeUpper & nbsp & digit, True
         
-        ' 2. nÂº seguida de algarismo com espaco comum -> com espaco nao separavel
+        ' 2. nº seguida de algarismo com espaco comum -> com espaco nao separavel
         ExecuteFindReplace doc, noOrdinalLower & " " & digit, noOrdinalLower & nbsp & digit, True
         ExecuteFindReplace doc, noOrdinalUpper & " " & digit, noOrdinalUpper & nbsp & digit, True
         ExecuteFindReplace doc, noDegreeLower & " " & digit, noDegreeLower & nbsp & digit, True
@@ -7554,6 +7619,6 @@ Public Sub EnsureNonBreakingSpaceAfterNo(doc As Document)
     
     Exit Sub
 ErrorHandler:
-    LogMessage "Erro ao garantir espaco nao separavel apos nÂº: " & Err.Description, LOG_LEVEL_WARNING
+    LogMessage "Erro ao garantir espaco nao separavel apos nº: " & Err.Description, LOG_LEVEL_WARNING
 End Sub
 

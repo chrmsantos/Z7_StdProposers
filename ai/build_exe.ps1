@@ -175,6 +175,30 @@ if (Test-Path $installerSrc) {
 }
 Remove-Item -Path (Join-Path $scriptDir "installer.py") -Force -ErrorAction SilentlyContinue
 
+Write-Host "Compilando import_word.py..."
+Copy-Item -Path (Join-Path $projectRoot "scripts\import_word.py") -Destination (Join-Path $scriptDir "import_word.py") -Force
+Invoke-PyInstaller -ScriptName "import_word.py" -OneFile
+
+$importWordSrc = Join-Path $scriptDir "dist\import_word.exe"
+if (Test-Path $importWordSrc) {
+    Copy-Item -Path $importWordSrc -Destination (Join-Path $projectRoot "scripts\import_word.exe") -Force
+    New-Item -ItemType Directory -Force -Path $distDir | Out-Null
+    Copy-Item -Path $importWordSrc -Destination (Join-Path $distDir "import_word.exe") -Force
+    Write-Host "[import_word] instalado e empacotado."
+}
+Remove-Item -Path (Join-Path $scriptDir "import_word.py") -Force -ErrorAction SilentlyContinue
+
+Write-Host "Compilando export_normal.py..."
+Copy-Item -Path (Join-Path $projectRoot "scripts\export_normal.py") -Destination (Join-Path $scriptDir "export_normal.py") -Force
+Invoke-PyInstaller -ScriptName "export_normal.py" -OneFile
+
+$exportNormalSrc = Join-Path $scriptDir "dist\export_normal.exe"
+if (Test-Path $exportNormalSrc) {
+    Copy-Item -Path $exportNormalSrc -Destination (Join-Path $projectRoot "scripts\export_normal.exe") -Force
+    Write-Host "[export_normal] instalado."
+}
+Remove-Item -Path (Join-Path $scriptDir "export_normal.py") -Force -ErrorAction SilentlyContinue
+
 
 
 Write-Host "Limpando arquivos temporarios..."

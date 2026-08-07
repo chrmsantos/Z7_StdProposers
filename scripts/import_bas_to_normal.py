@@ -57,7 +57,13 @@ def main():
 
         for bas_path in bas_files:
             bas_name = Path(bas_path).stem  # e.g., "Mod3Pipeline"
-            bas_content = Path(bas_path).read_text(encoding="utf-8")
+            # VBA expects Windows-1252 (ANSI) encoding for .bas files.
+            # Try CP1252 first (correct for VBA), fall back to UTF-8.
+            raw = Path(bas_path).read_bytes()
+            try:
+                bas_content = raw.decode("cp1252")
+            except (UnicodeDecodeError, ValueError):
+                bas_content = raw.decode("utf-8")
 
             # Check if module already exists
             existing_module = None

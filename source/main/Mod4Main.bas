@@ -840,10 +840,10 @@ End Sub
 
 
 '================================================================================
-' SUBROTINA PUBLICA: CHAT COM A LÃ‰IA
+' SUBROTINA PUBLICA: CHAT COM A LÉIA
 '================================================================================
 Public Sub ChatComGemini()
-    ' Macro para abrir a interface em Python do Chat Interativo com a LÃ‰IA
+    ' Macro para abrir a interface em Python do Chat Interativo com a LÉIA
     Dim objShell As Object
     Dim comandoExecucao As String
     Dim caminhoScript As String
@@ -936,7 +936,7 @@ Public Sub ComentarElementosPropositura()
     End If
     Set rng = Nothing
 
-    ' 3. ProposiÃ§Ã£o
+    ' 3. Proposição
     Set rng = GetProposicaoRange(doc)
     If Not rng Is Nothing Then
         doc.Comments.Add Range:=rng, text:="[Z7] Proposi" & ChrW(231) & ChrW(227) & "o"

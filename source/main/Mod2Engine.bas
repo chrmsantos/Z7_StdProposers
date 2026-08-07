@@ -388,7 +388,7 @@ Public Function IsDataElement(para As Paragraph) As Boolean
                 firstChar = Left$(origText, 1)
                 Dim firstCharUpper As String
                 firstCharUpper = UCase$(firstChar)
-                If (firstCharUpper Like "[A-Z0-9Ã€-ÃšÃ‡]") Or (firstCharUpper = "$") Then
+                If (firstCharUpper Like "[A-Z0-9À-ÚÇ]") Or (firstCharUpper = "$") Then
                     IsDataElement = True
                     Exit Function
                 End If
@@ -594,7 +594,7 @@ Public Sub IdentifyDocumentStructure(doc As Document)
     foundJustificativa = False
     foundData = False
 
-    ' 1. Identifica Titulo, Ementa, Data e Assinatura por regras posicionais dos parÃ¡grafos com elementos visÃ­veis
+    ' 1. Identifica Titulo, Ementa, Data e Assinatura por regras posicionais dos parágrafos com elementos visíveis
     Dim visibleIndices() As Long
     Dim visibleCount As Long
     ReDim visibleIndices(1 To cacheSize)
@@ -609,7 +609,7 @@ Public Sub IdentifyDocumentStructure(doc As Document)
         End If
     Next idx
 
-    ' Atribui Ã­ndices baseados nas posiÃ§Ãµes relativas dos parÃ¡grafos visÃ­veis (TÃ­tulo e Ementa apenas, Assinatura e Data serÃ£o decididas com base nas novas regras abaixo)
+    ' Atribui índices baseados nas posições relativas dos parágrafos visíveis (Título e Ementa apenas, Assinatura e Data serão decididas com base nas novas regras abaixo)
     If visibleCount >= 1 Then
         tituloParaIndex = visibleIndices(1)
         foundTitulo = True
@@ -651,7 +651,7 @@ Public Sub IdentifyDocumentStructure(doc As Document)
     End If
 
     ' Regra especifica para Assinatura:
-    ' Os trÃªs parÃ¡grafos textuais posteriores Ã  data, desde que nÃ£o contenham a palavra "anexo" ou "anexos" (case insensitive), sÃ£o a Assinatura.
+    ' Os três parágrafos textuais posteriores à data, desde que não contenham a palavra "anexo" ou "anexos" (case insensitive), são a Assinatura.
     foundCustomAssinatura = False
     p1 = 0
     p2 = 0
@@ -703,7 +703,7 @@ Public Sub IdentifyDocumentStructure(doc As Document)
     End If
 
     ' Regra especifica para Anexos:
-    ' O parÃ¡grafo posterior Ã  assinatura que contenha apenas "anexo" ou "anexos" (case insensitive) Ã© o Anexo.
+    ' O parágrafo posterior à assinatura que contenha apenas "anexo" ou "anexos" (case insensitive) é o Anexo.
     If assinaturaEndIndex > 0 Then
         nextParaIdx = 0
         
@@ -915,7 +915,7 @@ Public Sub IdentifyDocumentStructure(doc As Document)
                     justificativaStartIndex = i + 1 ' Justificativa comeca logo apos o titulo
                     LogMessage "Titulo da Justificativa identificado no paragrafo " & i, LOG_LEVEL_INFO
 
-                ' 4. Identifica DATA (Plenario) - jÃ¡ foi identificada, mas em caso de loop definimos justificativaEndIndex se i = dataParaIndex
+                ' 4. Identifica DATA (Plenario) - já foi identificada, mas em caso de loop definimos justificativaEndIndex se i = dataParaIndex
                 ElseIf i = dataParaIndex Then
                     ' Justificativa termina antes da Data
                     If justificativaStartIndex > 0 Then
@@ -1460,13 +1460,13 @@ Public Function IsPageNumberLine(text As String) As Boolean
     lowerText = LCase(text)
 
     ' Verifica se contem o padrao base
-    If InStr(lowerText, "$NUMERO$/$ANO$ â€“ P") = 0 Then Exit Function
+    If InStr(lowerText, "$NUMERO$/$ANO$ – P") = 0 Then Exit Function
 
     ' Procura pelos padroes possiveis no final
     Dim patterns() As String
     ReDim patterns(0 To 1)
-    patterns(0) = "$NUMERO$/$ANO$ â€“ Pagina"
-    patterns(1) = "$NUMERO$/$ANO$ â€“ PÃ¡gina"
+    patterns(0) = "$NUMERO$/$ANO$ – Pagina"
+    patterns(1) = "$NUMERO$/$ANO$ – Página"
 
     Dim pattern As String
     Dim i As Long
@@ -1527,14 +1527,14 @@ Private Function IsProposituraPageLineImpl(normalizedText As String, keyword As 
     
     ' Verifica se o caractere anterior a "pagina" e um separador valido
     Dim ndash As String
-    ndash = ChrW(8211)  ' en dash "â€“" (U+2013)
+    ndash = ChrW(8211)  ' en dash "–" (U+2013)
     
     If posPagina > 1 Then
         Dim charBefore As String
         charBefore = Mid(afterMarker, posPagina - 1, 1)
         ' Aceita barra, espaco, hifen, travessao
         If charBefore <> "/" And charBefore <> " " And charBefore <> "-" And charBefore <> ndash Then
-            ' Verifica se ha um espaco + travessao antes (ex: " â€“ pagina" ou " - pagina")
+            ' Verifica se ha um espaco + travessao antes (ex: " – pagina" ou " - pagina")
             If posPagina > 3 Then
                 Dim twoBefore As String
                 twoBefore = Mid(afterMarker, posPagina - 2, 2)
@@ -1588,7 +1588,7 @@ End Function
 
 '================================================================================
 ' IS REQUERIMENTO PAGE LINE - Verifica se texto e exclusivamente a linha de pagina
-' de um requerimento no formato "REQUERIMENTO nÂ° $NUMERO$/$ANO$ â€“ PÃ¡gina X" etc.
+' de um requerimento no formato "REQUERIMENTO n° $NUMERO$/$ANO$ – Página X" etc.
 '================================================================================
 Public Function IsRequerimentoPageLine(text As String) As Boolean
     On Error GoTo ErrorHandler
@@ -1612,7 +1612,7 @@ End Function
 
 '--------------------------------------------------------------------------------
 ' IS INDICACAO PAGE LINE - Verifica se texto e exclusivamente a linha de pagina
-' de uma indicacao no formato "INDICAÃ‡ÃƒO nÂ° $NUMERO$/$ANO$ â€“ PÃ¡gina X" etc.
+' de uma indicacao no formato "INDICAÇÃO n° $NUMERO$/$ANO$ – Página X" etc.
 '--------------------------------------------------------------------------------
 Public Function IsIndicacaoPageLine(text As String) As Boolean
     On Error GoTo ErrorHandler
@@ -1636,7 +1636,7 @@ End Function
 
 '--------------------------------------------------------------------------------
 ' IS MOCACAO PAGE LINE - Verifica se texto e exclusivamente a linha de pagina
-' de uma mocao no formato "MOÃ‡ÃƒO nÂ° $NUMERO$/$ANO$ â€“ PÃ¡gina X" etc.
+' de uma mocao no formato "MOÇÃO n° $NUMERO$/$ANO$ – Página X" etc.
 '--------------------------------------------------------------------------------
 Public Function IsMocaoPageLine(text As String) As Boolean
     On Error GoTo ErrorHandler

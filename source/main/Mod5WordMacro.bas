@@ -18,7 +18,7 @@ Private Function ResolverComando(appName As String) As String
     Dim base As String
     base = Environ$("LOCALAPPDATA") & "\Z7\Apps\Z7_StdProposers\ai\"
 
-    ' 1. Executavel compilado (instalado via Install.ps1) — preferencial.
+    ' 1. Executavel compilado (instalado via Install.ps1) -- preferencial.
     Dim caminhoExe As String
     caminhoExe = base & appName & "\" & appName & ".exe"
     If Dir(caminhoExe) <> "" Then
