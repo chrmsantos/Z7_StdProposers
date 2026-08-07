@@ -138,6 +138,20 @@ if os.path.isdir(tcl_base):
 }
 Set-TkinterEnvironment
 
+# ── Importa modulos .bas para Normal.dotm antes de empacotar ────────────
+$importBasScript = Join-Path $projectRoot "scripts\import_bas_to_normal.py"
+if (Test-Path $importBasScript) {
+    Write-Host "Importando modulos .bas para Normal.dotm..."
+    Push-Location $projectRoot
+    & python $importBasScript
+    Pop-Location
+    if ($LASTEXITCODE -ne 0) {
+        Write-Warning "Falha ao importar .bas para Normal.dotm. Continuando build..."
+    }
+} else {
+    Write-Warning "Script import_bas_to_normal.py nao encontrado em: $importBasScript"
+}
+
 Write-Host "Compilando config_prompt.py..."
 Invoke-PyInstaller -ScriptName "config_prompt.py"
 Install-Executable -Name "config_prompt"
