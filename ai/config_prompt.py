@@ -1134,7 +1134,56 @@ def open_api_key_dialog(parent: tk.Tk, theme_mode: str) -> None:
     open_ai_api_dialog(parent, theme_mode)
 
 
+def _activate_existing_window(title_prefix: str) -> bool:
+    """Check if a window with *title_prefix* already exists.
+
+    If found, bring it to front (restoring from minimized state if needed)
+    and return ``True``.  Otherwise return ``False``.
+    """
+    import ctypes
+    from ctypes import wintypes
+
+    user32 = ctypes.windll.user32
+
+    WNDENUMPROC = ctypes.WINFUNCTYPE(
+        wintypes.BOOL, wintypes.HWND, wintypes.LPARAM
+    )
+
+    found_hwnd: list[wintypes.HWND | None] = [None]
+
+    def _enum_cb(hwnd: wintypes.HWND, _lparam: wintypes.LPARAM) -> bool:
+        if user32.IsWindowVisible(hwnd):
+            length = user32.GetWindowTextLengthW(hwnd)
+            if length > 0:
+                buf = ctypes.create_unicode_buffer(length + 1)
+                user32.GetWindowTextW(hwnd, buf, length + 1)
+                if buf.value.startswith(title_prefix):
+                    found_hwnd[0] = hwnd
+                    return False  # stop enumeration
+        return True
+
+    user32.EnumWindows(WNDENUMPROC(_enum_cb), 0)
+
+    if found_hwnd[0] is not None:
+        hwnd = found_hwnd[0]
+        # SW_RESTORE (9) if minimized, otherwise SW_SHOW (5)
+        SW_RESTORE = 9
+        SW_SHOW = 5
+        if user32.IsIconic(hwnd):
+            user32.ShowWindow(hwnd, SW_RESTORE)
+        else:
+            user32.ShowWindow(hwnd, SW_SHOW)
+        user32.SetForegroundWindow(hwnd)
+        return True
+    return False
+
+
 def main() -> None:
+    # Prevent duplicate instances: if a config window is already open, just
+    # bring it to front and exit.
+    if _activate_existing_window("Configurar Prompt"):
+        return
+
     LOGGER.info("Starting prompt configuration UI")
 
     try:
