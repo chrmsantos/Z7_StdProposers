@@ -161,6 +161,8 @@ Para **cada parágrafo** (preservando imagens e parágrafos especiais):
 
 ### 5.16 Formatação do 2º Parágrafo — Ementa (`FormatSecondParagraph`)
 
+> **Nota:** Marcadores e numeração existentes nos parágrafos **não são editados** em nenhum momento durante o processamento.
+
 - Normaliza quebras de linha antes de processar.
 - **Substituições iniciais:**
   - `"Solicita"` → `"Requer"` (mantendo o restante).
@@ -268,7 +270,8 @@ Para cada parágrafo que contenha apenas "Vereador" (com ou sem hífens/travess�
 - **Fonte:** normal (sem negrito, sem itálico, sem sublinhado, sem caixa alta), Arial 12.
 - **Alinhamento:** centralizado.
 - **Recuos:** todos zero.
-- **Formata a linha acima:** caixa alta, negrito, centralizada, sem recuos.
+- **Formata a 1ª linha acima:** caixa alta, negrito, centralizada, sem recuos.
+- **Formata a 2ª linha acima:** negrito, centralizada, recuo esquerda = 0.
 - **Formata a linha abaixo:** centralizada, sem recuos.
 
 ### 5.30 Formatação de "Diante do Exposto" (`FormatDianteDoExposto`)
@@ -316,7 +319,7 @@ Para cada parágrafo que contenha apenas "Vereador" (com ou sem hífens/travess�
 
 ### 5.38 Ajuste Final de Recuos para Vereador (`FixHyphenatedVereadorParagraphIndents`)
 
-- Parágrafos com `"- Vereador -"`, `"- Vereadora -"` ou variantes: remove formatação de lista, zera todos os recuos (esquerda, direita, primeira linha).
+- Parágrafos com `"- Vereador -"`, `"- Vereadora -"` ou variantes: zera todos os recuos (esquerda, direita, primeira linha).
 
 ---
 

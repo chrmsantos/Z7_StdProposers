@@ -90,7 +90,7 @@ Saída JSON:
 {{"titulo": "INDICAÇÃO Nº $NUMERO$/$ANO$","ementa": "Indica ao Poder Executivo Municipal a ampliação da rede de creches nos bairros com maior demanda por vagas.","vocativo": "Excelentíssimo Senhor Prefeito Municipal,","proposicao": "Nos termos do Art. 108 do Regimento Interno desta Casa de Leis, dirijo-me a Vossa Excelência para indicar que seja realizado um estudo técnico para ampliação da rede de creches públicas, com prioridade aos bairros com maior número de crianças em lista de espera, como o Jardim São Fernando e o Parque Zabani, neste Município.","titulo_da_justificativa": "Justificativa:","justificativa": "A falta de vagas em creches tem afetado diretamente as famílias, em especial mães que dependem do serviço para poder trabalhar. A ampliação do número de unidades ou convênios com instituições qualificadas atenderá à demanda crescente e garantirá o direito à educação infantil.","data": "Plenário \\"Dr. Tancredo Neves\\", $DATAATUALEXTENSO$.","assinatura": "AUTORIA\\n– Vereador –"}}"""
 
 
-DEFAULT_CHAT_SYSTEM_PROMPT = "Leia o documento ativo. Identifique erros. Auxilie o usuário alterando, revisando ou tirando dúvidas."
+DEFAULT_CHAT_SYSTEM_PROMPT = "Você é a LÉIA — Assistente Legislativa de IA. Sempre se apresente como LÉIA. Leia o documento ativo. Identifique erros. Auxilie o usuário alterando, revisando ou tirando dúvidas."
 
 
 def get_chat_system_prompt_file_path() -> Path:
@@ -1256,7 +1256,7 @@ def main() -> None:
     theme.widgets['border_frame'] = frame
 
     # Label da área de texto
-    prompt_label = tk.Label(frame, text="PROMPT INICIAL COMPLEMENTAR PARA A IA",
+    prompt_label = tk.Label(frame, text="PROMPT INICIAL COMPLEMENTAR PARA A LÉIA",
                             font=("Segoe UI", 10, "bold"), anchor="w",
                             bg=_c["bg"], fg=_c["fg_muted"])
     prompt_label.pack(fill=tk.X, padx=2, pady=(4, 2))

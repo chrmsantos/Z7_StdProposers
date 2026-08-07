@@ -1034,8 +1034,6 @@ Public Sub FixHyphenatedVereadorParagraphIndents(doc As Document)
 
         If normText = "- Vereador -" Or normText = "- Vereadora -" Or IsVereadorPattern(paraText) Then
             On Error Resume Next
-            para.Range.ListFormat.RemoveNumbers
-            On Error Resume Next
 
             With para.Format
                 .leftIndent = 0
@@ -4669,6 +4667,25 @@ Public Sub FormatVereadorParagraphs(doc As Document)
                 End With
             End If
 
+            ' Formata SEGUNDA linha ACIMA (se existir): negrito, centralizado, recuo esquerda = 0
+            If i > 2 Then
+                Dim prevPrevPara As Paragraph
+                Set prevPrevPara = doc.Paragraphs(i - 2)
+                If Not HasVisualContent(prevPrevPara) Then
+                    With prevPrevPara.Range.Font
+                        .Bold = True
+                        .Name = STANDARD_FONT
+                        .size = STANDARD_FONT_SIZE
+                    End With
+                End If
+                With prevPrevPara.Format
+                    .alignment = wdAlignParagraphCenter
+                    .leftIndent = 0
+                    .firstLineIndent = 0
+                    .RightIndent = 0
+                End With
+            End If
+
             ' Formata linha ABAIXO (se existir)
             If i < doc.Paragraphs.count Then
                 Set NextPara = doc.Paragraphs(i + 1)
@@ -4985,9 +5002,7 @@ Public Sub ApplyVereadorParagraphFormatting(para As Paragraph)
     ' Estilo e fonte normal
     para.Style = "Normal"
 
-    ' Remove formatacao de lista (causa comum de recuo 1,25cm)
-    On Error Resume Next
-    para.Range.ListFormat.RemoveNumbers
+    ' NOTA: ListFormat.RemoveNumbers removido — marcadores/numeracao nao devem ser editados
     On Error Resume Next
     With para.Range.Font
         .Bold = False
@@ -7240,7 +7255,7 @@ Public Function RemoveNumberingFromBlankParagraphs(doc As Document) As Boolean
         ' Verifica se o paragrafo esta vazio (apenas quebra de paragrafo e espacos)
         paraText = Trim(Replace(Replace(para.Range.text, vbCr, ""), vbLf, ""))
 
-        If paraText = "" Then
+        If paraText = "" And Not HasVisualContent(para) Then
             ' ListType = 0 (wdListNoNumbering) indica que nao tem lista
             If para.Range.ListFormat.ListType <> 0 Then
                 para.Range.ListFormat.RemoveNumbers

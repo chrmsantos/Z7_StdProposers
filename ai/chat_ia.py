@@ -44,7 +44,7 @@ class ChatApp:
         LOGGER.info("Initializing ChatApp UI")
         self.root = root
         self.word_app = None
-        self.root.title(f"Chat com a IA — Z7 StdProposers v{_APP_VERSION}")
+        self.root.title(f"Chat com a LÉIA — Z7 StdProposers v{_APP_VERSION}")
         
         screen_width = self.root.winfo_screenwidth()
         screen_height = self.root.winfo_screenheight()
@@ -298,7 +298,7 @@ class ChatApp:
         self.header_top.pack(fill=tk.X)
 
         self.title_lbl = tk.Label(
-            self.header_top, text="✨ Assistente de IA",
+            self.header_top, text="✨ LÉIA — Assistente Legislativa de IA",
             font=("Segoe UI", 16, "bold")
         )
         self.title_lbl.pack(side=tk.LEFT, anchor="w")
@@ -420,7 +420,7 @@ class ChatApp:
         elif role == "Sistema":
             self.chat_area.insert(tk.END, f"⚠ {message}\n", "sys_tag")
         else:
-            self.chat_area.insert(tk.END, "IA:\n", "ai_tag")
+            self.chat_area.insert(tk.END, "LÉIA:\n", "ai_tag")
             self.chat_area.insert(tk.END, f"{message}\n", "ai_msg")
 
         # Separador visual entre mensagens

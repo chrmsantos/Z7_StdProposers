@@ -840,10 +840,10 @@ End Sub
 
 
 '================================================================================
-' SUBROTINA PUBLICA: CHAT COM GEMINI
+' SUBROTINA PUBLICA: CHAT COM A LÉIA
 '================================================================================
 Public Sub ChatComGemini()
-    ' Macro para abrir a interface em Python do Chat Interativo com a IA
+    ' Macro para abrir a interface em Python do Chat Interativo com a LÉIA
     Dim objShell As Object
     Dim comandoExecucao As String
     Dim caminhoScript As String
