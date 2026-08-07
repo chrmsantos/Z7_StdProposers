@@ -20,7 +20,7 @@ _MOTTO       = "Dharma, virtude e gratidão."
 
 # Fixed first user message displayed when chat starts
 _FIRST_USER_MSG = (
-    "Leia o documento, identifique erros e proponha sugestões de correção. "
+    "Olá, Léia! Por gentileza, leia a propositura, identifique erros e proponha sugestões de correção. "
     "Atenda às tarefas descritas e detalhadas nas configurações de prompt."
 )
 

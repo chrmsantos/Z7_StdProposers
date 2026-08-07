@@ -986,6 +986,18 @@ Public Function PreviousFormatting(doc As Document) As Boolean
     FixHyphenatedVereadorParagraphIndents doc
     LogStepComplete "Ajuste final de recuos para Vereador (travessoes)"
 
+    LogStepStart "Formatacao final do vocativo (garantia pos-processamento)"
+    ForceVocativoFormatting doc
+    LogStepComplete "Formatacao final do vocativo (garantia pos-processamento)"
+
+    LogStepStart "Insercao final de paragrafo em branco na Ementa (acima e abaixo)"
+    ForceEmentaSpacing doc
+    LogStepComplete "Insercao final de paragrafo em branco na Ementa (acima e abaixo)"
+
+    LogStepStart "Insercao final de paragrafo em branco na Data (acima)"
+    ForceDataSpacing doc
+    LogStepComplete "Insercao final de paragrafo em branco na Data (acima)"
+
     LogMessage "Formatacao completa aplicada com sucesso", LOG_LEVEL_INFO
     LogMetric "Total de paragrafos", doc.Paragraphs.count
     PreviousFormatting = True
@@ -1059,6 +1071,168 @@ Public Sub FixHyphenatedVereadorParagraphIndents(doc As Document)
 
 ErrorHandler:
     LogMessage "Erro ao ajustar recuos de Vereador/Vereadora: " & Err.Description, LOG_LEVEL_WARNING
+End Sub
+
+'================================================================================
+' FORCE VOCATIVO FORMATTING - Garante formatacao final do vocativo apos todo processamento
+' Busca paragrafos contendo exclusivamente "Excelentissimo Senhor Prefeito Municipal,"
+' e aplica: justificado + recuo da primeira linha 2,5 cm + recuo esquerda 0.
+' Executada como ULTIMA formatacao para nao ser sobrescrita.
+'================================================================================
+Public Sub ForceVocativoFormatting(doc As Document)
+    On Error GoTo ErrorHandler
+
+    If doc Is Nothing Then Exit Sub
+
+    Dim para As Paragraph
+    Dim paraText As String
+    Dim cleanText As String
+    Dim fixedCount As Long
+
+    fixedCount = 0
+
+    For Each para In doc.Paragraphs
+        If HasVisualContent(para) Then GoTo NextPara
+
+        paraText = Trim(Replace(Replace(para.Range.text, vbCr, ""), vbLf, ""))
+
+        ' Compara sem acentos para tolerar variacoes de encoding
+        cleanText = LCase(paraText)
+        cleanText = Replace(cleanText, ChrW(233), "e") ' e com acento agudo
+        cleanText = Replace(cleanText, ChrW(237), "i") ' i com acento agudo
+        cleanText = Replace(cleanText, ChrW(243), "o") ' o com acento agudo
+
+        If InStr(cleanText, "excelentissimo senhor prefeito municipal") > 0 Then
+            With para.Range.ParagraphFormat
+                .leftIndent = CentimetersToPoints(0)
+                .firstLineIndent = CentimetersToPoints(2.5)
+                .RightIndent = 0
+                .Alignment = wdAlignParagraphJustify
+            End With
+
+            fixedCount = fixedCount + 1
+        End If
+
+NextPara:
+    Next para
+
+    If fixedCount > 0 Then
+        LogMessage "Formatacao final do vocativo reaplicada: " & fixedCount & " paragrafo(s) corrigido(s) (justificado, recuo 2,5 cm)", LOG_LEVEL_INFO
+    End If
+
+    Exit Sub
+
+ErrorHandler:
+    LogMessage "Erro na formatacao final do vocativo: " & Err.Description, LOG_LEVEL_WARNING
+End Sub
+
+'================================================================================
+' FORCE EMENTA SPACING - Garante 1 paragrafo em branco acima e abaixo da Ementa
+' Executada como ULTIMA etapa para nao ser desfeita por processamento posterior.
+'================================================================================
+Public Sub ForceEmentaSpacing(doc As Document)
+    On Error GoTo ErrorHandler
+
+    If doc Is Nothing Then Exit Sub
+    If ementaParaIndex <= 0 Or ementaParaIndex > doc.Paragraphs.count Then Exit Sub
+
+    ' Garante que a ementa existe e tem conteudo
+    Dim ementaText As String
+    ementaText = Trim(Replace(Replace(doc.Paragraphs(ementaParaIndex).Range.text, vbCr, ""), vbLf, ""))
+    If Len(ementaText) = 0 Then Exit Sub
+
+    Dim idx As Long
+
+    ' =========================================================================
+    ' 1. GARANTE 1 PARAGRAFO EM BRANO ABAIXO DA EMENTA
+    ' =========================================================================
+    idx = ementaParaIndex + 1
+    If idx <= doc.Paragraphs.count Then
+        Dim belowText As String
+        belowText = Trim(Replace(Replace(doc.Paragraphs(idx).Range.text, vbCr, ""), vbLf, ""))
+        If belowText <> "" Or HasVisualContent(doc.Paragraphs(idx)) Then
+            ' Nao ha linha em branco abaixo - insere 1
+            doc.Paragraphs(ementaParaIndex).Range.InsertParagraphAfter
+            LogMessage "ForceEmentaSpacing: 1 paragrafo em branco inserido abaixo da Ementa", LOG_LEVEL_INFO
+        End If
+    Else
+        ' Ementa e o ultimo paragrafo - insere 1 abaixo
+        doc.Paragraphs(ementaParaIndex).Range.InsertParagraphAfter
+        LogMessage "ForceEmentaSpacing: 1 paragrafo em branco inserido abaixo da Ementa (ultimo paragrafo)", LOG_LEVEL_INFO
+    End If
+
+    ' =========================================================================
+    ' 2. GARANTE 1 PARAGRAFO EM BRANO ACIMA DA EMENTA
+    ' Nota: inserir abaixo primeiro nao altera o indice da ementa,
+    '       mas inserir abaixo desloca os paragrafos posteriores.
+    '       O indice ementaParaIndex permanece o mesmo.
+    ' =========================================================================
+    idx = ementaParaIndex - 1
+    If idx >= 1 Then
+        Dim aboveText As String
+        aboveText = Trim(Replace(Replace(doc.Paragraphs(idx).Range.text, vbCr, ""), vbLf, ""))
+        If aboveText <> "" Or HasVisualContent(doc.Paragraphs(idx)) Then
+            ' Nao ha linha em branco acima - insere 1
+            doc.Paragraphs(ementaParaIndex).Range.InsertParagraphBefore
+            ' A ementa agora deslocou 1 posicao para baixo
+            ementaParaIndex = ementaParaIndex + 1
+            LogMessage "ForceEmentaSpacing: 1 paragrafo em branco inserido acima da Ementa", LOG_LEVEL_INFO
+        End If
+    Else
+        ' Ementa e o primeiro paragrafo - insere 1 acima
+        doc.Paragraphs(ementaParaIndex).Range.InsertParagraphBefore
+        ementaParaIndex = ementaParaIndex + 1
+        LogMessage "ForceEmentaSpacing: 1 paragrafo em branco inserido acima da Ementa (primeiro paragrafo)", LOG_LEVEL_INFO
+    End If
+
+    Exit Sub
+
+ErrorHandler:
+    LogMessage "Erro ao inserir espacamento da Ementa: " & Err.Description, LOG_LEVEL_WARNING
+End Sub
+
+'================================================================================
+' FORCE DATA SPACING - Garante 1 paragrafo em branco acima da Data
+' Executada como ULTIMA etapa para nao ser desfeita por processamento posterior.
+'================================================================================
+Public Sub ForceDataSpacing(doc As Document)
+    On Error GoTo ErrorHandler
+
+    If doc Is Nothing Then Exit Sub
+    If dataParaIndex <= 0 Or dataParaIndex > doc.Paragraphs.count Then Exit Sub
+
+    ' Garante que a data existe e tem conteudo
+    Dim dataText As String
+    dataText = Trim(Replace(Replace(doc.Paragraphs(dataParaIndex).Range.text, vbCr, ""), vbLf, ""))
+    If Len(dataText) = 0 Then Exit Sub
+
+    Dim idx As Long
+
+    ' =========================================================================
+    ' GARANTE 1 PARAGRAFO EM BRANO ACIMA DA DATA
+    ' =========================================================================
+    idx = dataParaIndex - 1
+    If idx >= 1 Then
+        Dim aboveText As String
+        aboveText = Trim(Replace(Replace(doc.Paragraphs(idx).Range.text, vbCr, ""), vbLf, ""))
+        If aboveText <> "" Or HasVisualContent(doc.Paragraphs(idx)) Then
+            ' Nao ha linha em branco acima - insere 1
+            doc.Paragraphs(dataParaIndex).Range.InsertParagraphBefore
+            ' A data agora deslocou 1 posicao para baixo
+            dataParaIndex = dataParaIndex + 1
+            LogMessage "ForceDataSpacing: 1 paragrafo em branco inserido acima da Data", LOG_LEVEL_INFO
+        End If
+    Else
+        ' Data e o primeiro paragrafo - insere 1 acima
+        doc.Paragraphs(dataParaIndex).Range.InsertParagraphBefore
+        dataParaIndex = dataParaIndex + 1
+        LogMessage "ForceDataSpacing: 1 paragrafo em branco inserido acima da Data (primeiro paragrafo)", LOG_LEVEL_INFO
+    End If
+
+    Exit Sub
+
+ErrorHandler:
+    LogMessage "Erro ao inserir espacamento da Data: " & Err.Description, LOG_LEVEL_WARNING
 End Sub
 
 '================================================================================
@@ -4646,44 +4820,56 @@ Public Sub FormatVereadorParagraphs(doc As Document)
             ApplyVereadorParagraphFormatting para
 
             ' Formata linha ACIMA (se existir): centraliza, zera recuo, aplica caixa alta e negrito (somente se nao houver conteudo visual)
+            ' IMPORTANTE: Nao altera paragrafos que fazem parte do vocativo
             If i > 1 Then
-                Set prevPara = doc.Paragraphs(i - 1)
-                If Not HasVisualContent(prevPara) Then
-                    ' Aplica caixa alta e negrito na fonte
-                    With prevPara.Range.Font
-                        .AllCaps = True
-                        .Bold = True
-                        .Name = STANDARD_FONT
-                        .size = STANDARD_FONT_SIZE
-                    End With
-                End If
+                ' Verifica se o paragrafo acima pertence ao vocativo
+                If Not IsVocativoParagraph(i - 1) Then
+                    Set prevPara = doc.Paragraphs(i - 1)
+                    If Not HasVisualContent(prevPara) Then
+                        ' Aplica caixa alta e negrito na fonte
+                        With prevPara.Range.Font
+                            .AllCaps = True
+                            .Bold = True
+                            .Name = STANDARD_FONT
+                            .size = STANDARD_FONT_SIZE
+                        End With
+                    End If
 
-                ' Centraliza e zera recuos (seguro mesmo com conteudo visual)
-                With prevPara.Format
-                    .alignment = wdAlignParagraphCenter
-                    .leftIndent = 0
-                    .firstLineIndent = 0
-                    .RightIndent = 0
-                End With
+                    ' Centraliza e zera recuos (seguro mesmo com conteudo visual)
+                    With prevPara.Format
+                        .alignment = wdAlignParagraphCenter
+                        .leftIndent = 0
+                        .firstLineIndent = 0
+                        .RightIndent = 0
+                    End With
+                Else
+                    LogMessage "Paragrafo vocativo (indice " & (i - 1) & ") preservado - nao aplicada formatacao de Vereador adjacente", LOG_LEVEL_INFO
+                End If
             End If
 
             ' Formata SEGUNDA linha ACIMA (se existir): negrito, centralizado, recuo esquerda = 0
+            ' IMPORTANTE: Nao altera paragrafos que fazem parte do vocativo
             If i > 2 Then
-                Dim prevPrevPara As Paragraph
-                Set prevPrevPara = doc.Paragraphs(i - 2)
-                If Not HasVisualContent(prevPrevPara) Then
-                    With prevPrevPara.Range.Font
-                        .Bold = True
-                        .Name = STANDARD_FONT
-                        .size = STANDARD_FONT_SIZE
+                ' Verifica se o paragrafo acima pertence ao vocativo
+                If Not IsVocativoParagraph(i - 2) Then
+                    Dim prevPrevPara As Paragraph
+                    Set prevPrevPara = doc.Paragraphs(i - 2)
+                    If Not HasVisualContent(prevPrevPara) Then
+                        With prevPrevPara.Range.Font
+                            .Bold = True
+                            .Name = STANDARD_FONT
+                            .size = STANDARD_FONT_SIZE
+                        End With
+                    End If
+                    With prevPrevPara.Format
+                        .alignment = wdAlignParagraphCenter
+                        .leftIndent = 0
+                        .firstLineIndent = 0
+                        .RightIndent = 0
                     End With
+                Else
+                    LogMessage "Paragrafo vocativo (indice " & (i - 2) & ") preservado - nao aplicada formatacao de Vereador adjacente", LOG_LEVEL_INFO
                 End If
-                With prevPrevPara.Format
-                    .alignment = wdAlignParagraphCenter
-                    .leftIndent = 0
-                    .firstLineIndent = 0
-                    .RightIndent = 0
-                End With
             End If
 
             ' Formata linha ABAIXO (se existir)
@@ -5327,6 +5513,24 @@ Public Function IsAnexoPattern(text As String) As Boolean
     Dim cleanText As String
     cleanText = LCase(Trim(text))
     IsAnexoPattern = (cleanText = "anexo" Or cleanText = "anexos")
+End Function
+
+'================================================================================
+' IS VOCATIVO PARAGRAPH - Verifica se um indice de paragrafo pertence ao vocativo
+'================================================================================
+Public Function IsVocativoParagraph(paraIndex As Long) As Boolean
+    On Error GoTo ErrorHandler
+
+    If vocativoStartIndex <= 0 Or vocativoEndIndex <= 0 Then
+        IsVocativoParagraph = False
+        Exit Function
+    End If
+
+    IsVocativoParagraph = (paraIndex >= vocativoStartIndex And paraIndex <= vocativoEndIndex)
+    Exit Function
+
+ErrorHandler:
+    IsVocativoParagraph = False
 End Function
 
 '================================================================================
