@@ -12,7 +12,7 @@ _DEFAULT_MODEL = 'deepseek/deepseek-chat'
 _OPENROUTER_BASE_URL = 'https://openrouter.ai/api/v1'
 _MAX_CONTEXT_CHARS = 150_000
 
-_APP_VERSION = "8.1.2"
+_APP_VERSION = "8.4.1"
 _APP_AUTHOR  = "CMS"
 _ORG         = "Câmara Municipal de Santa Bárbara d'Oeste"
 _LICENSE     = "GPL-3.0"
@@ -73,6 +73,7 @@ class ChatApp:
         self._context_pending = False
         self._doc_load_error = ""
         self.current_status_text = "Carregando contexto..."
+        self._last_chat_status = ""  # Deduplicação de status no chat
 
         self.build_ui()
         self.apply_theme()
@@ -207,6 +208,11 @@ class ChatApp:
             spacing1=6, spacing3=8, relief="flat", borderwidth=0)
         self.chat_area.tag_config("sys_tag", font=("Segoe UI", 10, "italic"),
             foreground=fg_muted, spacing1=4, spacing3=4)
+        self.chat_area.tag_config("mediator_tag", font=("Segoe UI", 9, "bold", "italic"),
+            foreground=fg_muted, spacing1=8, spacing3=2)
+        self.chat_area.tag_config("mediator_msg", font=("Segoe UI", 9, "italic"),
+            foreground=fg_muted, lmargin1=14, lmargin2=14, rmargin=14,
+            spacing1=2, spacing3=8)
         self.chat_area.tag_config("msg_sep", foreground=border,
             font=("Segoe UI", 6), spacing1=2, spacing3=6)
 
@@ -223,9 +229,24 @@ class ChatApp:
         self.update_status(self.current_status_text)
 
     def update_status(self, text: str) -> None:
-        """Atualiza o texto e a aparência do status de acordo com o estado atual."""
+        """Atualiza o texto e a aparência do status de acordo com o estado atual.
+
+        Além de atualizar o badge no cabeçalho, publica uma mensagem de
+        mediador na conversa para que o usuário acompanhe o estado da IA
+        em tempo real (com deduplicação para evitar repetição consecutiva).
+        """
         self.current_status_text = text
-        
+
+        # Publica status como mensagem de mediador no chat (evita duplicatas consecutivas)
+        text_lower_for_dedup = text.lower().strip()
+        if text_lower_for_dedup != self._last_chat_status:
+            self._last_chat_status = text_lower_for_dedup
+            # Usa after(0) para garantir execução na thread principal
+            try:
+                self.root.after(0, self.append_status_message, text)
+            except Exception:
+                pass
+
         colors = z7_theme.get_theme_colors(self.mode)
         text_lower = text.lower()
         
@@ -311,11 +332,11 @@ class ChatApp:
 
         self.settings_btn = tk.Button(
             self.header_top, text="⚙ Configurações",
-            font=("Segoe UI", 9), relief=tk.FLAT,
-            cursor="hand2", padx=8, pady=3,
+            font=("Segoe UI", 10, "bold"), relief=tk.FLAT,
+            cursor="hand2", padx=12, pady=4,
             command=self._open_config_prompt
         )
-        self.settings_btn.pack(side=tk.RIGHT, anchor="e")
+        self.settings_btn.pack(side=tk.RIGHT, anchor="e", padx=(8, 0))
 
         # Linha 2: Badges de status
         self.header_badges = tk.Frame(self.top_frame)
@@ -349,7 +370,7 @@ class ChatApp:
         _footer_text = f"{_ORG}  ·  {_APP_AUTHOR}  ·  {_LICENSE}  ·  {_MOTTO}"
         self.footer_lbl = tk.Label(
             self.root, text=_footer_text,
-            font=("Segoe UI", 8), anchor="center"
+            font=("Segoe UI", 8), anchor="e"
         )
         self.footer_lbl.pack(side=tk.BOTTOM, fill=tk.X, pady=(0, 6))
 
@@ -426,6 +447,15 @@ class ChatApp:
         # Separador visual entre mensagens
         self.chat_area.insert(tk.END, "─" * 60 + "\n\n", "msg_sep")
 
+        self.chat_area.see(tk.END)
+        self.chat_area.config(state=tk.DISABLED)
+
+    def append_status_message(self, text: str) -> None:
+        """Exibe uma mensagem de status da IA como mediador na conversa."""
+        self.chat_area.config(state=tk.NORMAL)
+        self.chat_area.insert(tk.END, "📋 Mediador:\n", "mediator_tag")
+        self.chat_area.insert(tk.END, f"{text}\n", "mediator_msg")
+        self.chat_area.insert(tk.END, "─" * 60 + "\n\n", "msg_sep")
         self.chat_area.see(tk.END)
         self.chat_area.config(state=tk.DISABLED)
 

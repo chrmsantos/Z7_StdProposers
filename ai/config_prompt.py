@@ -16,7 +16,7 @@ LOGGER = configure_component_logger("config_prompt")
 
 GITHUB_REPO_URL = "https://github.com/chrmsantos/Z7_StdProposers"
 
-_APP_VERSION = "8.1.2"
+_APP_VERSION = "8.4.1"
 _APP_AUTHOR  = "CMS"
 _ORG         = "Câmara Municipal de Santa Bárbara d'Oeste"
 _LICENSE     = "GPL-3.0"
@@ -1342,7 +1342,7 @@ def main() -> None:
     # ── Rodapé ────────────────────────────────────────────────────────────
     _footer_text = f"{_ORG}  ·  {_APP_AUTHOR}  ·  {_LICENSE}  ·  {_MOTTO}"
     footer_lbl = tk.Label(root, text=_footer_text, font=("Segoe UI", 8),
-                          anchor="center", bg=_c["bg"], fg=_c["fg_muted"])
+                          anchor="e", bg=_c["bg"], fg=_c["fg_muted"])
     theme.widgets['footer_lbl'] = footer_lbl
 
     # Aplica o tema inicial
