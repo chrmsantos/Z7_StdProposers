@@ -31,7 +31,7 @@ _DEFAULT_MODEL = 'deepseek/deepseek-chat'
 _OPENROUTER_BASE_URL = 'https://openrouter.ai/api/v1'
 _MAX_CONTEXT_CHARS = 150_000
 
-_APP_VERSION = "8.6.0"
+_APP_VERSION = "8.6.2"
 _APP_AUTHOR  = "CMS"
 _ORG         = "Câmara Municipal de Santa Bárbara d'Oeste"
 _LICENSE     = "GPL-3.0"
@@ -247,6 +247,11 @@ class ChatApp:
         evitar repetição consecutiva).
         """
         self.current_status_text = text
+
+        # "Pronto para conversar" é um estado interno — não exibir no chat
+        if text.lower().strip() == "pronto para conversar":
+            self._last_chat_status = text.lower().strip()
+            return
 
         # Publica status como mensagem de mediador no chat (evita duplicatas consecutivas)
         text_lower_for_dedup = text.lower().strip()
