@@ -225,7 +225,7 @@ class ChatApp:
             foreground=fg_muted, spacing1=4, spacing3=4)
         self.chat_area.tag_config("mediator_msg", font=("Segoe UI", 9, "italic"),
             foreground=fg_muted, lmargin1=14, lmargin2=14, rmargin=14,
-            spacing1=2, spacing3=8)
+            spacing1=1, spacing3=1)
         self.chat_area.tag_config("msg_sep", foreground=border,
             font=("Segoe UI", 6), spacing1=2, spacing3=6)
 
@@ -384,7 +384,6 @@ class ChatApp:
                 break
         self.chat_area.config(state=tk.NORMAL)
         self.chat_area.insert(tk.END, f"{text}\n", "mediator_msg")
-        self.chat_area.insert(tk.END, "─" * 60 + "\n\n", "msg_sep")
         self.chat_area.see(tk.END)
         self.chat_area.config(state=tk.DISABLED)
 

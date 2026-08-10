@@ -336,6 +336,7 @@ Para cada parágrafo que contenha apenas "Vereador" (com ou sem hífens/travess�
 
 - Parágrafos com `"- Vereador -"`, `"- Vereadora -"` ou variantes: zera todos os recuos (esquerda, direita, primeira linha).
 - **Remove parágrafos em branco** imediatamente acima de qualquer parágrafo "Vereador"/"Vereadora" (garantia final ao término do processamento).
+- **Remove parágrafos em branco** imediatamente acima de parágrafos vocativos (`"Senhores Vereadores,"`, `"Senhoras Vereadoras,"`, `"Senhores(as) Vereadores(as)"`, `"Senhora Vereadora"`) quando estes estão separados do parágrafo `"Senhor Presidente,"` por linhas em branco.
 
 ### 5.41 Substituição de "Nº" por "n°" (`ReplaceNoWithNoExceptTitle`)
 

@@ -1080,6 +1080,49 @@ Public Sub FixHyphenatedVereadorParagraphIndents(doc As Document)
             On Error GoTo ErrorHandler
             fixedCount = fixedCount + 1
         End If
+
+        ' GARANTIA: Remove paragrafos em branco acima de vocativos (Senhores Vereadores,
+        ' Senhoras Vereadoras, Senhores(as) Vereadores(as), Senhora Vereadora) quando
+        ' estao separados do paragrafo exclusivo "Senhor Presidente,"
+        If IsVocativoVereadorPresidenteParagraph(paraText) And i > 1 Then
+            Dim vocCheckIdx As Long
+            Dim vocBlankCount As Long
+            Dim vocCheckPara As Paragraph
+            Dim vocCheckText As String
+            vocCheckIdx = i - 1
+            vocBlankCount = 0
+
+            ' Conta paragrafos em branco imediatamente acima
+            Do While vocCheckIdx >= 1
+                Set vocCheckPara = doc.Paragraphs(vocCheckIdx)
+                vocCheckText = Trim(Replace(Replace(vocCheckPara.Range.text, vbCr, ""), vbLf, ""))
+                If vocCheckText = "" And Not HasVisualContent(vocCheckPara) Then
+                    vocBlankCount = vocBlankCount + 1
+                    vocCheckIdx = vocCheckIdx - 1
+                Else
+                    Exit Do
+                End If
+            Loop
+
+            ' Se encontrou paragrafos em branco e o paragrafo acima e "Senhor Presidente,"
+            If vocBlankCount > 0 And vocCheckIdx >= 1 Then
+                If IsSenhorPresidenteParagraph(doc.Paragraphs(vocCheckIdx).Range.text) Then
+                    ' Remove os paragrafos em branco entre "Senhor Presidente," e o vocativo
+                    Do While i > vocCheckIdx + 1
+                        Set prevPara = doc.Paragraphs(i - 1)
+                        prevPara.Range.Delete
+                        i = i - 1
+                        blankRemovedCount = blankRemovedCount + 1
+                    Loop
+
+                    ' Reobtem referencia apos possiveis remocoes
+                    If i > doc.Paragraphs.count Then Exit For
+                    Set para = doc.Paragraphs(i)
+
+                    LogMessage "Paragrafos em branco entre 'Senhor Presidente,' e vocativo removidos (final): " & vocBlankCount, LOG_LEVEL_INFO
+                End If
+            End If
+        End If
     Next i
 
     If blankRemovedCount > 0 Then
@@ -5507,6 +5550,30 @@ Public Function IsVereadorPattern(text As String) As Boolean
         Exit Function
     End If
     IsVereadorPattern = (GetVereadorNormalizedWord(text) <> "")
+End Function
+
+Public Function IsVocativoVereadorPresidenteParagraph(text As String) As Boolean
+    ' Detecta paragrafos vocativos que aparecem logo abaixo de "Senhor Presidente,"
+    ' e nao devem ser separados deste por paragrafos em branco.
+    Dim cleanText As String
+    cleanText = LCase$(Trim$(Replace(Replace(text, vbCr, ""), vbLf, "")))
+
+    Select Case cleanText
+        Case "senhores vereadores,", "senhores vereadores", _
+             "senhoras vereadoras,", "senhoras vereadoras", _
+             "senhores(as) vereadores(as),", "senhores(as) vereadores(as)", _
+             "senhora vereadora,", "senhora vereadora"
+            IsVocativoVereadorPresidenteParagraph = True
+        Case Else
+            IsVocativoVereadorPresidenteParagraph = False
+    End Select
+End Function
+
+Public Function IsSenhorPresidenteParagraph(text As String) As Boolean
+    ' Detecta o paragrafo que contem exclusivamente "Senhor Presidente,"
+    Dim cleanText As String
+    cleanText = LCase$(Trim$(Replace(Replace(text, vbCr, ""), vbLf, "")))
+    IsSenhorPresidenteParagraph = (cleanText = "senhor presidente,")
 End Function
 
 Public Function GetVereadorNormalizedWord(text As String) As String
