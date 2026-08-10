@@ -8,11 +8,30 @@ from z7_api_key import get_api_key
 
 LOGGER = configure_component_logger("chat_ia")
 
+
+def _configure_ssl_certifi() -> None:
+    """Ensure the SSL module can locate the CA bundle shipped with *certifi*.
+
+    PyInstaller bundles *certifi``s ``cacert.pem`` inside ``_internal/``, but
+    the system OpenSSL used by :func:`ssl.create_default_context` may not find
+    it automatically (especially on Windows with Python ≥ 3.14).  Setting the
+    ``SSL_CERT_FILE`` environment variable **before** any HTTPS connection is
+    created resolves ``FileNotFoundError: [Errno 2] No such file or directory``
+    raised by ``httpx`` → ``ssl.create_default_context``.
+    """
+    import os
+    try:
+        import certifi
+        os.environ.setdefault("SSL_CERT_FILE", certifi.where())
+    except ImportError:
+        LOGGER.warning("certifi not available; SSL may fail in frozen environment")
+
+
 _DEFAULT_MODEL = 'deepseek/deepseek-chat'
 _OPENROUTER_BASE_URL = 'https://openrouter.ai/api/v1'
 _MAX_CONTEXT_CHARS = 150_000
 
-_APP_VERSION = "8.5.1"
+_APP_VERSION = "8.5.2"
 _APP_AUTHOR  = "CMS"
 _ORG         = "Câmara Municipal de Santa Bárbara d'Oeste"
 _LICENSE     = "GPL-3.0"
@@ -358,6 +377,11 @@ class ChatApp:
 
     def append_status_message(self, text: str) -> None:
         """Exibe uma mensagem de status da IA como mediador na conversa."""
+        # Remove prefixo "📋 Mediador:" caso presente no texto
+        for prefix in ("📋 Mediador:\n", "📋 Mediador:", "Mediador:"):
+            if text.startswith(prefix):
+                text = text[len(prefix):].lstrip()
+                break
         self.chat_area.config(state=tk.NORMAL)
         self.chat_area.insert(tk.END, f"{text}\n", "mediator_msg")
         self.chat_area.insert(tk.END, "─" * 60 + "\n\n", "msg_sep")
@@ -787,6 +811,7 @@ class ChatApp:
         import pythoncom
         pythoncom.CoInitialize()
         try:
+            _configure_ssl_certifi()
             from openai import OpenAI
             self.client = OpenAI(
                 base_url=_OPENROUTER_BASE_URL,
@@ -960,6 +985,7 @@ class ChatApp:
         import pythoncom
         pythoncom.CoInitialize()
         try:
+            _configure_ssl_certifi()
             from openai import OpenAI
 
             api_key = get_api_key(self.root)

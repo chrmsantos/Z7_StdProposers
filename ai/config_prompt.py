@@ -16,7 +16,7 @@ LOGGER = configure_component_logger("config_prompt")
 
 GITHUB_REPO_URL = "https://github.com/chrmsantos/Z7_StdProposers"
 
-_APP_VERSION = "8.5.1"
+_APP_VERSION = "8.5.2"
 _APP_AUTHOR  = "CMS"
 _ORG         = "Câmara Municipal de Santa Bárbara d'Oeste"
 _LICENSE     = "GPL-3.0"
@@ -771,16 +771,10 @@ class AppTheme:
         if 'separator' in self.widgets:
             self.widgets['separator'].configure(bg=border)
 
-        # ── Status bar ────────────────────────────────────────────────────
-        if 'status_frame' in self.widgets:
-            self.widgets['status_frame'].configure(bg=bg)
+        # ── API button ───────────────────────────────────────────────────
         if 'api_btn' in self.widgets:
             self.widgets['api_btn'].configure(bg=btn_primary_bg, fg=btn_primary_fg,
                                               activebackground=btn_primary_hover, activeforeground=btn_primary_fg)
-        if 'update_status_lbl' in self.widgets:
-            self.widgets['update_status_lbl'].configure(bg=bg)
-        if 'ai_status_lbl' in self.widgets:
-            self.widgets['ai_status_lbl'].configure(bg=bg)
         if 'api_btn_frame' in self.widgets:
             self.widgets['api_btn_frame'].configure(bg=bg)
 
@@ -1079,6 +1073,13 @@ def open_ai_api_dialog(
 
         def _do_test() -> None:
             try:
+                import os as _os
+                try:
+                    import certifi as _certifi
+                    _os.environ.setdefault("SSL_CERT_FILE", _certifi.where())
+                except ImportError:
+                    LOGGER.warning("certifi not available; SSL may fail in frozen environment")
+
                 from openai import OpenAI
 
                 dialog.after(0, lambda: _append("Testando conexão com a API OpenRouter…", "dim"))
@@ -1257,35 +1258,8 @@ def main() -> None:
     separator.pack(fill=tk.X, pady=(12, 0))
     theme.widgets['separator'] = separator
 
-    # ── Status bar (Update + AI model) ────────────────────────────────────
-    status_frame = tk.Frame(root, bg=_c["bg"])
-    status_frame.pack(fill=tk.X, padx=25, pady=(10, 0))
-    theme.widgets['status_frame'] = status_frame
-
-    # Update status badge (independent check)
+    # ── Run independent update check in background ─────────────────────
     _colors = z7_theme.get_theme_colors(theme.mode)
-    update_status_lbl = tk.Label(status_frame, text="⏳ Checando atualizações...",
-                                 font=("Segoe UI", 9), fg=_colors["fg_muted"],
-                                 bg=_colors["bg"])
-    update_status_lbl.pack(side=tk.LEFT, padx=(12, 0))
-    theme.widgets['update_status_lbl'] = update_status_lbl
-
-    # AI model + validation status badge
-    _model_name = load_ai_model()
-    _has_key = bool(load_api_key())
-    if _has_key:
-        _ai_status_text = f"🤖 {_model_name}  •  ✔ Validado"
-        _ai_status_color = "#10b981" if theme.mode == "light" else "#34d399"
-    else:
-        _ai_status_text = f"🤖 {_model_name}  •  ⚠ Não validado"
-        _ai_status_color = "#f59e0b" if theme.mode == "light" else "#fbbf24"
-    ai_status_lbl = tk.Label(status_frame, text=_ai_status_text,
-                             font=("Segoe UI", 9, "bold"), fg=_ai_status_color,
-                             bg=_colors["bg"])
-    ai_status_lbl.pack(side=tk.RIGHT, anchor="e", padx=(8, 0))
-    theme.widgets['ai_status_lbl'] = ai_status_lbl
-
-    # Run independent update check in background
     def _check_updates_bg() -> None:
         try:
             data = get_latest_github_release()
@@ -1293,21 +1267,15 @@ def main() -> None:
             if not tag_name:
                 tag_name = data.get("name", "").strip()
             if not tag_name:
-                root.after(0, lambda: update_status_lbl.config(
-                    text="⚠ Erro ao checar atualização", fg="#ef4444"))
+                LOGGER.warning("Could not determine latest release tag")
                 return
             comparison = compare_versions(tag_name, _APP_VERSION)
             if comparison > 0:
-                root.after(0, lambda: update_status_lbl.config(
-                    text="🔄 Atualização disponível", fg="#f59e0b"))
+                LOGGER.info("Update available: %s", tag_name)
             else:
-                root.after(0, lambda: update_status_lbl.config(
-                    text="✔ App atualizado",
-                    fg="#10b981"))
+                LOGGER.info("App is up to date")
         except Exception as ex:
             LOGGER.warning("Background update check failed: %s", ex)
-            root.after(0, lambda: update_status_lbl.config(
-                text="⚠ Erro ao checar atualização", fg="#ef4444"))
 
     threading.Thread(target=_check_updates_bg, daemon=True).start()
 
@@ -1420,7 +1388,6 @@ def main() -> None:
     # Pack order: footer and buttons fixed at bottom, text area fills rest
     footer_lbl.pack(side=tk.BOTTOM, fill=tk.X, pady=(0, 5))
     btn_frame.pack(side=tk.BOTTOM, fill=tk.X, pady=(15, 5))
-    status_frame.pack(fill=tk.X, padx=25, pady=(10, 0))
     frame.pack(side=tk.TOP, expand=True, fill=tk.BOTH, padx=25, pady=(4, 10))
 
     # Bring window to front on startup without staying always-on-top
