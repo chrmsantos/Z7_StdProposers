@@ -16,13 +16,13 @@ LOGGER = configure_component_logger("config_prompt")
 
 GITHUB_REPO_URL = "https://github.com/chrmsantos/Z7_StdProposers"
 
-_APP_VERSION = "8.4.1"
+_APP_VERSION = "8.5.1"
 _APP_AUTHOR  = "CMS"
 _ORG         = "Câmara Municipal de Santa Bárbara d'Oeste"
 _LICENSE     = "GPL-3.0"
 _MOTTO       = "Dharma, virtude e gratidão."
 
-_DEFAULT_PREFIX = """As strings \"$ANO$\" e \"$DATAATUALEXTENSO$\" devem ser ignoradas no processo de verificação de consistência de datas, não devendo ser comparadas com outras datas no restante do documento.
+_DEFAULT_PREFIX = """As strings \"$NUMERO$/$ANO$\", \"$ANO$\" e \"$DATAATUALEXTENSO$\" são placeholders de template utilizados pelo sistema de padronização automática e estão CORRETAS no documento. Elas NÃO devem ser consideradas erros, inconsistências ou problemas de qualquer tipo. Ignore-as completamente na verificação de consistência de datas e não as compare com outras datas do documento. Também não as aponte como erros ortográficos, de formatação ou de conteúdo.
 A verificação de consistência deve também verificar e apontar erros gramaticais graves.
 A verificação de consistência deverá verificar as referências normativas do documento sob os seguintes requisitos:
 - Se o documento/propositura for uma indicação, o texto deverá fazer referência expressa ao Art. 108 do Regimento Interno;
@@ -55,7 +55,7 @@ Não reporte como problemas:
 - Pequenas divergências de grafia ou acentuação;
 - Diferenças na ordem de palavras que não alterem o sentido;
 - Pequenos erros formais ou desvios gramaticais leves que não comprometam a estrutura ou a lógica do texto (erros gramaticais graves, contudo, devem ser apontados);
-- As strings "$ANO$" e "$DATAATUALEXTENSO$" (que devem ser ignoradas no processo de verificação de consistência de datas, não devendo ser comparadas com outras datas no restante do documento).
+- As strings "$NUMERO$/$ANO$", "$ANO$" e "$DATAATUALEXTENSO$" são placeholders de template do sistema de padronização e estão corretas. NÃO as reporte como erros, inconsistências ou problemas de qualquer natureza.
 
 Se encontrar inconsistências, liste-as de forma clara, sucinta e objetiva, indicando os trechos conflitantes e explicando o problema. 
 Elabore sugestões de correção para cada inconsistência identificada, mantendo a integridade e o sentido jurídico do documento.
@@ -90,7 +90,7 @@ Saída JSON:
 {{"titulo": "INDICAÇÃO Nº $NUMERO$/$ANO$","ementa": "Indica ao Poder Executivo Municipal a ampliação da rede de creches nos bairros com maior demanda por vagas.","vocativo": "Excelentíssimo Senhor Prefeito Municipal,","proposicao": "Nos termos do Art. 108 do Regimento Interno desta Casa de Leis, dirijo-me a Vossa Excelência para indicar que seja realizado um estudo técnico para ampliação da rede de creches públicas, com prioridade aos bairros com maior número de crianças em lista de espera, como o Jardim São Fernando e o Parque Zabani, neste Município.","titulo_da_justificativa": "Justificativa:","justificativa": "A falta de vagas em creches tem afetado diretamente as famílias, em especial mães que dependem do serviço para poder trabalhar. A ampliação do número de unidades ou convênios com instituições qualificadas atenderá à demanda crescente e garantirá o direito à educação infantil.","data": "Plenário \\"Dr. Tancredo Neves\\", $DATAATUALEXTENSO$.","assinatura": "AUTORIA\\n– Vereador –"}}"""
 
 
-DEFAULT_CHAT_SYSTEM_PROMPT = "Você é a LÉIA — Assistente Legislativa de IA. Sempre se apresente como LÉIA. Leia o documento ativo. Identifique erros. Auxilie o usuário alterando, revisando ou tirando dúvidas."
+DEFAULT_CHAT_SYSTEM_PROMPT = "Você é a LÉIA — Assistente Legislativa de IA. Sempre se apresente como LÉIA. Leia o documento ativo. Identifique erros. Auxilie o usuário alterando, revisando ou tirando dúvidas. As strings `$NUMERO$/$ANO$`, `$ANO$` e `$DATAATUALEXTENSO$` são placeholders de template do sistema de padronização automática — estão corretas e NÃO devem ser apontadas como erros."
 
 
 def get_chat_system_prompt_file_path() -> Path:
@@ -749,7 +749,10 @@ class AppTheme:
         btn_sec_bg = colors["btn_sec_bg"]
         btn_sec_fg = colors["btn_sec_fg"]
         btn_sec_hover = colors["btn_sec_hover"]
-        select_bg = "#6366f1" if self.mode == "dark" else "#7c3aed"
+        btn_primary_bg = colors["btn_primary_bg"]
+        btn_primary_fg = colors["btn_primary_fg"]
+        btn_primary_hover = colors["btn_primary_hover"]
+        select_bg = "#8b5cf6" if self.mode == "dark" else "#7c3aed"
         select_fg = "#ffffff"
             
         self.root.configure(bg=bg)
@@ -772,10 +775,12 @@ class AppTheme:
         if 'status_frame' in self.widgets:
             self.widgets['status_frame'].configure(bg=bg)
         if 'api_btn' in self.widgets:
-            self.widgets['api_btn'].configure(bg=btn_sec_bg, fg=btn_sec_fg,
-                                              activebackground=btn_sec_hover, activeforeground=fg)
+            self.widgets['api_btn'].configure(bg=btn_primary_bg, fg=btn_primary_fg,
+                                              activebackground=btn_primary_hover, activeforeground=btn_primary_fg)
         if 'update_status_lbl' in self.widgets:
             self.widgets['update_status_lbl'].configure(bg=bg)
+        if 'ai_status_lbl' in self.widgets:
+            self.widgets['ai_status_lbl'].configure(bg=bg)
         if 'api_btn_frame' in self.widgets:
             self.widgets['api_btn_frame'].configure(bg=bg)
 
@@ -854,8 +859,8 @@ def open_ai_api_dialog(
     btn_sec_fg   = colors["btn_sec_fg"]
     btn_sec_hover = colors["btn_sec_hover"]
     btn_primary  = colors.get("btn_primary_bg", "#2563eb")
-    btn_primary_hover = colors.get("btn_primary_hover", "#4f46e5")
-    select_bg = "#6366f1" if theme_mode == "dark" else "#7c3aed"
+    btn_primary_hover = colors.get("btn_primary_hover", "#6d28d9")
+    select_bg = "#8b5cf6" if theme_mode == "dark" else "#7c3aed"
     select_fg = "#ffffff"
 
     _RE_API_KEY = _re.compile(
@@ -1252,19 +1257,10 @@ def main() -> None:
     separator.pack(fill=tk.X, pady=(12, 0))
     theme.widgets['separator'] = separator
 
-    # ── Status bar (API + Update) ─────────────────────────────────────────
+    # ── Status bar (Update + AI model) ────────────────────────────────────
     status_frame = tk.Frame(root, bg=_c["bg"])
     status_frame.pack(fill=tk.X, padx=25, pady=(10, 0))
     theme.widgets['status_frame'] = status_frame
-
-    # API button
-    api_btn = tk.Button(status_frame, text="🔑 API de IA", font=("Segoe UI", 9, "bold"),
-                        relief=tk.FLAT, cursor="hand2", padx=8, pady=3,
-                        bg=_c["btn_sec_bg"], fg=_c["btn_sec_fg"],
-                        activebackground=_c["btn_sec_hover"], activeforeground=_c["fg"],
-                        command=lambda: open_ai_api_dialog(root, theme.mode))
-    api_btn.pack(side=tk.LEFT)
-    theme.widgets['api_btn'] = api_btn
 
     # Update status badge (independent check)
     _colors = z7_theme.get_theme_colors(theme.mode)
@@ -1273,6 +1269,21 @@ def main() -> None:
                                  bg=_colors["bg"])
     update_status_lbl.pack(side=tk.LEFT, padx=(12, 0))
     theme.widgets['update_status_lbl'] = update_status_lbl
+
+    # AI model + validation status badge
+    _model_name = load_ai_model()
+    _has_key = bool(load_api_key())
+    if _has_key:
+        _ai_status_text = f"🤖 {_model_name}  •  ✔ Validado"
+        _ai_status_color = "#10b981" if theme.mode == "light" else "#34d399"
+    else:
+        _ai_status_text = f"🤖 {_model_name}  •  ⚠ Não validado"
+        _ai_status_color = "#f59e0b" if theme.mode == "light" else "#fbbf24"
+    ai_status_lbl = tk.Label(status_frame, text=_ai_status_text,
+                             font=("Segoe UI", 9, "bold"), fg=_ai_status_color,
+                             bg=_colors["bg"])
+    ai_status_lbl.pack(side=tk.RIGHT, anchor="e", padx=(8, 0))
+    theme.widgets['ai_status_lbl'] = ai_status_lbl
 
     # Run independent update check in background
     def _check_updates_bg() -> None:
@@ -1315,7 +1326,7 @@ def main() -> None:
     text_inner.pack(expand=True, fill=tk.BOTH)
     theme.widgets['text_inner'] = text_inner
 
-    _select_bg = "#6366f1" if theme.mode == "dark" else "#7c3aed"
+    _select_bg = "#8b5cf6" if theme.mode == "dark" else "#7c3aed"
     _select_fg = "#ffffff"
     text_area = tk.Text(text_inner, wrap=tk.WORD, font=("Consolas", 11),
                         relief=tk.FLAT, padx=12, pady=12,
@@ -1371,6 +1382,15 @@ def main() -> None:
                             activeforeground=_c["fg"],
                             command=do_restore)
     restore_btn.pack(side=tk.LEFT, padx=25)
+
+    api_btn = tk.Button(btn_frame, text="🔑 API de IA", font=("Segoe UI", 10, "bold"),
+                        relief=tk.FLAT, cursor="hand2", padx=12, pady=4,
+                        bg=_c["btn_primary_bg"], fg=_c["btn_primary_fg"],
+                        activebackground=_c["btn_primary_hover"],
+                        activeforeground=_c["btn_primary_fg"],
+                        command=lambda: open_ai_api_dialog(root, theme.mode))
+    api_btn.pack(side=tk.LEFT, padx=(0, 5))
+    theme.widgets['api_btn'] = api_btn
 
     import webbrowser
     github_btn = tk.Button(btn_frame, text="⧉ GitHub", font=("Segoe UI", 9),

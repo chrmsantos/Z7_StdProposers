@@ -12,7 +12,7 @@ _DEFAULT_MODEL = 'deepseek/deepseek-chat'
 _OPENROUTER_BASE_URL = 'https://openrouter.ai/api/v1'
 _MAX_CONTEXT_CHARS = 150_000
 
-_APP_VERSION = "8.4.1"
+_APP_VERSION = "8.5.1"
 _APP_AUTHOR  = "CMS"
 _ORG         = "Câmara Municipal de Santa Bárbara d'Oeste"
 _LICENSE     = "GPL-3.0"
@@ -78,8 +78,6 @@ class ChatApp:
         self.build_ui()
         self.apply_theme()
         
-        self._update_ai_status()
-
         self._load_doc_text_main_thread()
         self.init_ai()
 
@@ -155,8 +153,6 @@ class ChatApp:
         # Header sub-frames
         if hasattr(self, 'header_top'):
             self.header_top.configure(bg=bg)
-        if hasattr(self, 'header_badges'):
-            self.header_badges.configure(bg=bg)
 
         # Separadores
         for sep_attr in ('header_sep',):
@@ -166,7 +162,7 @@ class ChatApp:
 
         # Chat area
         self.chat_border.configure(bg=border)
-        select_bg = "#6366f1" if self.mode == "dark" else "#7c3aed"
+        select_bg = "#8b5cf6" if self.mode == "dark" else "#7c3aed"
         select_fg = "#ffffff" if self.mode == "dark" else "#ffffff"
         self.chat_area.configure(
             bg=text_bg, fg=fg, insertbackground=fg,
@@ -208,8 +204,6 @@ class ChatApp:
             spacing1=6, spacing3=8, relief="flat", borderwidth=0)
         self.chat_area.tag_config("sys_tag", font=("Segoe UI", 10, "italic"),
             foreground=fg_muted, spacing1=4, spacing3=4)
-        self.chat_area.tag_config("mediator_tag", font=("Segoe UI", 9, "bold", "italic"),
-            foreground=fg_muted, spacing1=8, spacing3=2)
         self.chat_area.tag_config("mediator_msg", font=("Segoe UI", 9, "italic"),
             foreground=fg_muted, lmargin1=14, lmargin2=14, rmargin=14,
             spacing1=2, spacing3=8)
@@ -224,16 +218,14 @@ class ChatApp:
         if hasattr(self, 'version_badge'):
             self.version_badge.configure(bg=colors["btn_primary_bg"], fg="white")
 
-        # Refresh AI status badge
-        self._update_ai_status()
         self.update_status(self.current_status_text)
 
     def update_status(self, text: str) -> None:
-        """Atualiza o texto e a aparência do status de acordo com o estado atual.
+        """Atualiza o status da IA publicando uma mensagem de mediador na conversa.
 
-        Além de atualizar o badge no cabeçalho, publica uma mensagem de
-        mediador na conversa para que o usuário acompanhe o estado da IA
-        em tempo real (com deduplicação para evitar repetição consecutiva).
+        Publica uma mensagem de mediador no chat para que o usuário
+        acompanhe o estado da IA em tempo real (com deduplicação para
+        evitar repetição consecutiva).
         """
         self.current_status_text = text
 
@@ -246,68 +238,6 @@ class ChatApp:
                 self.root.after(0, self.append_status_message, text)
             except Exception:
                 pass
-
-        colors = z7_theme.get_theme_colors(self.mode)
-        text_lower = text.lower()
-        
-        if "erro" in text_lower or "inválida" in text_lower or "ausente" in text_lower:
-            fg_color = "#ef4444"
-            bg_color = "#fef2f2" if self.mode == "light" else "#450a0a"
-            border_color = "#fca5a5" if self.mode == "light" else "#991b1b"
-            indicator = "● "
-        elif "pronto" in text_lower or "copiada" in text_lower or "recebi" in text_lower:
-            fg_color = "#10b981" if self.mode == "light" else "#34d399"
-            bg_color = "#ecfdf5" if self.mode == "light" else "#064e3b"
-            border_color = "#a7f3d0" if self.mode == "light" else "#065f46"
-            indicator = "● "
-        elif "digitando" in text_lower or "corrigindo" in text_lower or "verificando" in text_lower or "carregando" in text_lower or "iniciando" in text_lower or "cancelando" in text_lower:
-            fg_color = "#6366f1" if self.mode == "light" else "#a5b4fc"
-            bg_color = "#f5f3ff" if self.mode == "light" else "#1e1b4b"
-            border_color = "#c7d2fe" if self.mode == "light" else "#312e81"
-            indicator = "◌ "
-        else:
-            fg_color = colors["fg_muted"]
-            bg_color = colors["bg"]
-            border_color = colors["border"]
-            indicator = ""
-            
-        def _apply():
-            self.status_lbl.config(text=f"{indicator}{text}", fg=fg_color, bg=bg_color)
-            if hasattr(self, "status_frame"):
-                self.status_frame.config(bg=bg_color, highlightbackground=border_color, highlightcolor=border_color)
-        
-        try:
-            self.root.after(0, _apply)
-        except Exception:
-            pass
-
-    def _update_ai_status(self) -> None:
-        """Atualiza o badge de status da IA (modelo + validação)."""
-        if not hasattr(self, 'ai_status_lbl'):
-            return
-
-        model = self._model or _DEFAULT_MODEL
-        has_client = self.client is not None
-
-        colors = z7_theme.get_theme_colors(self.mode)
-
-        if has_client:
-            text = f"🤖 {model}  •  ✔ Validado"
-            color = "#10b981" if self.mode == "light" else "#34d399"
-        else:
-            text = f"🤖 {model}  •  ⚠ Não validado"
-            color = "#f59e0b" if self.mode == "light" else "#fbbf24"
-
-        def _apply():
-            try:
-                self.ai_status_lbl.config(text=text, fg=color, bg=colors["bg"])
-            except Exception:
-                pass
-
-        try:
-            self.root.after(0, _apply)
-        except Exception:
-            pass
 
     def build_ui(self) -> None:
         # ── Cabeçalho ────────────────────────────────────────────────────────
@@ -337,30 +267,6 @@ class ChatApp:
             command=self._open_config_prompt
         )
         self.settings_btn.pack(side=tk.RIGHT, anchor="e", padx=(8, 0))
-
-        # Linha 2: Badges de status
-        self.header_badges = tk.Frame(self.top_frame)
-        self.header_badges.pack(fill=tk.X, pady=(6, 0))
-
-        self.ai_status_lbl = tk.Label(
-            self.header_badges, text="",
-            font=("Segoe UI", 9)
-        )
-        self.ai_status_lbl.pack(side=tk.LEFT, anchor="w", padx=(8, 0))
-
-        self.status_frame = tk.Frame(
-            self.header_badges,
-            padx=10, pady=4,
-            highlightthickness=1,
-            bd=0
-        )
-        self.status_frame.pack(side=tk.RIGHT, anchor="e")
-
-        self.status_lbl = tk.Label(
-            self.status_frame, text="Carregando contexto...",
-            font=("Segoe UI", 9, "bold")
-        )
-        self.status_lbl.pack()
 
         # Separador após cabeçalho
         self.header_sep = tk.Frame(self.top_frame, height=1)
@@ -453,7 +359,6 @@ class ChatApp:
     def append_status_message(self, text: str) -> None:
         """Exibe uma mensagem de status da IA como mediador na conversa."""
         self.chat_area.config(state=tk.NORMAL)
-        self.chat_area.insert(tk.END, "📋 Mediador:\n", "mediator_tag")
         self.chat_area.insert(tk.END, f"{text}\n", "mediator_msg")
         self.chat_area.insert(tk.END, "─" * 60 + "\n\n", "msg_sep")
         self.chat_area.see(tk.END)
@@ -868,7 +773,6 @@ class ChatApp:
 
     def _on_new_conversation_ready(self) -> None:
         self.update_status("Pronto para conversar")
-        self._update_ai_status()
         # Exibe a mensagem fixa pré-definida
         self.append_message("User", _FIRST_USER_MSG)
         # Inicia a análise inicial se houver documento
@@ -892,7 +796,6 @@ class ChatApp:
             self._model = model
             LOGGER.info("OpenAI client reinitialized with model %s", model)
             self.root.after(0, lambda: self.update_status("Pronto para conversar"))
-            self.root.after(50, self._update_ai_status)
         except Exception as e:
             log_exception(LOGGER, "Failed to reinitialize OpenAI client", e)
             self.root.after(0, lambda: self.update_status("Erro ao atualizar API."))
@@ -1156,7 +1059,6 @@ class ChatApp:
 
     def _on_ai_ready(self) -> None:
         self.update_status("Pronto para conversar")
-        self._update_ai_status()
         # Exibe a mensagem fixa pré-definida
         self.append_message("User", _FIRST_USER_MSG)
         # Inicia a análise inicial se houver documento

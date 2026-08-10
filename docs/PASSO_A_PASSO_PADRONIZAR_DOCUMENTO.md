@@ -6,9 +6,9 @@
 
 ## Resumo do fluxo principal
 
-A subrotina opera em duas fases:
+A subrotina opera em três fases:
 1. **Pré-pipeline:** verificações, backups e proteções.
-2. **Pipeline de formatação (duas passagens):** aplica todas as edições ao documento.
+2. **Pipeline de formatação (até duas passagens):** aplica todas as edições ao documento dentro de `PreviousFormatting(doc)`.
 3. **Pós-pipeline:** ajustes finais, restaurações e garantias.
 
 ---
@@ -20,8 +20,9 @@ A subrotina opera em duas fases:
 | 1.1 | Verifica se o Word é versão 2010 ou superior (`CheckWordVersion`). |
 | 1.2 | Verifica se existe um documento ativo. |
 | 1.3 | Inicializa o sistema de logging e registra snapshot de contexto. |
-| 1.4 | Executa `PreviousChecking`: valida tipo de documento, proteção, modo somente-leitura, espaço em disco, dados sensíveis (CPF/CNPJ/cartão/CID). |
-| 1.5 | Se o documento não estiver salvo, solicita o salvamento prévio. |
+| 1.4 | Inicializa o sistema de progresso (18 etapas). |
+| 1.5 | Executa `PreviousChecking`: valida tipo de documento, proteção, modo somente-leitura, espaço em disco, dados sensíveis (CPF/CNPJ/cartão/CID). |
+| 1.6 | Se o documento não estiver salvo, solicita o salvamento prévio (`SaveDocumentFirst`). |
 
 ---
 
@@ -29,11 +30,11 @@ A subrotina opera em duas fases:
 
 | Etapa | Descrição |
 |---|---|
-| 2.1 | **Backup do documento:** salva cópia `.docm` com timestamp na pasta de backups. |
-| 2.2 | **Backup das configurações de visualização:** salva tipo de vista, régua, marcadores, etc. |
-| 2.3 | **Backup de imagens:** cataloga posição, dimensões e tipo (inline/flutuante) de todas as imagens. |
-| 2.4 | **Backup de listas:** salva tipo, nível e string de cada parágrafo com formatação de lista. |
-| 2.5 | **Backup de parágrafos centralizados:** salva índices e texto dos parágrafos centralizados (excluindo Heading/Título). |
+| 2.1 | **Backup do documento:** salva cópia `.docm` com timestamp na pasta de backups (`CreateDocumentBackup`). |
+| 2.2 | **Backup das configurações de visualização:** salva tipo de vista, régua, marcadores, etc. (`BackupViewSettings`). |
+| 2.3 | **Backup de imagens:** cataloga posição, dimensões e tipo (inline/flutuante) de todas as imagens (`BackupAllImages`). |
+| 2.4 | **Backup de listas:** salva tipo, nível e string de cada parágrafo com formatação de lista (`BackupListFormats`). |
+| 2.5 | **Backup de parágrafos centralizados:** salva índices e texto dos parágrafos centralizados (excluindo Heading/Título) (`BackupCenteredParagraphs`). |
 
 ---
 
@@ -54,11 +55,9 @@ A subrotina opera em duas fases:
 
 ---
 
-## 5. Pipeline de Formatação — Passagem 1 (e possivelmente Passagem 2)
+## 5. Pipeline de Formatação (`PreviousFormatting`)
 
-> Se a Passagem 1 alterar o documento (`documentDirty = True`), uma Passagem 2 é executada. A Passagem 2 reconstrói o cache antes de rodar.
-
-Todas as operações abaixo ocorrem **dentro** de `PreviousFormatting(doc)`:
+> O pipeline é executado dentro de um loop de **até 2 passagens**. Se a Passagem 1 alterar o documento (`documentDirty = True`), uma Passagem 2 é executada. A Passagem 2 reconstrói o cache antes de rodar.
 
 ### 5.1 Configuração de Página (`ApplyPageSetup`)
 
@@ -73,7 +72,7 @@ Todas as operações abaixo ocorrem **dentro** de `PreviousFormatting(doc)`:
 Para **cada parágrafo** do documento (preservando imagens):
 
 - **Fonte:** reset completo → Arial 12, cor automática, sem negrito, sem itálico, sem sublinhado.
-- **Parágrafo:** reset completo → alinhamento à esquerda, espaçamento entre linhas 12pt, espaço antes/depois = 0, recuo esquerda/direita/primeira linha = 0.
+- **Parágrafo:** reset completo → alinhamento à esquerda, espaçamento entre linhas 14pt (múltiplo), espaço antes/depois = 0, recuo esquerda/direita/primeira linha = 0.
 - **Bordas e sombreamento:** desabilitados.
 - **Estilo:** redefinido para "Normal".
 
@@ -135,15 +134,15 @@ Para **cada parágrafo** do documento (preservando imagens):
   - **Recuos:** todos zero.
   - **Espaço depois:** 6pt.
 
-> **Nota:** Esta etapa consolida a formatação do 1º parágrafo (anteriormente etapa separada `FormatFirstParagraph`), que aplicava as mesmas formatações (AllCaps, Bold, Underline, centralizado, recuos zero). A chamada a `FormatFirstParagraph` foi removida do pipeline.
-
-### 5.14 Aplicação de Fonte Padrão (`ApplyStdFont` ou `ApplyStdFontOptimized`)
+### 5.14 Aplicação de Fonte Padrão (`ApplyStdFont`)
 
 Para **cada parágrafo** com texto (preservando imagens):
 
 - **Fonte:** Arial 12pt, cor automática.
 - **Sublinhado:** removido (exceto nos 3 primeiros parágrafos / título).
 - **Negrito:** removido (exceto para parágrafos especiais: "Justificativa" e "Anexo/Anexos").
+
+> Nota: a aplicação é feita caractere por caractere em parágrafos com imagens inline para preservar as imagens.
 
 ### 5.15 Formatação de Parágrafos (`ApplyStdParagraphs`)
 
@@ -173,14 +172,25 @@ Para **cada parágrafo** (preservando imagens e parágrafos especiais):
 - **Formatação:** recuo esquerda = 9cm, primeira linha = 0, recuo direito = 0, justificado.
 - **Insere 2 linhas em branco DEPOIS** do parágrafo.
 
-### 5.17 Formatação de "CONSIDERANDO" e "ANTE O EXPOSTO" (`FormatConsiderandoParagraphs`)
+### 5.17 Formatação do Corpo após a Ementa (`FormatPostEmentaBodyParagraphs`)
+
+- Para parágrafos do corpo da proposição (após a ementa, antes da justificativa):
+  - Remove linhas em branco extras entre parágrafos (mantém no máximo 1).
+  - **Recuo da primeira linha:** 2,5cm.
+  - **Fonte:** Arial 12, negrito.
+
+### 5.18 Formatação de "CONSIDERANDO" e "ANTE O EXPOSTO" (`FormatConsiderandoParagraphs`)
 
 - Parágrafos que começam com `"considerando"` (seguido de espaço, vírgula, ponto-e-vírgula ou dois-pontos):
   - `"considerando"` → `"CONSIDERANDO"` em **caixa alta** e **negrito**.
 - Parágrafos que começam com `"ante o exposto"`:
   - `"ante o exposto"` → `"ANTE O EXPOSTO"` em **caixa alta** e **negrito**.
 
-### 5.18 Substituições de Texto (`ApplyTextReplacements`)
+### 5.19 Garantia de Linha em Branco após CONSIDERANDO (`EnsureConsideringBlankLines`)
+
+- Para cada parágrafo que começa com `"CONSIDERANDO"`: se não houver parágrafo vazio logo abaixo, **insere um**.
+
+### 5.20 Substituições de Texto (`ApplyTextReplacements`)
 
 Executa as seguintes substituições globais (Find/Replace):
 
@@ -195,73 +205,78 @@ Executa as seguintes substituições globais (Find/Replace):
 | 7 | `"in loco"` com aspas → sem aspas; aplica **itálico** em todas as ocorrências | — | Não |
 | 8 | `"Área Pública"` (maiúscula) → `"área pública"` (minúscula) | `"área pública"` | Sim |
 | 9 | `"Roçagem"` (maiúscula) → `"roçagem"` (minúscula) | `"roçagem"` | Sim |
-| 10 | `"retorne à esta Casa de Leis com as seguintes respostas"` | `"retorne à esta Casa de Leis com as seguintes informações"` | Não |
-| 11 | `" Jd "` | `" Jd. "` | Sim |
-| 12 | `" aos nº "` / `" aos n° "` | `" ao nº "` / `" ao n° "` | Sim |
-| 13 | `" nos nº "` / `" nos n° "` | `" no nº "` / `" no n° "` | Sim |
-| 14 | `"Nº"` / `"N°"` / `"nº"` → `"n°"` (exceto no título) | `"n°"` | Sim |
+| 10 | `"Bairro"` / `"bairro:"` / `"Bairro:"` → `"bairro"` (minúscula, sem dois-pontos) | `"bairro"` | Sim |
+| 11 | `"retorne à esta Casa de Leis com as seguintes respostas"` | `"retorne à esta Casa de Leis com as seguintes informações"` | Não |
+| 12 | `" Jd "` | `" Jd. "` | Sim |
+| 13 | `" aos nº "` / `" aos n° "` | `" ao nº "` / `" ao n° "` | Sim |
+| 14 | `" nos nº "` / `" nos n° "` | `" no nº "` / `" no n° "` | Sim |
 | 15 | Parágrafos com `"tikinho tk"` (variantes com aspas) | `"TIKINHO TK"` | Não |
-| 16 | Garante espaço não separável após `nº`/`n°` antes de algarismos | — | — |
-| 17 | Substitui **todos** os espaços não separáveis por espaços comuns (exceto após `nº`/`n°` antes de algarismos) | — | — |
 
-### 5.19 Capitalização do Início dos Parágrafos (`CapitalizeFirstLetterOfParagraphs`)
+### 5.21 Capitalização do Início dos Parágrafos (`CapitalizeFirstLetterOfParagraphs`)
 
 - Para cada parágrafo: se a primeira letra do texto for minúscula, converte para maiúscula.
 - Exemplo: `"nos termos..."` → `"Nos termos..."`.
 
-### 5.20 Remoção de Marca d'Água (`RemoveWatermark`)
+### 5.22 Remoção de Marca d'Água (`RemoveWatermark`)
 
 - Percorre cabeçalhos e rodapés de todas as seções.
 - Remove shapes (imagens ou efeitos de texto) cujo nome ou texto alternativo contenha `"Watermark"`.
 
-### 5.21 Inserção de Carimbo no Cabeçalho (`InsertHeaderstamp`)
+### 5.23 Inserção de Carimbo no Cabeçalho (`InsertHeaderstamp`)
 
 - Para cada seção do documento:
   - Limpa o cabeçalho existente.
   - Insere a imagem `stamp.png` (logo da Câmara) centralizada horizontalmente, com largura e altura conforme constantes.
   - Fonte do cabeçalho: Arial 12.
 
-### 5.22 Limpeza de Espaços Múltiplos (`CleanMultipleSpaces`)
+### 5.24 Limpeza de Espaços Múltiplos (`CleanMultipleSpaces`)
 
 - Remove espaços duplos (iterativamente até sobrar um).
 - Remove espaços antes/depois de quebras de parágrafo.
 - Converte tabs múltiplos em um único tab, depois tabs em espaços.
 - Garante espaço após a palavra `"CONSIDERANDO"` (corrige caso a próxima palavra tenha ficado grudada).
 
-### 5.23 Controle de Linhas em Branco Sequenciais (`LimitSequentialEmptyLines`)
+### 5.25 Controle de Linhas em Branco Sequenciais (`LimitSequentialEmptyLines`)
 
 - Normaliza quebras de linha (`^l` → `^p`).
 - Remove excesso de linhas em branco consecutivas: máximo permitido = **1 linha vazia** entre parágrafos.
 - Usa múltiplas passadas de Find/Replace (`^p^p^p` → `^p^p`, etc.) com fallback por loop.
 
-### 5.24 Substituição do Parágrafo de Data (Plenário) (`ReplacePlenarioDateParagraph`)
+### 5.26 Substituição do Parágrafo de Data (Plenário) (`ReplacePlenarioDateParagraph`)
 
 - Localiza parágrafos com até 80 caracteres que contenham 2+ termos como `"Plenário"`, `"Dr. Tancredo Neves"`, `"Palacio 15 de Junho"`, nomes de meses, etc.
 - **Substitui** o texto por: `Plenário "Dr. Tancredo Neves", $DATAATUALEXTENSO$.`
 - **Formata:** centralizado, sem recuos, sem espaço antes/depois.
 
-### 5.25 Configuração de Visualização (`ConfigureDocumentView`)
+### 5.27 Configuração de Visualização (`ConfigureDocumentView`)
 
 - Define o zoom em **140%**.
 - Mantém as demais configurações de visualização preservadas.
 
-### 5.26 Inserção de Rodapé (`InsertFooterStamp`)
+### 5.28 Inserção de Rodapé (`InsertFooterStamp`)
 
 - Para cada seção:
   - Limpa o rodapé existente.
   - **À esquerda:** iniciais do usuário (Arial 6pt, cinza).
   - **Centro:** `"Página X de Y"` (Arial 9pt), usando campos `PAGE` e `NUMPAGES`.
 
-### 5.27 Negrito em Parágrafos Especiais (`ApplyBoldToSpecialParagraphs`)
+### 5.29 Negrito em Parágrafos Especiais (`ApplyBoldToSpecialParagraphs`)
 
 - **"Justificativa":** aplica negrito, Arial 12, centralizado, sem recuos.
 - **"Anexo"/"Anexos":** aplica negrito, Arial 12, alinhado à esquerda, sem recuos.
 
-### 5.28 Substituição de "Vereadora," por "Senhora Vereadora," (`SubstituiVereadoraPorSenhoraVereadora`)
+### 5.30 Substituição de "Vereadora," por "Senhora Vereadora," (`SubstituiVereadoraPorSenhoraVereadora`)
 
 - Se um parágrafo contém apenas `"Vereadora,"` e o anterior contém apenas `"Senhores Vereadores,"`, substitui por `"Senhora Vereadora,"`.
 
-### 5.29 Formatação de Parágrafos "Vereador" (`FormatVereadorParagraphs`)
+### 5.31 Formatação de Parágrafos "Vereador" (`FormatVereadorParagraphs`)
+
+**Antes de formatar**, divide parágrafos que contenham "Vereador"/"Vereadora" seguido de hífen/traço/travessão + "P" + até 5 caracteres:
+
+- Detecta o padrão `"Vereador"` + hífens/traços + `"P"` + até 5 caracteres (ex.: `"Vereador - Podemos"`).
+- Mantém `"Vereador"` no parágrafo original.
+- Move o texto restante (sem hífens/traços) para um novo parágrafo imediatamente abaixo (ex.: `"Podemos"`).
+- O novo parágrafo recebe fonte Arial 12 normal.
 
 Para cada parágrafo que contenha apenas "Vereador" (com ou sem hífens/travessões):
 
@@ -274,29 +289,29 @@ Para cada parágrafo que contenha apenas "Vereador" (com ou sem hífens/travess�
 - **Formata a 2ª linha acima:** negrito, centralizada, recuo esquerda = 0.
 - **Formata a linha abaixo:** centralizada, sem recuos.
 
-### 5.30 Formatação de "Diante do Exposto" (`FormatDianteDoExposto`)
+### 5.32 Formatação de "Diante do Exposto" (`FormatDianteDoExposto`)
 
 - Parágrafos que começam com `"Diante do exposto"`: aplica **negrito** e **caixa alta** nos primeiros 17 caracteres.
 
-### 5.31 Formatação de "Requeiro" (`FormatRequeiroParagraphs`)
+### 5.33 Formatação de "Requeiro" (`FormatRequeiroParagraphs`)
 
 - Parágrafos que começam com `"Requeiro"`: aplica **negrito** e **caixa alta** nas primeiras 8 caracteres (a palavra "REQUEIRO").
 
-### 5.32 Formatação de "Por Todas as Razões" (`FormatPorTodasRazoesParagraphs`)
+### 5.34 Formatação de "Por Todas as Razões" (`FormatPorTodasRazoesParagraphs`)
 
 - Parágrafos que começam com `"Por todas as razões aqui expostas"` (33 caracteres) ou `"Pelas razões aqui expostas"` (28 caracteres): aplica **negrito** na frase.
 
-### 5.33 Remoção de Realces e Bordas (`RemoveAllHighlightsAndBorders`)
+### 5.35 Remoção de Realces e Bordas (`RemoveAllHighlightsAndBorders`)
 
 - Remove **realce** (highlight) de todo o documento.
 - Remove **bordas** de todos os parágrafos.
 
-### 5.34 Remoção de Páginas Vazias no Final (`RemoveEmptyPagesAtEnd`)
+### 5.36 Remoção de Páginas Vazias no Final (`RemoveEmptyPagesAtEnd`)
 
 - Verifica se a(s) última(s) página(s) do documento está(ão) vazia(s).
 - Remove parágrafos vazios do final até que a última página tenha conteúdo.
 
-### 5.35 Formatação Final Universal (`ApplyUniversalFinalFormatting`)
+### 5.37 Formatação Final Universal (`ApplyUniversalFinalFormatting`)
 
 - Para **todo** o documento (em lote):
   - **Fonte:** Arial 12.
@@ -305,21 +320,47 @@ Para cada parágrafo que contenha apenas "Vereador" (com ou sem hífens/travess�
   - **Hifenação automática:** desativada.
 - Reaplica formatação de Vereador (se necessário).
 
-### 5.36 Remoção de Dois-Pontos da Justificativa (`RemoveJustificativaColon`)
+### 5.38 Remoção de Dois-Pontos da Justificativa (`RemoveJustificativaColon`)
 
 - `"Justificativa:"` ou `"Justificação:"` → `"Justificativa"` (remove dois-pontos).
 - Normaliza caixa: `"JUSTIFICATIVA"` ou `"justificativa"` → `"Justificativa"`.
 
-### 5.37 Espaçamento Especial (`AddSpecialElementsSpacing`)
+### 5.39 Espaçamento Especial (`AddSpecialElementsSpacing`)
 
 - **Garante 1 linha em branco** entre o Título e a Ementa (se não existir).
 - **Zera espaço antes/depois** da Ementa.
 - **Zera espaço antes/depois** do Título da Justificativa.
 - **Zera espaço antes/depois** da Data.
 
-### 5.38 Ajuste Final de Recuos para Vereador (`FixHyphenatedVereadorParagraphIndents`)
+### 5.40 Ajuste Final de Recuos para Vereador (`FixHyphenatedVereadorParagraphIndents`)
 
 - Parágrafos com `"- Vereador -"`, `"- Vereadora -"` ou variantes: zera todos os recuos (esquerda, direita, primeira linha).
+- **Remove parágrafos em branco** imediatamente acima de qualquer parágrafo "Vereador"/"Vereadora" (garantia final ao término do processamento).
+
+### 5.41 Substituição de "Nº" por "n°" (`ReplaceNoWithNoExceptTitle`)
+
+- Substitui `"Nº"`, `"N°"` e `"nº"` por `"n°"` em **todo o documento**, exceto no título (1º parágrafo).
+
+### 5.42 Remoção de Espaços Não Separáveis (`ReplaceNonBreakingSpacesExceptAfterNo`)
+
+- Substitui **todos** os espaços não separáveis (ChrW(160)) por espaços comuns, **exceto** espaços não separáveis logo após `"n°"` antes de algarismos.
+
+### 5.43 Garantia de Espaço Não Separável após n° (`EnsureNonBreakingSpaceAfterNo`)
+
+- Garante que haja um espaço não separável (ChrW(160)) após `"n°"` antes de algarismos.
+
+### 5.44 Garantia Final de Espaçamento da Ementa (`ForceEmentaSpacing`)
+
+- Localiza o parágrafo da ementa via `FindEmentaParagraphIndex`.
+- **Garante 3 linhas em branco antes** da ementa (insere ou ajusta conforme necessário).
+- **Garante 2 linhas em branco depois** da ementa.
+- **Zera espaço antes/depois** da ementa.
+
+### 5.45 Garantia Final de Espaçamento da Data (`ForceDataSpacing`)
+
+- Localiza o parágrafo de data via `GetDataRange` (elemento estrutural "Data").
+- **Garante 2 linhas em branco antes** do parágrafo de data.
+- **Zera espaço antes/depois** do parágrafo de data.
 
 ---
 
@@ -413,7 +454,7 @@ Para cada parágrafo que contenha apenas "Vereador" (com ou sem hífens/travess�
 
 1. **Proteção de imagens:** todas as formatações de fonte e parágrafo são aplicadas preservando imagens inline e shapes flutuantes. Quando um parágrafo contém imagens, a formatação é aplicada caractere por caractere para evitar danos.
 
-2. **Duas passagens:** o pipeline é executado duas vezes se a primeira passagem fizer alterações. A segunda passagem reconstrói o cache para garantir que os índices estão atualizados após possíveis remoções/adições de parágrafos.
+2. **Duas passagens:** o pipeline é executado até duas vezes. Se a primeira passagem fizer alterações (`documentDirty = True`), uma segunda passagem é executada. A segunda passagem reconstrói o cache para garantir que os índices estão atualizados após possíveis remoções/adições de parágrafos.
 
 3. **Parágrafos especiais:** os parágrafos identificados como "Justificativa", "Anexo"/"Anexos" e "Vereador"/"Vereadora" recebem tratamento diferenciado em diversas etapas (negrito preservado, alinhamento específico, recuos zero, etc.).
 

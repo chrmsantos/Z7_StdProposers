@@ -34,7 +34,7 @@ except ImportError:
 else:
     LOGGER = configure_component_logger("installer")
 
-_APP_VERSION = "8.4.1"
+_APP_VERSION = "8.5.1"
 GITHUB_REPO_URL = "https://github.com/chrmsantos/Z7_StdProposers"
 
 class InstallerTheme:
@@ -61,17 +61,17 @@ class InstallerTheme:
             # Fallback de cores se z7_theme falhar
             if self.mode == 'dark':
                 colors = {
-                    "bg": "#0f172a", "fg": "#e2e8f0", "fg_muted": "#94a3b8",
-                    "text_bg": "#1e293b", "border": "#334155",
-                    "btn_sec_bg": "#1e293b", "btn_sec_fg": "#cbd5e1", "btn_sec_hover": "#334155",
-                    "btn_primary_bg": "#6366f1", "btn_primary_fg": "#ffffff", "btn_primary_hover": "#4f46e5"
+                    "bg": "#0f111a", "fg": "#cdd6f4", "fg_muted": "#6c7086",
+                    "text_bg": "#1a1d2e", "border": "#2e3150",
+                    "btn_sec_bg": "#22253a", "btn_sec_fg": "#cdd6f4", "btn_sec_hover": "#2e3150",
+                    "btn_primary_bg": "#8b5cf6", "btn_primary_fg": "#ffffff", "btn_primary_hover": "#7c3aed"
                 }
             else:
                 colors = {
-                    "bg": "#f5f3ff", "fg": "#1e1b4b", "fg_muted": "#6b7280",
-                    "text_bg": "#ffffff", "border": "#c4b5fd",
-                    "btn_sec_bg": "#ede9fe", "btn_sec_fg": "#4c1d95", "btn_sec_hover": "#ddd6fe",
-                    "btn_primary_bg": "#6366f1", "btn_primary_fg": "#ffffff", "btn_primary_hover": "#4f46e5"
+                    "bg": "#f0f2f8", "fg": "#1e2030", "fg_muted": "#6b7280",
+                    "text_bg": "#ffffff", "border": "#c8cedf",
+                    "btn_sec_bg": "#e8ecf6", "btn_sec_fg": "#6d28d9", "btn_sec_hover": "#ddd6fe",
+                    "btn_primary_bg": "#7c3aed", "btn_primary_fg": "#ffffff", "btn_primary_hover": "#6d28d9"
                 }
             
         bg = colors["bg"]
@@ -191,7 +191,7 @@ def main() -> None:
         
         nonlocal progress_bar
         colors_curr = z7_theme.get_theme_colors(theme.mode) if 'z7_theme' in sys.modules else None
-        p_bg = colors_curr["btn_primary_bg"] if colors_curr else "#6366f1"
+        p_bg = colors_curr["btn_primary_bg"] if colors_curr else "#7c3aed"
         t_bg = colors_curr["text_bg"] if colors_curr else "#ffffff"
         progress_canvas.configure(bg=t_bg)
         progress_bar = progress_canvas.create_rectangle(0, 0, 0, 10, fill=p_bg, width=0)
