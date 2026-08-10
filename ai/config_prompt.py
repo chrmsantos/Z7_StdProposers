@@ -16,13 +16,13 @@ LOGGER = configure_component_logger("config_prompt")
 
 GITHUB_REPO_URL = "https://github.com/chrmsantos/Z7_StdProposers"
 
-_APP_VERSION = "8.5.2"
+_APP_VERSION = "8.6.0"
 _APP_AUTHOR  = "CMS"
 _ORG         = "Câmara Municipal de Santa Bárbara d'Oeste"
 _LICENSE     = "GPL-3.0"
 _MOTTO       = "Dharma, virtude e gratidão."
 
-_DEFAULT_PREFIX = """As strings \"$NUMERO$/$ANO$\", \"$ANO$\" e \"$DATAATUALEXTENSO$\" são placeholders de template utilizados pelo sistema de padronização automática e estão CORRETAS no documento. Elas NÃO devem ser consideradas erros, inconsistências ou problemas de qualquer tipo. Ignore-as completamente na verificação de consistência de datas e não as compare com outras datas do documento. Também não as aponte como erros ortográficos, de formatação ou de conteúdo.
+_DEFAULT_PREFIX = """As strings \"$NUMERO$/$ANO$\", \"$ANO$\" e \"$DATAATUALEXTENSO$\" são placeholders de template utilizados pelo sistema de padronização automática e estão CORRETAS no documento. Elas NÃO devem ser consideradas erros, inconsistências ou problemas de qualquer tipo. Ignore-as completamente na verificação de consistência de datas e não as compare com outras datas do documento. Também não as aponte como erros ortográficos, de formatação ou de conteúdo. Em particular, NÃO analise, NÃO critique e NÃO sugira alterações envolvendo a string \"$NUMERO$/$ANO$\" nem qualquer combinação numérica/ano que esteja nesse formato de placeholder.
 A verificação de consistência deve também verificar e apontar erros gramaticais graves.
 A verificação de consistência deverá verificar as referências normativas do documento sob os seguintes requisitos:
 - Se o documento/propositura for uma indicação, o texto deverá fazer referência expressa ao Art. 108 do Regimento Interno;
@@ -57,7 +57,7 @@ Não reporte como problemas:
 - Pequenos erros formais ou desvios gramaticais leves que não comprometam a estrutura ou a lógica do texto (erros gramaticais graves, contudo, devem ser apontados);
 - As strings "$NUMERO$/$ANO$", "$ANO$" e "$DATAATUALEXTENSO$" são placeholders de template do sistema de padronização e estão corretas. NÃO as reporte como erros, inconsistências ou problemas de qualquer natureza.
 
-Se encontrar inconsistências, liste-as de forma clara, sucinta e objetiva, indicando os trechos conflitantes e explicando o problema. 
+Se encontrar inconsistências, classifique-as por grau de gravidade (Crítica, Alta, Média, Baixa) e apresente-as ordenadas da mais grave para a menos grave. Cada item deve indicar claramente o nível de severidade, o trecho conflitante e a explicação do problema.
 Elabore sugestões de correção para cada inconsistência identificada, mantendo a integridade e o sentido jurídico do documento.
 
 Responda em Português do Brasil."""

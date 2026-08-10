@@ -1097,7 +1097,7 @@ ErrorHandler:
 End Sub
 
 '================================================================================
-' FORCE EMENTA SPACING - Garante 1 paragrafo em branco acima e abaixo da Ementa
+' FORCE EMENTA SPACING - Garante 3 paragrafos em branco acima e 2 abaixo da Ementa
 ' Executada como ULTIMA etapa para nao ser desfeita por processamento posterior.
 '================================================================================
 Public Sub ForceEmentaSpacing(doc As Document)
@@ -1112,47 +1112,62 @@ Public Sub ForceEmentaSpacing(doc As Document)
     If Len(ementaText) = 0 Then Exit Sub
 
     Dim idx As Long
+    Dim blankCount As Long
+    Dim insertCount As Long
 
     ' =========================================================================
-    ' 1. GARANTE 1 PARAGRAFO EM BRANO ABAIXO DA EMENTA
+    ' 1. GARANTE 2 PARAGRAFOS EM BRANCO ABAIXO DA EMENTA
     ' =========================================================================
+    blankCount = 0
     idx = ementaParaIndex + 1
-    If idx <= doc.Paragraphs.count Then
+    Do While idx <= doc.Paragraphs.count
         Dim belowText As String
         belowText = Trim(Replace(Replace(doc.Paragraphs(idx).Range.text, vbCr, ""), vbLf, ""))
-        If belowText <> "" Or HasVisualContent(doc.Paragraphs(idx)) Then
-            ' Nao ha linha em branco abaixo - insere 1
-            doc.Paragraphs(ementaParaIndex).Range.InsertParagraphAfter
-            LogMessage "ForceEmentaSpacing: 1 paragrafo em branco inserido abaixo da Ementa", LOG_LEVEL_INFO
+        If belowText = "" And Not HasVisualContent(doc.Paragraphs(idx)) Then
+            blankCount = blankCount + 1
+            idx = idx + 1
+        Else
+            Exit Do
         End If
-    Else
-        ' Ementa e o ultimo paragrafo - insere 1 abaixo
-        doc.Paragraphs(ementaParaIndex).Range.InsertParagraphAfter
-        LogMessage "ForceEmentaSpacing: 1 paragrafo em branco inserido abaixo da Ementa (ultimo paragrafo)", LOG_LEVEL_INFO
+    Loop
+
+    If blankCount < 2 Then
+        insertCount = 2 - blankCount
+        Dim b As Long
+        For b = 1 To insertCount
+            doc.Paragraphs(ementaParaIndex).Range.InsertParagraphAfter
+        Next b
+        LogMessage "ForceEmentaSpacing: " & insertCount & " paragrafo(s) em branco inserido(s) abaixo da Ementa (total garantido: 2)", LOG_LEVEL_INFO
     End If
 
     ' =========================================================================
-    ' 2. GARANTE 1 PARAGRAFO EM BRANO ACIMA DA EMENTA
+    ' 2. GARANTE 3 PARAGRAFOS EM BRANCO ACIMA DA EMENTA
     ' Nota: inserir abaixo primeiro nao altera o indice da ementa,
     '       mas inserir abaixo desloca os paragrafos posteriores.
     '       O indice ementaParaIndex permanece o mesmo.
     ' =========================================================================
+    blankCount = 0
     idx = ementaParaIndex - 1
-    If idx >= 1 Then
+    Do While idx >= 1
         Dim aboveText As String
         aboveText = Trim(Replace(Replace(doc.Paragraphs(idx).Range.text, vbCr, ""), vbLf, ""))
-        If aboveText <> "" Or HasVisualContent(doc.Paragraphs(idx)) Then
-            ' Nao ha linha em branco acima - insere 1
-            doc.Paragraphs(ementaParaIndex).Range.InsertParagraphBefore
-            ' A ementa agora deslocou 1 posicao para baixo
-            ementaParaIndex = ementaParaIndex + 1
-            LogMessage "ForceEmentaSpacing: 1 paragrafo em branco inserido acima da Ementa", LOG_LEVEL_INFO
+        If aboveText = "" And Not HasVisualContent(doc.Paragraphs(idx)) Then
+            blankCount = blankCount + 1
+            idx = idx - 1
+        Else
+            Exit Do
         End If
-    Else
-        ' Ementa e o primeiro paragrafo - insere 1 acima
-        doc.Paragraphs(ementaParaIndex).Range.InsertParagraphBefore
-        ementaParaIndex = ementaParaIndex + 1
-        LogMessage "ForceEmentaSpacing: 1 paragrafo em branco inserido acima da Ementa (primeiro paragrafo)", LOG_LEVEL_INFO
+    Loop
+
+    If blankCount < 3 Then
+        insertCount = 3 - blankCount
+        Dim a As Long
+        For a = 1 To insertCount
+            doc.Paragraphs(ementaParaIndex).Range.InsertParagraphBefore
+        Next a
+        ' A ementa deslocou N posicoes para baixo
+        ementaParaIndex = ementaParaIndex + insertCount
+        LogMessage "ForceEmentaSpacing: " & insertCount & " paragrafo(s) em branco inserido(s) acima da Ementa (total garantido: 3)", LOG_LEVEL_INFO
     End If
 
     Exit Sub
@@ -1162,7 +1177,7 @@ ErrorHandler:
 End Sub
 
 '================================================================================
-' FORCE DATA SPACING - Garante 1 paragrafo em branco acima da Data
+' FORCE DATA SPACING - Garante 2 paragrafos em branco acima da Data
 ' Executada como ULTIMA etapa para nao ser desfeita por processamento posterior.
 '================================================================================
 Public Sub ForceDataSpacing(doc As Document)
@@ -1177,26 +1192,34 @@ Public Sub ForceDataSpacing(doc As Document)
     If Len(dataText) = 0 Then Exit Sub
 
     Dim idx As Long
+    Dim blankCount As Long
+    Dim insertCount As Long
 
     ' =========================================================================
-    ' GARANTE 1 PARAGRAFO EM BRANO ACIMA DA DATA
+    ' GARANTE 2 PARAGRAFOS EM BRANCO ACIMA DA DATA
     ' =========================================================================
+    blankCount = 0
     idx = dataParaIndex - 1
-    If idx >= 1 Then
+    Do While idx >= 1
         Dim aboveText As String
         aboveText = Trim(Replace(Replace(doc.Paragraphs(idx).Range.text, vbCr, ""), vbLf, ""))
-        If aboveText <> "" Or HasVisualContent(doc.Paragraphs(idx)) Then
-            ' Nao ha linha em branco acima - insere 1
-            doc.Paragraphs(dataParaIndex).Range.InsertParagraphBefore
-            ' A data agora deslocou 1 posicao para baixo
-            dataParaIndex = dataParaIndex + 1
-            LogMessage "ForceDataSpacing: 1 paragrafo em branco inserido acima da Data", LOG_LEVEL_INFO
+        If aboveText = "" And Not HasVisualContent(doc.Paragraphs(idx)) Then
+            blankCount = blankCount + 1
+            idx = idx - 1
+        Else
+            Exit Do
         End If
-    Else
-        ' Data e o primeiro paragrafo - insere 1 acima
-        doc.Paragraphs(dataParaIndex).Range.InsertParagraphBefore
-        dataParaIndex = dataParaIndex + 1
-        LogMessage "ForceDataSpacing: 1 paragrafo em branco inserido acima da Data (primeiro paragrafo)", LOG_LEVEL_INFO
+    Loop
+
+    If blankCount < 2 Then
+        insertCount = 2 - blankCount
+        Dim a As Long
+        For a = 1 To insertCount
+            doc.Paragraphs(dataParaIndex).Range.InsertParagraphBefore
+        Next a
+        ' A data deslocou N posicoes para baixo
+        dataParaIndex = dataParaIndex + insertCount
+        LogMessage "ForceDataSpacing: " & insertCount & " paragrafo(s) em branco inserido(s) acima da Data (total garantido: 2)", LOG_LEVEL_INFO
     End If
 
     Exit Sub
