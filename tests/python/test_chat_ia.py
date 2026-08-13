@@ -226,6 +226,75 @@ class TestWordDocCounts(unittest.TestCase):
         word = ExplodingWord(FakeComError("COM dead", hresult=-1))
         self.assertEqual(chat_ia.ChatApp._word_doc_counts(word), (0, 0))
 
+    def test_logs_warning_with_hresult_when_count_read_fails(self):
+        """Erro de leitura da contagem NÃO deve ser silencioso: WARNING + hresult."""
+        word = ExplodingWord(FakeComError("COM dead", hresult=-2147418111))
+        with self.assertLogs("z7.chat_ia", level="WARNING") as cm:
+            result = chat_ia.ChatApp._word_doc_counts(word)
+        self.assertEqual(result, (0, 0))
+        joined = "\n".join(cm.output)
+        self.assertIn("Could not read Documents.Count", joined)
+        self.assertIn("Could not read ProtectedViewWindows.Count", joined)
+        self.assertIn("hresult=-2147418111", joined)
+
+
+class TestWordDocSnapshot(unittest.TestCase):
+    """Cobre _word_doc_snapshot/_fmt_count/_log_word_snapshot — diagnóstico do Word."""
+
+    def setUp(self):
+        self.app = _new_app()
+
+    def test_snapshot_ok_with_documents(self):
+        word = FakeWordApp(normal_texts=["doc"], protected_texts=[])
+        snap = self.app._word_doc_snapshot(word)
+        self.assertEqual(snap["documents"]["status"], "ok")
+        self.assertEqual(snap["documents"]["value"], 1)
+        self.assertEqual(snap["protected_view"]["status"], "ok")
+        self.assertEqual(snap["protected_view"]["value"], 0)
+        self.assertEqual(snap["windows"]["status"], "ok")
+        self.assertEqual(snap["windows"]["value"], 1)
+        self.assertEqual(snap["active_document"]["status"], "ok")
+        self.assertTrue(snap["active_document"]["present"])
+
+    def test_snapshot_reports_error_when_count_read_fails(self):
+        """Contagem falhou ≠ instância vazia: status 'error' com hresult."""
+        word = ExplodingWord(FakeComError("COM dead", hresult=-1))
+        snap = self.app._word_doc_snapshot(word)
+        for key in ("documents", "protected_view", "windows", "active_document"):
+            self.assertEqual(snap[key]["status"], "error", f"key {key} deveria ser 'error'")
+        self.assertEqual(snap["documents"]["value"], None)
+        self.assertEqual(snap["documents"]["hresult"], -1)
+
+    def test_snapshot_empty_word_reports_zero_ok(self):
+        """Word de fato vazio: contagens 'ok' com valor 0 (não é erro)."""
+        word = FakeWordApp()
+        snap = self.app._word_doc_snapshot(word)
+        self.assertEqual(snap["documents"]["status"], "ok")
+        self.assertEqual(snap["documents"]["value"], 0)
+        # FakeWordApp sem docs levanta 'no doc' ao acessar ActiveDocument
+        self.assertEqual(snap["active_document"]["status"], "error")
+
+    def test_snapshot_protected_view_only(self):
+        word = FakeWordApp(protected_texts=["temp"])
+        snap = self.app._word_doc_snapshot(word)
+        self.assertEqual(snap["documents"]["value"], 0)
+        self.assertEqual(snap["protected_view"]["value"], 1)
+        self.assertEqual(snap["windows"]["value"], 0)
+
+    def test_fmt_count(self):
+        self.assertEqual(chat_ia.ChatApp._fmt_count({"status": "ok", "value": 3}), "3")
+        self.assertEqual(
+            chat_ia.ChatApp._fmt_count({"status": "error", "hresult": -1}),
+            "ERR(hresult=-1)",
+        )
+
+    def test_log_word_snapshot_logs_info_and_returns_snapshot(self):
+        word = FakeWordApp(normal_texts=["doc"])
+        with self.assertLogs("z7.chat_ia", level="INFO") as cm:
+            snap = self.app._log_word_snapshot(word, "test-label")
+        self.assertEqual(snap["documents"]["value"], 1)
+        self.assertTrue(any("Word snapshot [test-label]" in m for m in cm.output))
+
 
 class TestErrorClassification(unittest.TestCase):
     def test_is_no_doc_error_pt(self):
@@ -308,6 +377,40 @@ class TestReadWordDocText(unittest.TestCase):
             self.app._read_word_doc_text(word)
         self.assertIs(ctx.exception, err)
 
+    @mock.patch("time.sleep")
+    def test_early_stop_when_consistently_no_doc(self, sleep_mock):
+        """Word vazio: todos os métodos reportam 'no document' → retry cedo.
+
+        Sem o early-break seriam 4 sleeps (0.6s+1.2s+1.8s+2.4s); com ele,
+        apenas 1 (estado determinístico não merece backoff completo).
+        """
+        word = FakeWordApp()  # sem documento algum
+        with self.assertRaises(Exception) as ctx:
+            self.app._read_word_doc_text(word)
+        self.assertIn("nenhum documento", str(ctx.exception).lower())
+        self.assertEqual(sleep_mock.call_count, 1)
+
+    @mock.patch("time.sleep")
+    def test_logs_failure_summary_with_categories(self, _sleep):
+        """Resumo de falha deve registrar métodos e categorias de erro."""
+        word = FakeWordApp()
+        with self.assertLogs("z7.chat_ia", level="WARNING") as cm:
+            with self.assertRaises(Exception):
+                self.app._read_word_doc_text(word)
+        joined = "\n".join(cm.output)
+        self.assertTrue(any("Document read FAILED" in m for m in cm.output))
+        self.assertIn("no_doc", joined)
+        self.assertIn("ActiveDocument", joined)
+
+    @mock.patch("time.sleep")
+    def test_logs_method_failures_at_info(self, _sleep):
+        """Falhas individuais de método devem ser visíveis (INFO) com categoria."""
+        word = FakeWordApp()
+        with self.assertLogs("z7.chat_ia", level="INFO") as cm:
+            with self.assertRaises(Exception):
+                self.app._read_word_doc_text(word)
+        self.assertTrue(any("Read method ActiveDocument failed [no_doc]" in m for m in cm.output))
+
 
 # ---------------------------------------------------------------------------
 # _find_word_with_documents (Running Object Table)
@@ -349,6 +452,65 @@ class TestFindWordWithDocuments(unittest.TestCase):
         self.assertIs(result, word_a)
 
 
+
+# ---------------------------------------------------------------------------
+# _get_word_app (fallback chain com verificação de documentos)
+# ---------------------------------------------------------------------------
+class TestGetWordApp(unittest.TestCase):
+    """Valida que _get_word_app verifica documentos em cada fallback."""
+
+    def setUp(self):
+        self.app = _new_app()
+
+    def test_get_active_object_skipped_when_empty_then_get_object_succeeds(self):
+        """GetActiveObject retorna instância vazia → código tenta GetObject."""
+        empty_word = FakeWordApp()
+        good_word = FakeWordApp(normal_texts=["Documento via GetObject."])
+
+        with mock.patch.dict(sys.modules, {"pythoncom": mock.MagicMock()}), \
+             mock.patch.object(chat_ia.ChatApp, "_find_word_with_documents", return_value=None), \
+             mock.patch("win32com.client.GetActiveObject", return_value=empty_word) as gao, \
+             mock.patch("win32com.client.GetObject", return_value=good_word) as go:
+            result = self.app._get_word_app()
+        self.assertIs(result, good_word)
+        gao.assert_called_once()
+        go.assert_called_once()
+
+    def test_rot_returns_empty_then_get_active_object_with_docs(self):
+        """ROT encontra instância vazia → GetActiveObject com docs é usada."""
+        empty_rot = FakeWordApp()
+        good_gao = FakeWordApp(normal_texts=["Doc via fallback."])
+
+        with mock.patch.dict(sys.modules, {"pythoncom": mock.MagicMock()}), \
+             mock.patch.object(chat_ia.ChatApp, "_find_word_with_documents", return_value=empty_rot), \
+             mock.patch("win32com.client.GetActiveObject", return_value=good_gao):
+            result = self.app._get_word_app()
+        self.assertIs(result, good_gao)
+
+    def test_all_fallbacks_empty_returns_last_resort(self):
+        """Todos os fallbacks retornam instância vazia → último recurso retorna instância."""
+        empty = FakeWordApp()
+        with mock.patch.dict(sys.modules, {"pythoncom": mock.MagicMock()}), \
+             mock.patch.object(chat_ia.ChatApp, "_find_word_with_documents", return_value=None), \
+             mock.patch("win32com.client.GetActiveObject", return_value=empty), \
+             mock.patch("win32com.client.GetObject", return_value=empty):
+            result = self.app._get_word_app()
+        # Último recurso: GetActiveObject retorna a instância (vazia, mas existente)
+        self.assertIsNotNone(result)
+
+    def test_word_not_running_raises(self):
+        """Word não está instalado/rodando → lança exceção."""
+        with mock.patch.dict(sys.modules, {"pythoncom": mock.MagicMock()}), \
+             mock.patch.object(chat_ia.ChatApp, "_find_word_with_documents", return_value=None), \
+             mock.patch("win32com.client.GetActiveObject", side_effect=Exception("not running")), \
+             mock.patch("win32com.client.GetObject", side_effect=Exception("not running")):
+            with self.assertRaises(Exception) as ctx:
+                self.app._get_word_app()
+        self.assertIn("Não foi possível", str(ctx.exception))
+
+
+
+
 # ---------------------------------------------------------------------------
 # _load_doc_text_main_thread (integração das camadas defensivas)
 # ---------------------------------------------------------------------------
@@ -368,9 +530,8 @@ class TestLoadDocTextMainThread(unittest.TestCase):
         self.assertEqual(self.app.doc_text, "Texto do documento ativo.")
         self.assertFalse(self.app._doc_truncated)
         self.assertEqual(self.app._doc_load_error, "")
-        # Backup deve ter sido disparado (há ActiveDocument)
-        word.Application.Run.assert_called_once()
-        self.assertEqual(word.Application.Run.call_args[0][0], "CreateDocumentBackup")
+        # Nenhum backup deve ser disparado na inicialização
+        word.Application.Run.assert_not_called()
 
     def test_sets_doc_text_from_protected_view(self):
         """CENÁRIO DO BUG: inteiro teor do documento em Protected View (aberto
@@ -414,6 +575,33 @@ class TestLoadDocTextMainThread(unittest.TestCase):
         self.assertLessEqual(len(self.app.doc_text), chat_ia._MAX_CONTEXT_CHARS + 1)
         self.assertTrue(self.app._doc_truncated)
 
+    def test_logs_success_summary(self):
+        """Carga bem-sucedida deve emitir resumo estruturado [doc-load] SUCCESS."""
+        word = FakeWordApp(normal_texts=["Texto do documento."])
+        with mock.patch.object(chat_ia.ChatApp, "_get_word_app", return_value=word):
+            with self.assertLogs("z7.chat_ia", level="INFO") as cm:
+                self._run()
+        self.assertTrue(any("[doc-load] SUCCESS" in m for m in cm.output))
+        self.assertTrue(any("[doc-load] START" in m for m in cm.output))
+
+    @mock.patch("time.sleep")
+    def test_logs_failure_summary(self, _sleep):
+        """Falha deve emitir [doc-load] FAILURE com duração total."""
+        word = FakeWordApp()  # vazio → 'nenhum documento'
+        with mock.patch.object(chat_ia.ChatApp, "_get_word_app", return_value=word):
+            with self.assertLogs("z7.chat_ia", level="ERROR") as cm:
+                self._run()
+        self.assertTrue(any("[doc-load] FAILURE" in m for m in cm.output))
+
+    @mock.patch("time.sleep")
+    def test_logs_word_snapshot_on_connection(self, _sleep):
+        """Cada conexão bem-sucedida deve registrar um Word snapshot."""
+        word = FakeWordApp(normal_texts=["Texto do documento."])
+        with mock.patch.object(chat_ia.ChatApp, "_get_word_app", return_value=word):
+            with self.assertLogs("z7.chat_ia", level="INFO") as cm:
+                self._run()
+        self.assertTrue(any("Word snapshot [cycle 1 connected]" in m for m in cm.output))
+
 
 # ---------------------------------------------------------------------------
 # _reload_doc_text
@@ -446,6 +634,61 @@ class TestReloadDocText(unittest.TestCase):
             ):
                 ok = self.app._reload_doc_text()
         self.assertFalse(ok)
+
+
+# ---------------------------------------------------------------------------
+# _init_ai_thread — decisão de pré-popular o contexto do documento
+# ---------------------------------------------------------------------------
+class TestInitAiThreadDocContext(unittest.TestCase):
+    """Cobre a decisão de enviar (ou não) o contexto do documento à IA."""
+
+    def setUp(self):
+        self.app = _new_app()
+        self.app.root = mock.MagicMock()
+        self.app.messages = []
+        self.app._set_word_status = mock.MagicMock()
+        self.app.update_status = mock.MagicMock()
+        self.app.append_message = mock.MagicMock()
+
+    def _run_init(self):
+        with mock.patch.dict(sys.modules, {"pythoncom": mock.MagicMock()}), \
+             mock.patch.object(chat_ia, "_configure_ssl_certifi"), \
+             mock.patch.object(chat_ia, "get_api_key", return_value="fake-key"), \
+             mock.patch("openai.OpenAI"), \
+             mock.patch("config_prompt.load_ai_model", return_value="deepseek/deepseek-chat"), \
+             mock.patch("config_prompt.load_chat_system_prompt", return_value="system prompt"):
+            self.app._init_ai_thread()
+
+    def test_pres_seeds_context_when_document_loaded(self):
+        self.app.doc_text = "Texto da propositura."
+        self.app._doc_truncated = False
+        self.app._doc_load_error = ""
+        self._run_init()
+        self.assertEqual(len(self.app.messages), 2)
+        self.assertEqual(self.app.messages[0]["role"], "user")
+        self.assertIn("Texto da propositura.", self.app.messages[0]["content"])
+        self.assertIn("Contexto do documento carregado", self.app.initial_greeting)
+
+    def test_no_context_when_load_error(self):
+        self.app.doc_text = "Nenhum documento ativo ou erro ao obter texto do Word."
+        self.app._doc_load_error = "O Microsoft Word está aberto, mas nenhum documento foi encontrado."
+        self._run_init()
+        self.assertEqual(self.app.messages, [])
+        self.assertIn("Não consegui acessar o documento", self.app.initial_greeting)
+
+    def test_blank_document_greeting(self):
+        self.app.doc_text = ""
+        self.app._doc_load_error = ""
+        self._run_init()
+        self.assertEqual(self.app.messages, [])
+        self.assertIn("em branco", self.app.initial_greeting)
+
+    def test_truncated_document_marks_truncation_notice(self):
+        self.app.doc_text = "Texto longo."
+        self.app._doc_truncated = True
+        self.app._doc_load_error = ""
+        self._run_init()
+        self.assertEqual(len(self.app.messages), 2)
 
 
 # ---------------------------------------------------------------------------

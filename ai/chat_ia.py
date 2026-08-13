@@ -31,7 +31,7 @@ _DEFAULT_MODEL = 'deepseek/deepseek-chat'
 _OPENROUTER_BASE_URL = 'https://openrouter.ai/api/v1'
 _MAX_CONTEXT_CHARS = 150_000
 
-_APP_VERSION = "8.6.2"
+_APP_VERSION = "8.6.3"
 _APP_AUTHOR  = "CMS"
 _ORG         = "Câmara Municipal de Santa Bárbara d'Oeste"
 _LICENSE     = "GPL-3.0"
@@ -416,21 +416,98 @@ class ChatApp:
     def _word_doc_counts(word) -> tuple:
         """Retorna (docs_normais, docs_protected_view) de forma defensiva.
 
-        Documentos abertos a partir de pastas temporárias (%%LocalAppData%%\\Temp),
+        Documentos abertos a partir de pastas temporárias (%LocalAppData%\\Temp),
         anexos de e-mail ou downloads são abertos pelo Word em Protected View e
         NÃO constam em Documents.Count — apenas em ProtectedViewWindows.Count.
+
+        IMPORTANTE (diagnóstico do bug 'nenhum documento'): quando a leitura de
+        uma contagem falha (ex.: RPC_E_CALL_REJECTED, Word ocupado/modal), a
+        contagem é reportada como 0 e o erro é registrado em WARNING — nunca
+        silenciosamente ignorado. Isso evita confundir 'instância vazia' com
+        'não foi possível ler a contagem'.
         """
         normal = 0
         protected = 0
         try:
             normal = int(word.Documents.Count)
         except Exception as e:
-            LOGGER.debug("Could not read Documents.Count: %s", e)
+            LOGGER.warning("Could not read Documents.Count (hresult=%s): %s",
+                           getattr(e, "hresult", None), e)
         try:
             protected = int(word.ProtectedViewWindows.Count)
         except Exception as e:
-            LOGGER.debug("Could not read ProtectedViewWindows.Count: %s", e)
+            LOGGER.warning("Could not read ProtectedViewWindows.Count (hresult=%s): %s",
+                           getattr(e, "hresult", None), e)
         return normal, protected
+
+    def _word_doc_snapshot(self, word) -> dict:
+        """Coleta um diagnóstico completo do estado de documentos da instância Word.
+
+        Diferente de :meth:`_word_doc_counts` (que retorna apenas números), aqui
+        cada contagem carrega também o status de leitura (``'ok'`` ou ``'error'``),
+        permitindo distinguir três situações críticas para o bug recorrente:
+
+        * ``(value=0, status='ok')``        → instância de fato vazia;
+        * ``(value=1, status='ok')``        → instância com documento acessível;
+        * ``(value=None, status='error')``  → leitura falhou (COM/RPC) — a
+          instância PODE ter documentos não visíveis na contagem.
+
+        Retorna:
+            dict com as chaves ``documents``, ``protected_view``, ``windows`` e
+            ``active_document``; cada uma com ``status`` e, quando aplicável,
+            ``value``/``present``/``error``/``hresult``.
+        """
+        snapshot = {
+            "documents": {"status": "not_read", "value": None},
+            "protected_view": {"status": "not_read", "value": None},
+            "windows": {"status": "not_read", "value": None},
+            "active_document": {"status": "not_read", "present": None},
+        }
+        for key, getter in (
+            ("documents", lambda: int(word.Documents.Count)),
+            ("protected_view", lambda: int(word.ProtectedViewWindows.Count)),
+            ("windows", lambda: int(word.Windows.Count)),
+        ):
+            try:
+                snapshot[key]["value"] = getter()
+                snapshot[key]["status"] = "ok"
+            except Exception as e:
+                snapshot[key]["status"] = "error"
+                snapshot[key]["error"] = str(e)
+                snapshot[key]["hresult"] = getattr(e, "hresult", None)
+        try:
+            snapshot["active_document"]["present"] = word.ActiveDocument is not None
+            snapshot["active_document"]["status"] = "ok"
+        except Exception as e:
+            snapshot["active_document"]["status"] = "error"
+            snapshot["active_document"]["error"] = str(e)
+            snapshot["active_document"]["hresult"] = getattr(e, "hresult", None)
+        return snapshot
+
+    @staticmethod
+    def _fmt_count(snap_entry: dict) -> str:
+        """Formata uma entrada de contagem do snapshot para o log."""
+        if snap_entry["status"] == "ok":
+            return str(snap_entry["value"])
+        return f"ERR(hresult={snap_entry.get('hresult')})"
+
+    def _log_word_snapshot(self, word, label: str) -> dict:
+        """Registra o diagnóstico da instância Word em nível INFO e o retorna.
+
+        Centraliza a emissão do snapshot no log, garantindo consistência de
+        formato e nível entre todos os pontos que inspecionam o Word.
+        """
+        snap = self._word_doc_snapshot(word)
+        LOGGER.info(
+            "Word snapshot [%s]: Documents=%s, ProtectedView=%s, Windows=%s, ActiveDocument=%s",
+            label,
+            self._fmt_count(snap["documents"]),
+            self._fmt_count(snap["protected_view"]),
+            self._fmt_count(snap["windows"]),
+            (str(snap["active_document"]["present"])
+             if snap["active_document"]["status"] == "ok" else "ERR"),
+        )
+        return snap
 
     @staticmethod
     def _is_no_doc_error(err: Exception) -> bool:
@@ -505,6 +582,9 @@ class ChatApp:
           que não aparecem em ActiveDocument/Documents).
         - Entre tentativas, aguarda progressivamente — cobre RPC_E_CALL_REJECTED
           (Word ocupado/modal) e documento ainda em carregamento na abertura do chat.
+        - Erros 'nenhum documento' são determinísticos: se TODOS os métodos
+          falham assim, o retry é interrompido cedo (sem esperar 5 rodadas),
+          reduzindo o tempo de abertura do chat quando o Word está vazio.
         - Só desiste após esgotar as tentativas, produzindo mensagem amigável
           quando a causa raiz é 'nenhum documento aberto'.
         """
@@ -513,23 +593,46 @@ class ChatApp:
         max_attempts = 5
         last_err = None
         saw_no_doc = False
+        method_failures = {}  # name -> (categoria, exceção)
+        start = time.perf_counter()
 
         for attempt in range(1, max_attempts + 1):
+            round_busy = False
             for name, read_fn in self._iter_doc_read_methods(word):
                 try:
                     text = read_fn()
                     if text is None:
                         LOGGER.warning("Read method %s returned None; treating as empty", name)
                         text = ""
-                    LOGGER.info("Document text read via %s (%d chars, attempt %d/%d)",
-                                name, len(text), attempt, max_attempts)
+                    LOGGER.info(
+                        "Document text read OK via %s (%d chars, attempt %d/%d, %.2fs)",
+                        name, len(text), attempt, max_attempts, time.perf_counter() - start,
+                    )
                     return text
                 except Exception as e:
                     last_err = e
                     if self._is_no_doc_error(e):
                         saw_no_doc = True
-                    LOGGER.debug("Read method %s failed (attempt %d/%d): %s",
-                                 name, attempt, max_attempts, e)
+                        cat = "no_doc"
+                    elif self._is_rpc_busy_error(e):
+                        round_busy = True
+                        cat = "rpc_busy"
+                    else:
+                        cat = "other"
+                    method_failures[name] = (cat, e)
+                    LOGGER.info(
+                        "Read method %s failed [%s] (attempt %d/%d): %s",
+                        name, cat, attempt, max_attempts, e,
+                    )
+
+            # 'nenhum documento' em TODOS os métodos = estado determinístico:
+            # parar cedo evita ~6s de backoff inútil por ciclo de carga.
+            if saw_no_doc and not round_busy and attempt >= 2:
+                LOGGER.info(
+                    "All read methods consistently report 'no document'; stopping retries early (attempt %d/%d)",
+                    attempt, max_attempts,
+                )
+                break
 
             if attempt < max_attempts:
                 delay = 0.6 * attempt
@@ -540,6 +643,14 @@ class ChatApp:
                     LOGGER.info("No readable document yet (attempt %d/%d); retrying in %.1fs",
                                 attempt, max_attempts, delay)
                 time.sleep(delay)
+
+        total = time.perf_counter() - start
+        cats = sorted({c for c, _ in method_failures.values()}) or ["none"]
+        failed_names = ", ".join(f"{n}[{c}]" for n, (c, _) in method_failures.items())
+        LOGGER.warning(
+            "Document read FAILED after %.2fs (%d attempts). Methods: %s | categories: %s",
+            total, attempt, failed_names or "-", ", ".join(cats),
+        )
 
         if saw_no_doc:
             raise Exception(
@@ -602,38 +713,60 @@ class ChatApp:
         return None
 
     def _get_word_app(self):
-        """Obtém uma referência COM para o Word, preferindo instância com documentos acessíveis."""
+        """Obtém uma referência COM para o Word, preferindo instância com documentos acessíveis.
+
+        Cada fallback é verificado: se a instância retornada não tem documentos
+        acessíveis (normais ou Protected View), tenta o próximo método.
+        Isso evita retornar uma instância vazia quando o documento está em
+        outro processo WINWORD.EXE ou em Protected View.
+        """
         import win32com.client
 
         # 1) Procura na ROT uma instância do Word com documentos (normais ou Protected View)
         try:
             word = self._find_word_with_documents()
             if word is not None:
-                normal, protected = self._word_doc_counts(word)
-                if normal + protected > 0:
+                snap = self._log_word_snapshot(word, "ROT")
+                if (snap["documents"]["status"] == "ok" and snap["documents"]["value"] > 0) or \
+                   (snap["protected_view"]["status"] == "ok" and snap["protected_view"]["value"] > 0):
                     return word
                 LOGGER.warning("ROT Word instance has no accessible documents yet; trying classic fallbacks")
         except Exception as e_rot:
             LOGGER.warning("_find_word_with_documents failed: %s", e_rot)
 
-        # 2) Fallbacks tradicionais
+        # 2) Fallbacks tradicionais — cada um verificado antes de retornar
         try:
             word = win32com.client.GetActiveObject("Word.Application")
-            normal, protected = self._word_doc_counts(word)
-            LOGGER.info("Got active Word object via GetActiveObject (Documents=%d, ProtectedView=%d)",
-                        normal, protected)
-            return word
+            snap = self._log_word_snapshot(word, "GetActiveObject")
+            if (snap["documents"]["status"] == "ok" and snap["documents"]["value"] > 0) or \
+               (snap["protected_view"]["status"] == "ok" and snap["protected_view"]["value"] > 0):
+                return word
+            LOGGER.warning("GetActiveObject returned Word instance with no accessible documents; trying next fallback")
         except Exception as e1:
             LOGGER.warning("GetActiveObject failed: %s", e1)
         try:
             word = win32com.client.GetObject(Class="Word.Application")
-            LOGGER.info("Got Word object via GetObject")
-            return word
+            snap = self._log_word_snapshot(word, "GetObject")
+            if (snap["documents"]["status"] == "ok" and snap["documents"]["value"] > 0) or \
+               (snap["protected_view"]["status"] == "ok" and snap["protected_view"]["value"] > 0):
+                return word
+            LOGGER.warning("GetObject returned Word instance with no accessible documents; trying next fallback")
         except Exception as e2:
             LOGGER.warning("GetObject failed: %s", e2)
-        word = win32com.client.Dispatch("Word.Application")
-        LOGGER.info("Got Word object via Dispatch")
-        return word
+        # Dispatch SEMPRE cria uma nova instância vazia — não resolve 'nenhum documento'.
+        # Se chegamos aqui, o Word pode estar aberto mas nenhum método encontrou
+        # uma instância com documentos. Usa GetActiveObject como último recurso
+        # (a instância pode ter documentos que _word_doc_counts não conseguiu contar).
+        try:
+            word = win32com.client.GetActiveObject("Word.Application")
+            self._log_word_snapshot(word, "last-resort GetActiveObject")
+            LOGGER.info("Last-resort GetActiveObject for Word (doc counts previously reported 0)")
+            return word
+        except Exception:
+            raise Exception(
+                "Não foi possível encontrar uma instância do Word com documentos. "
+                "Certifique-se de que o Word está aberto com um documento."
+            )
 
     def _reload_doc_text(self) -> bool:
         """Tenta atualizar self.doc_text com o conteúdo atual do Word na thread principal.
@@ -887,10 +1020,14 @@ class ChatApp:
         sempre obtido como contexto inicial:
         1. Conexão: _get_word_app escolhe a instância do Word com documentos
            acessíveis (incluindo Protected View) via Running Object Table.
-        2. Leitura: _read_word_doc_text tenta 6 métodos em 5 rodadas de retry.
+        2. Leitura: _read_word_doc_text tenta 6 métodos em até 5 rodadas de retry.
         3. Reconexão: se conectar+ler falhar, descarta a referência e repete
            todo o ciclo (até 3 vezes) — cobre o caso de o documento ainda
            estar sendo carregado quando o chat abre.
+
+        Toda a jornada é instrumentada com tempo (perf_counter) e um resumo
+        estruturado ao final, permitindo diagnosticar a duração de cada fase e
+        a causa exata de uma falha ('nenhum documento' vs. erro COM/RPC).
         """
         import pythoncom
         import time
@@ -904,8 +1041,12 @@ class ChatApp:
         raw_text = None
         last_error = None
         max_cycles = 3
+        start_total = time.perf_counter()
+        cycle_times = []
+        LOGGER.info("[doc-load] START (max_cycles=%d)", max_cycles)
 
         for cycle in range(1, max_cycles + 1):
+            cycle_start = time.perf_counter()
             try:
                 # Tenta obter instância ativa do Word
                 try:
@@ -918,34 +1059,30 @@ class ChatApp:
                     )
 
                 self.word_app = word
+                self._log_word_snapshot(word, f"cycle {cycle} connected")
 
                 # Lê o texto com retry + fallbacks (ActiveDocument, Documents, Protected View, etc.)
-                # IMPORTANTE: lê o texto ANTES de rodar macros, pois o backup pode trocar o documento ativo
                 raw_text = self._read_word_doc_text(word)
 
-                # Backup não crítico: só existe ActiveDocument fora de Protected View
-                try:
-                    backup_doc = None
-                    try:
-                        backup_doc = word.ActiveDocument
-                    except Exception:
-                        LOGGER.info("Skipping backup: document likely in Protected View (no ActiveDocument)")
-                    if backup_doc is not None:
-                        word.Application.Run("CreateDocumentBackup", backup_doc)
-                        LOGGER.info("Document backup created successfully.")
-                except Exception as backup_e:
-                    LOGGER.warning("Could not run CreateDocumentBackup macro: %s", str(backup_e))
-
-                LOGGER.info("Got document text (%d chars, cycle %d/%d)", len(raw_text), cycle, max_cycles)
+                cycle_times.append(time.perf_counter() - cycle_start)
+                LOGGER.info("Got document text (%d chars, cycle %d/%d)",
+                            len(raw_text), cycle, max_cycles)
                 break  # sucesso — sai do loop de ciclos
             except Exception as e:
                 last_error = e
-                LOGGER.warning("Document load cycle %d/%d failed: %s", cycle, max_cycles, e)
+                cycle_elapsed = time.perf_counter() - cycle_start
+                cycle_times.append(cycle_elapsed)
+                cat = ("no_doc" if self._is_no_doc_error(e)
+                       else "rpc_busy" if self._is_rpc_busy_error(e)
+                       else "connection" if "conectar" in str(e) else "other")
+                LOGGER.warning("Document load cycle %d/%d failed [%s] after %.2fs: %s",
+                               cycle, max_cycles, cat, cycle_elapsed, e)
                 self.word_app = None  # força reconexão completa no próximo ciclo
                 raw_text = None
                 if cycle < max_cycles:
                     time.sleep(1.0 * cycle)
 
+        total_elapsed = time.perf_counter() - start_total
         try:
             if raw_text is None:
                 raise last_error if last_error else Exception("Falha desconhecida ao ler documento do Word")
@@ -960,14 +1097,22 @@ class ChatApp:
             else:
                 self.doc_text = raw_text
             self._doc_load_error = ""
-            LOGGER.info("Loaded Word active document context for chat (%d chars)", len(self.doc_text))
+            LOGGER.info(
+                "[doc-load] SUCCESS: %d chars loaded in %.2fs (cycles=%s, truncated=%s)",
+                len(self.doc_text), total_elapsed,
+                ", ".join(f"{t:.2f}s" for t in cycle_times), self._doc_truncated,
+            )
         except Exception as e:
             error_detail = str(e)
             log_exception(LOGGER, "Failed to load Word document context", e)
             self._set_word_status("Z7: Erro ao carregar contexto do documento no Chat.")
             self.doc_text = "Nenhum documento ativo ou erro ao obter texto do Word."
             self._doc_load_error = error_detail
-            LOGGER.error("Document load error details: %s", error_detail)
+            LOGGER.error(
+                "[doc-load] FAILURE after %.2fs (cycles=%s): %s",
+                total_elapsed,
+                ", ".join(f"{t:.2f}s" for t in cycle_times), error_detail,
+            )
 
     def _call_api(self) -> str:
         """Envia o histórico completo de mensagens para a API e retorna a resposta."""
@@ -1035,10 +1180,15 @@ class ChatApp:
                 self.messages.append({"role": "user", "content": ctx_user_msg})
                 self.messages.append({"role": "assistant", "content": "Entendido! Recebi o contexto do documento e estou pronto para ajudar."})
                 self.initial_greeting = "✅ Contexto do documento carregado! Como posso ajudar?"
-                LOGGER.info("Document context pre-seeded in chat history (no API call required)")
+                LOGGER.info(
+                    "Document context pre-seeded in chat history: %d chars (truncated=%s)",
+                    len(doc_context), _doc_truncated,
+                )
             else:
                 error_detail = getattr(self, '_doc_load_error', '')
+                # Classifica a ausência de contexto para diagnóstico preciso
                 if error_detail:
+                    reason = f"load_error: {error_detail}"
                     self.initial_greeting = (
                         "⚠ Não consegui acessar o documento atual.\n\n"
                         f"Erro: {error_detail}\n\n"
@@ -1046,6 +1196,7 @@ class ChatApp:
                         "Você pode digitar 'recarregar contexto' para tentar novamente."
                     )
                 elif doc_context is not None and not doc_context.strip():
+                    reason = "blank_document"
                     self.initial_greeting = (
                         "📄 O documento no Word está em branco.\n\n"
                         "Escreva ou cole o conteúdo da propositura no Word e, em seguida, "
@@ -1053,13 +1204,17 @@ class ChatApp:
                     )
                     LOGGER.info("Document is blank/empty")
                 else:
+                    reason = "no_document_context"
                     self.initial_greeting = (
                         "⚠ Não foi possível obter o conteúdo do documento.\n\n"
                         "💡 Dica: Certifique-se de que o Word está aberto com um documento ativo. "
                         "Você pode digitar 'recarregar contexto' para tentar novamente."
                     )
                 _truncation_notice = False
-                LOGGER.warning("No document context available for AI initialization. Error: %s", error_detail)
+                LOGGER.warning(
+                    "No document context available for AI initialization (reason=%s, doc_text_len=%d)",
+                    reason, len(doc_context or ""),
+                )
 
             LOGGER.info("Chat session ready with model: %s", self._model)
 
