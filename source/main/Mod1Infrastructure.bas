@@ -387,6 +387,19 @@ Public Sub EmergencyRecovery()
 End Sub
 
 '================================================================================
+' FECHAMENTO DE ARQUIVOS ABERTOS
+'================================================================================
+Public Sub CloseAllOpenFiles()
+    On Error Resume Next
+
+    Dim fileNumber As Integer
+    For fileNumber = 1 To 511
+        Close #fileNumber
+    Next fileNumber
+    Err.Clear
+End Sub
+
+'================================================================================
 ' ATUALIZACAO DA BARRA DE PROGRESSO
 '================================================================================
 Public Sub UpdateProgress(message As String, percentComplete As Long)
