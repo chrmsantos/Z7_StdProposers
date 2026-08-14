@@ -101,6 +101,13 @@ Public Const JUSTIFICATIVA_TEXT As String = "justificativa"
 '================================================================================
 ' CONSTANTES DE IDENTIFICACAO DE ELEMENTOS ESTRUTURAIS
 '================================================================================
+Public Const TITULO_MIN_LENGTH As Long = 15
+Public Const EMENTA_MIN_LEFT_INDENT As Single = 6
+Public Const PLENARIO_TEXT As String = "plenario"
+Public Const ANEXO_TEXT_SINGULAR As String = "anexo"
+Public Const ANEXO_TEXT_PLURAL As String = "anexos"
+Public Const ASSINATURA_PARAGRAPH_COUNT As Long = 3
+Public Const ASSINATURA_BLANK_LINES_BEFORE As Long = 2
 ' VARIAVEIS GLOBAIS
 '================================================================================
 Public undoGroupEnabled As Boolean

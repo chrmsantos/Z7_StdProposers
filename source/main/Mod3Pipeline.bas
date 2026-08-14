@@ -7,26 +7,7 @@ Option Explicit
 ' =============================================================================
 ' Licenca: GNU GPLv3 (https://www.gnu.org/licenses/gpl-3.0.html)
 ' Autor: Christian Martin dos Santos (chrmsantos@gmail.com)
-
-Attribute VB_Name = "Mod3Pipeline"
-Option Explicit
-
-' Mod3Pipeline.bas
-' =============================================================================
-' Z7_STDPROPOSERS - Sistema de Padronizacao de Proposituras Legislativas
-' =============================================================================
-' Licenca: GNU GPLv3 (https://www.gnu.org/licenses/gpl-3.0.html)
-' Autor: Christian Martin dos Santos (chrmsantos@gmail.com)
 '================================================================================
-
-' Criterios para identificacao dos elementos da propositura
-Public Const TITULO_MIN_LENGTH As Long = 15              ' Comprimento minimo do titulo
-Public Const EMENTA_MIN_LEFT_INDENT As Single = 6        ' Recuo minimo a esquerda da ementa (em pontos)
-Public Const PLENARIO_TEXT As String = "plenario"        ' Texto identificador da data (parcial)
-Public Const ANEXO_TEXT_SINGULAR As String = "anexo"     ' Texto identificador de anexo (singular)
-Public Const ANEXO_TEXT_PLURAL As String = "anexos"      ' Texto identificador de anexo (plural)
-Public Const ASSINATURA_PARAGRAPH_COUNT As Long = 3      ' Numero de paragrafos da assinatura
-Public Const ASSINATURA_BLANK_LINES_BEFORE As Long = 2   ' Linhas em branco antes da assinatura
 
 
 
