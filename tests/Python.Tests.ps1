@@ -7,7 +7,7 @@ Import-Module Pester -ErrorAction Stop
 # ---------------------------------------------------------------------------
 $ExpectedModules = @(
     'z7_logging.py',
-    'z7_gemini_key.py',
+    'z7_api_key.py',
     'z7_theme.py',
     'config_prompt.py',
     'chat_ia.py'
@@ -16,7 +16,7 @@ $ExpectedModules = @(
 # Arquivos de teste Python esperados
 $ExpectedTestFiles = @(
     'test_z7_logging.py',
-    'test_z7_gemini_key.py',
+    'test_z7_api_key.py',
     'test_z7_theme.py',
     'test_config_prompt.py',
     'test_chat_ia.py',
@@ -50,11 +50,11 @@ Describe 'Z7_STDPROPOSERS - Python Logging and Test Harness' {
             }
         }
 
-        It 'Scripts que usam API Gemini importam de z7_gemini_key' {
+        It 'Scripts que usam API importam de z7_api_key' {
             $repoRoot = Get-RepoRoot
             foreach ($script in @('chat_ia.py')) {
                 $content = Get-Content "$repoRoot\ai\$script" -Raw -Encoding UTF8
-                $content | Should Match 'from z7_gemini_key import'
+                $content | Should Match 'from z7_api_key import'
             }
         }
 

@@ -24,7 +24,7 @@ The VBA codebase is currently consolidated into 5 modules in `source/main/`:
 - `Mod4Main.bas`: Public entrypoints/macros, orchestration, and structural range identification.
 - `Mod5WordMacro.bas`: Asynchronous Word-to-Python integration bridge (launches AI chat and prompt configurations).
 
-The repository also contains a Python integration package in `ai/` for Gemini-based grammar correction and chat utilities.
+The repository also contains a Python integration package in `ai/` for OpenRouter-based AI grammar correction and chat utilities.
 
 ## 🚀 Installation & Usage
 

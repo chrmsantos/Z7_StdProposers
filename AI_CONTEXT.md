@@ -2,7 +2,7 @@
 
 > Note to AI Agents: read this document before modifying the VBA pipeline or Python integration.
 >
-> Last updated: 2026-07-23 (v7.9.9 — added paragraph initial letter capitalization to VBA pipeline).
+> Last updated: 2026-08-14 (v8.7.0 — streaming, fallback model, prompt refinements).
 
 ## 1. Project Overview
 
@@ -124,7 +124,7 @@ Log coverage includes:
 
 - Startup and initialization milestones.
 - Word integration attempts.
-- Gemini request lifecycle.
+- OpenRouter request lifecycle.
 - Exception stack traces.
 
 ## 5. Testing Model
@@ -147,12 +147,13 @@ Log coverage includes:
 - `tests/VBA-Logging.Tests.ps1`: observability assertions (session/op IDs, snapshots, logging primitives).
 - `tests/Python.Tests.ps1`: Python integration checks and unittest invocation.
 - `tests/python/test_z7_logging.py`: unit tests for `z7_logging.py`.
-- `tests/python/test_chat_ia.py`: 11 tests covering AI init, API key abort, `_context_pending` injection logic, and edge cases.
+- `tests/python/test_z7_api_key.py`: unit tests for `z7_api_key.py`.
+- `tests/python/test_chat_ia.py`: unit tests covering AI init, document reading, streaming, fallback, and edge cases.
 - `tests/Encoding.Tests.ps1`: encoding/line-ending policy checks (UTF-8 safe, CRLF warnings, no UTF-16).
 
 ### 5.3 Current baseline
 
-As of v7.7.7 (2026-05-20), `Run-Tests.ps1 -TestSuite All -NoProgress` passes. Python unit tests: 11 total (chat_ia) via `pytest`.
+As of v8.7.0 (2026-08-14), `Run-Tests.ps1 -TestSuite All -NoProgress` passes. Python unit tests: 116 total via `pytest`.
 
 ## 6. Immediate Development Guidelines
 
