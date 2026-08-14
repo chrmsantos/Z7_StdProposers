@@ -32,7 +32,7 @@ _FALLBACK_MODEL = 'deepseek/deepseek-v4-flash'
 _OPENROUTER_BASE_URL = 'https://openrouter.ai/api/v1'
 _MAX_CONTEXT_CHARS = 150_000
 
-_APP_VERSION = "8.7.1"
+_APP_VERSION = "8.7.2"
 _APP_AUTHOR  = "CMS"
 _ORG         = "Câmara Municipal de Santa Bárbara d'Oeste"
 _LICENSE     = "GPL-3.0"
