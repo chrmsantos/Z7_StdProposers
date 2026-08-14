@@ -1,4 +1,4 @@
-#requires -Version 5.1
+﻿#requires -Version 5.1
 Import-Module Pester -ErrorAction Stop
 . $PSScriptRoot\Helpers.ps1
 
@@ -8,7 +8,7 @@ Describe 'Z7_STDPROPOSERS - Logging VBA' {
         $mainPath = Join-Path $repoRoot 'source\main'
         $modules = Get-ChildItem -Path $mainPath -Filter '*.bas' -File -ErrorAction Stop
 
-        $mod3Path = Join-Path $mainPath 'Mod3Logging.bas'
+        $mod3Path = Join-Path $mainPath 'Mod5Logging.bas'
         $mod4Path = Join-Path $mainPath 'Mod4Main.bas'
         $mod1Path = Join-Path $mainPath 'Mod1Infrastructure.bas'
 

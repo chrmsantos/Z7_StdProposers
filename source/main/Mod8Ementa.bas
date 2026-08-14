@@ -1,7 +1,7 @@
-Attribute VB_Name = "Mod7Ementa"
+Attribute VB_Name = "Mod8Ementa"
 Option Explicit
 
-' Mod7Ementa
+' Mod8Ementa
 ' =============================================================================
 ' Z7_STDPROPOSERS - Sistema de Padronizacao de Proposituras Legislativas
 ' =============================================================================

@@ -1,7 +1,7 @@
-Attribute VB_Name = "Mod6Formatting"
+Attribute VB_Name = "Mod7Formatting"
 Option Explicit
 
-' Mod6Formatting
+' Mod7Formatting
 ' =============================================================================
 ' Z7_STDPROPOSERS - Sistema de Padronizacao de Proposituras Legislativas
 ' =============================================================================

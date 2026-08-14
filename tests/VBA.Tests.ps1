@@ -1,4 +1,4 @@
-#requires -Version 5.1
+﻿#requires -Version 5.1
 [System.Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseDeclaredVarsMoreThanAssignments', '', Justification = 'script: scope variables are used in Pester It blocks')]
 param()
 Import-Module Pester -ErrorAction Stop
@@ -24,13 +24,13 @@ Describe 'Z7_STDPROPOSERS - VBA Modular Architecture' {
             ($script:moduleNames -contains 'Mod1Infrastructure.bas') | Should Be $true
             ($script:moduleNames -contains 'Mod2Engine.bas') | Should Be $true
             ($script:moduleNames -contains 'Mod3Pipeline.bas') | Should Be $true
-            ($script:moduleNames -contains 'Mod3Logging.bas') | Should Be $true
+            ($script:moduleNames -contains 'Mod5Logging.bas') | Should Be $true
             ($script:moduleNames -contains 'Mod4Main.bas') | Should Be $true
-            ($script:moduleNames -contains 'Mod5WordMacro.bas') | Should Be $true
-            ($script:moduleNames -contains 'Mod6Formatting.bas') | Should Be $true
-            ($script:moduleNames -contains 'Mod7Ementa.bas') | Should Be $true
-            ($script:moduleNames -contains 'Mod8SpecialParagraphs.bas') | Should Be $true
-            ($script:moduleNames -contains 'Mod9Validation.bas') | Should Be $true
+            ($script:moduleNames -contains 'Mod6WordMacro.bas') | Should Be $true
+            ($script:moduleNames -contains 'Mod7Formatting.bas') | Should Be $true
+            ($script:moduleNames -contains 'Mod8Ementa.bas') | Should Be $true
+            ($script:moduleNames -contains 'Mod9SpecialParagraphs.bas') | Should Be $true
+            ($script:moduleNames -contains 'Mod10Validation.bas') | Should Be $true
         }
 
         It 'Todos os modulos tem Option Explicit' {
@@ -59,30 +59,30 @@ Describe 'Z7_STDPROPOSERS - VBA Modular Architecture' {
             $script:moduleContent['Mod4Main.bas'] | Should Match '(?m)^Public Function GetJustificativaRange\(doc As Document\) As Range'
         }
 
-        It 'Logging esta em Mod3Logging' {
-            $script:moduleContent['Mod3Logging.bas'] | Should Match 'Public Function InitializeLogging\(doc As Document\) As Boolean'
-            $script:moduleContent['Mod3Logging.bas'] | Should Match 'Public Sub SafeFinalizeLogging\(\)'
+        It 'Logging esta em Mod5Logging' {
+            $script:moduleContent['Mod5Logging.bas'] | Should Match 'Public Function InitializeLogging\(doc As Document\) As Boolean'
+            $script:moduleContent['Mod5Logging.bas'] | Should Match 'Public Sub SafeFinalizeLogging\(\)'
         }
 
-        It 'Rotinas tikinho tk estao em Mod8SpecialParagraphs' {
-            $script:moduleContent['Mod8SpecialParagraphs.bas'] | Should Match 'Private Function IsTikinhoTk\(ByVal text As String\) As Boolean'
-            $script:moduleContent['Mod8SpecialParagraphs.bas'] | Should Match 'Public Sub ReplaceTikinhoTkParagraphs\(doc As Document\)'
+        It 'Rotinas tikinho tk estao em Mod9SpecialParagraphs' {
+            $script:moduleContent['Mod9SpecialParagraphs.bas'] | Should Match 'Private Function IsTikinhoTk\(ByVal text As String\) As Boolean'
+            $script:moduleContent['Mod9SpecialParagraphs.bas'] | Should Match 'Public Sub ReplaceTikinhoTkParagraphs\(doc As Document\)'
         }
 
-        It 'Substituicoes de Jd e numero estao em Mod8SpecialParagraphs' {
-            $script:moduleContent['Mod8SpecialParagraphs.bas'] | Should Match 'ExecuteFindReplace\(doc, " Jd ", " Jd. ", True\)'
+        It 'Substituicoes de Jd e numero estao em Mod9SpecialParagraphs' {
+            $script:moduleContent['Mod9SpecialParagraphs.bas'] | Should Match 'ExecuteFindReplace\(doc, " Jd ", " Jd. ", True\)'
         }
 
-        It 'Rotina de justificativa esta em Mod8SpecialParagraphs' {
-            $script:moduleContent['Mod8SpecialParagraphs.bas'] | Should Match 'Public Sub RemoveJustificativaColon\(doc As Document\)'
+        It 'Rotina de justificativa esta em Mod9SpecialParagraphs' {
+            $script:moduleContent['Mod9SpecialParagraphs.bas'] | Should Match 'Public Sub RemoveJustificativaColon\(doc As Document\)'
         }
 
         It 'Paginacao de requerimentos esta em Mod2Engine' {
             $script:moduleContent['Mod2Engine.bas'] | Should Match 'Public Function IsRequerimentoPageLine\(text As String\) As Boolean'
         }
 
-        It 'Espaco nao separavel esta em Mod6Formatting' {
-            $script:moduleContent['Mod6Formatting.bas'] | Should Match 'Public Sub EnsureNonBreakingSpaceAfterNo\(doc As Document\)'
+        It 'Espaco nao separavel esta em Mod7Formatting' {
+            $script:moduleContent['Mod7Formatting.bas'] | Should Match 'Public Sub EnsureNonBreakingSpaceAfterNo\(doc As Document\)'
         }
     }
 

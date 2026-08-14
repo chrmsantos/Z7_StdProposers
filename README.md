@@ -22,7 +22,7 @@ The VBA codebase is organized into 10 modules in `source/main/`:
 - `Mod2Engine.bas`: Structural detection heuristics, paragraph cache, image/list preservation routines.
 - `Mod3Pipeline.bas`: Core formatting pipeline (double-pass), normalization, cleanup, and logging primitives.
 - `Mod4Main.bas`: Public entrypoints/macros, orchestration, and structural range identification.
-- `Mod5WordMacro.bas`: Asynchronous Word-to-Python integration bridge (launches AI chat and prompt configurations).
+- `Mod6WordMacro.bas`: Asynchronous Word-to-Python integration bridge (launches AI chat and prompt configurations).
 
 The repository also contains a Python integration package in `ai/` for OpenRouter-based AI grammar correction and chat utilities.
 

@@ -1,7 +1,7 @@
-Attribute VB_Name = "Mod3Logging"
+Attribute VB_Name = "Mod5Logging"
 Option Explicit
 
-' Mod3Logging
+' Mod5Logging
 ' =============================================================================
 ' Z7_STDPROPOSERS - Sistema de Padronizacao de Proposituras Legislativas
 ' =============================================================================

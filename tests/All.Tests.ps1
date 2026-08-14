@@ -1,4 +1,4 @@
-#requires -Version 5.1
+﻿#requires -Version 5.1
 Import-Module Pester -ErrorAction Stop
 . $PSScriptRoot\Helpers.ps1
 
@@ -34,12 +34,12 @@ Describe 'Z7_STDPROPOSERS - Testes de Integridade' {
             ($basFiles.Name -contains 'Mod1Infrastructure.bas') | Should Be $true
             ($basFiles.Name -contains 'Mod2Engine.bas') | Should Be $true
             ($basFiles.Name -contains 'Mod3Pipeline.bas') | Should Be $true
-            ($basFiles.Name -contains 'Mod3Logging.bas') | Should Be $true
+            ($basFiles.Name -contains 'Mod5Logging.bas') | Should Be $true
             ($basFiles.Name -contains 'Mod4Main.bas') | Should Be $true
-            ($basFiles.Name -contains 'Mod6Formatting.bas') | Should Be $true
-            ($basFiles.Name -contains 'Mod7Ementa.bas') | Should Be $true
-            ($basFiles.Name -contains 'Mod8SpecialParagraphs.bas') | Should Be $true
-            ($basFiles.Name -contains 'Mod9Validation.bas') | Should Be $true
+            ($basFiles.Name -contains 'Mod7Formatting.bas') | Should Be $true
+            ($basFiles.Name -contains 'Mod8Ementa.bas') | Should Be $true
+            ($basFiles.Name -contains 'Mod9SpecialParagraphs.bas') | Should Be $true
+            ($basFiles.Name -contains 'Mod10Validation.bas') | Should Be $true
         }
 
         It 'Nao existam backups duplicados com mesmo tamanho' {

@@ -1,7 +1,7 @@
-Attribute VB_Name = "Mod9Validation"
+Attribute VB_Name = "Mod10Validation"
 Option Explicit
 
-' Mod9Validation
+' Mod10Validation
 ' =============================================================================
 ' Z7_STDPROPOSERS - Sistema de Padronizacao de Proposituras Legislativas
 ' =============================================================================

@@ -1,7 +1,7 @@
-Attribute VB_Name = "Mod8SpecialParagraphs"
+Attribute VB_Name = "Mod9SpecialParagraphs"
 Option Explicit
 
-' Mod8SpecialParagraphs
+' Mod9SpecialParagraphs
 ' =============================================================================
 ' Z7_STDPROPOSERS - Sistema de Padronizacao de Proposituras Legislativas
 ' =============================================================================
