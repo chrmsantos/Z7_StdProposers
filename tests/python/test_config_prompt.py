@@ -69,7 +69,7 @@ class TestLoadAiModel(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             with mock.patch("z7_logging.get_data_dir", return_value=Path(tmp)):
                 mod = _reload_config()
-                self.assertEqual(mod.load_ai_model(), "deepseek/deepseek-chat")
+                self.assertEqual(mod.load_ai_model(), "meta-llama/llama-3.3-70b-instruct:free")
 
     def test_returns_saved_model(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -89,6 +89,43 @@ class TestSaveAiModel(unittest.TestCase):
                 mod.save_ai_model("gemini-2.5-pro")
                 content = (tmp_path / "selected_model.txt").read_text(encoding="utf-8")
                 self.assertEqual(content, "gemini-2.5-pro")
+
+
+class TestLoadFallbackModel(unittest.TestCase):
+    def test_returns_default_when_no_file(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            with mock.patch("z7_logging.get_data_dir", return_value=Path(tmp)):
+                mod = _reload_config()
+                self.assertEqual(mod.load_fallback_model(), "google/gemma-2-9b-it:free")
+
+    def test_returns_saved_fallback_model(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = Path(tmp)
+            (tmp_path / "selected_fallback_model.txt").write_text("openai/gpt-4o-mini", encoding="utf-8")
+            with mock.patch("z7_logging.get_data_dir", return_value=tmp_path):
+                mod = _reload_config()
+                self.assertEqual(mod.load_fallback_model(), "openai/gpt-4o-mini")
+
+
+class TestSaveFallbackModel(unittest.TestCase):
+    def test_persists_fallback_model_name(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = Path(tmp)
+            with mock.patch("z7_logging.get_data_dir", return_value=tmp_path):
+                mod = _reload_config()
+                mod.save_fallback_model("openai/gpt-4o-mini")
+                content = (tmp_path / "selected_fallback_model.txt").read_text(encoding="utf-8")
+                self.assertEqual(content, "openai/gpt-4o-mini")
+
+
+class TestGetFallbackModelFilePath(unittest.TestCase):
+    def test_path_uses_data_dir(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            with mock.patch("z7_logging.get_data_dir", return_value=Path(tmp)):
+                mod = _reload_config()
+                path = mod.get_fallback_model_file_path()
+                self.assertEqual(path.parent, Path(tmp))
+                self.assertEqual(path.name, "selected_fallback_model.txt")
 
 
 class TestLoadApiKey(unittest.TestCase):

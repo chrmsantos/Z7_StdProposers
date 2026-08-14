@@ -27,11 +27,12 @@ def _configure_ssl_certifi() -> None:
         LOGGER.warning("certifi not available; SSL may fail in frozen environment")
 
 
-_DEFAULT_MODEL = 'deepseek/deepseek-chat'
+_DEFAULT_MODEL = 'meta-llama/llama-3.3-70b-instruct:free'
+_FALLBACK_MODEL = 'google/gemma-2-9b-it:free'
 _OPENROUTER_BASE_URL = 'https://openrouter.ai/api/v1'
 _MAX_CONTEXT_CHARS = 150_000
 
-_APP_VERSION = "8.6.3"
+_APP_VERSION = "8.7.0"
 _APP_AUTHOR  = "CMS"
 _ORG         = "Câmara Municipal de Santa Bárbara d'Oeste"
 _LICENSE     = "GPL-3.0"
@@ -87,12 +88,17 @@ class ChatApp:
         self._cancel_requested = False
         self.last_ai_reply = ""
         self._model = _DEFAULT_MODEL
+        self._fallback_model = _FALLBACK_MODEL
         self.doc_text = ""
         self._doc_truncated = False
         self._context_pending = False
         self._doc_load_error = ""
         self.current_status_text = "Carregando contexto..."
         self._last_chat_status = ""  # Deduplicação de status no chat
+        self._streaming_active = False
+        self._streamed_text = ""
+        self._streaming_start = None
+        self._streamed_reply = False
 
         self.build_ui()
         self.apply_theme()
@@ -956,6 +962,13 @@ class ChatApp:
                 timeout=60.0,
             )
             self._model = model
+            # Recarrega modelo fallback salvo no diálogo
+            try:
+                from config_prompt import load_fallback_model
+                self._fallback_model = load_fallback_model()
+                LOGGER.info("Fallback model reloaded: %s", self._fallback_model)
+            except Exception as fb_exc:
+                LOGGER.warning("Could not reload fallback model: %s", fb_exc)
             LOGGER.info("OpenAI client reinitialized with model %s", model)
             self.root.after(0, lambda: self.update_status("Pronto para conversar"))
         except Exception as e:
@@ -1114,17 +1127,120 @@ class ChatApp:
                 ", ".join(f"{t:.2f}s" for t in cycle_times), error_detail,
             )
 
+    def _start_streaming(self) -> None:
+        """Begin a streaming AI response: insert the 'LÉIA:' header and prepare for chunks."""
+        self._streaming_active = True
+        self._streamed_text = ""
+
+        self.chat_area.config(state=tk.NORMAL)
+        # Check if we need a separator before the AI header
+        content = self.chat_area.get("1.0", "end-1c")
+        if content and not content.endswith("\n"):
+            self.chat_area.insert(tk.END, "\n")
+        self.chat_area.insert(tk.END, "LÉIA:\n", "ai_tag")
+        self._streaming_start = self.chat_area.index(tk.END + "-1c")
+        self.chat_area.see(tk.END)
+        self.chat_area.config(state=tk.DISABLED)
+
+    def _append_streaming_chunk(self, text: str) -> None:
+        """Append a text chunk to the current streaming AI response."""
+        if not self._streaming_active:
+            return
+        self._streamed_text += text
+        self.chat_area.config(state=tk.NORMAL)
+        self.chat_area.insert(tk.END, text, "ai_msg")
+        self.chat_area.see(tk.END)
+        self.chat_area.config(state=tk.DISABLED)
+
+    def _finalize_streaming(self) -> None:
+        """Finalize the streaming AI response: add the separator and clean up state."""
+        self.chat_area.config(state=tk.NORMAL)
+        if not self.chat_area.get("1.0", "end-1c").endswith("\n"):
+            self.chat_area.insert(tk.END, "\n")
+        self.chat_area.insert(tk.END, "─" * 60 + "\n\n", "msg_sep")
+        self.chat_area.see(tk.END)
+        self.chat_area.config(state=tk.DISABLED)
+
+        self._streaming_active = False
+        self._streaming_start = None
+
     def _call_api(self) -> str:
-        """Envia o histórico completo de mensagens para a API e retorna a resposta."""
+        """Envia o histórico completo de mensagens para a API e retorna a resposta.
+
+        Utiliza streaming para exibir a resposta em tempo real na interface.
+        Se o modelo primário falhar, tenta automaticamente o modelo fallback.
+        """
         api_messages = [{"role": "system", "content": self.system_instruction}]
         api_messages.extend(self.messages)
 
-        response = self.client.chat.completions.create(
-            model=self._model,
-            messages=api_messages,
-            timeout=120,
-        )
-        return response.choices[0].message.content
+        self.root.after(0, self._start_streaming)
+
+        try:
+            stream = self.client.chat.completions.create(
+                model=self._model,
+                messages=api_messages,
+                stream=True,
+                timeout=120,
+            )
+            accumulated = ""
+            for chunk in stream:
+                if self._cancel_requested:
+                    LOGGER.info("Streaming cancelled by user")
+                    break
+                if (chunk.choices
+                        and chunk.choices[0].delta
+                        and chunk.choices[0].delta.content):
+                    piece = chunk.choices[0].delta.content
+                    accumulated += piece
+                    self.root.after(0, self._append_streaming_chunk, piece)
+
+            self.root.after(0, self._finalize_streaming)
+            self._streamed_reply = True
+            return accumulated
+
+        except Exception as primary_err:
+            LOGGER.warning("Primary model streaming failed: %s", primary_err)
+
+            # Se foi cancelamento, não tenta fallback
+            if self._cancel_requested:
+                self.root.after(0, self._finalize_streaming)
+                self._streamed_reply = True
+                return ""
+
+            # Limpa texto parcial que pode ter sido inserido antes do erro
+            def _cleanup_partial() -> None:
+                try:
+                    if (self._streaming_active
+                            and self._streaming_start is not None):
+                        self.chat_area.config(state=tk.NORMAL)
+                        self.chat_area.delete(self._streaming_start, tk.END)
+                        self.chat_area.config(state=tk.DISABLED)
+                    self._streaming_active = False
+                    self._streaming_start = None
+                except Exception:
+                    self._streaming_active = False
+                    self._streaming_start = None
+
+            self.root.after(0, _cleanup_partial)
+
+            # ── Fallback: tenta modelo alternativo (sem streaming) ──
+            try:
+                LOGGER.info("Attempting fallback model: %s", self._fallback_model)
+                response = self.client.chat.completions.create(
+                    model=self._fallback_model,
+                    messages=api_messages,
+                    timeout=120,
+                )
+                fallback_text = response.choices[0].message.content or ""
+                # Exibe a resposta do fallback via streaming simulado
+                self.root.after(0, self._start_streaming)
+                self.root.after(0, self._append_streaming_chunk, fallback_text)
+                self.root.after(0, self._finalize_streaming)
+                self._streamed_reply = True
+                return fallback_text
+            except Exception as fallback_err:
+                LOGGER.error("Fallback model also failed: %s", fallback_err)
+                raise primary_err
 
     def init_ai(self) -> None:
         # Inicialização em background para não travar a UI
@@ -1161,6 +1277,15 @@ class ChatApp:
             except Exception as e:
                 log_exception(LOGGER, "Failed to load selected model for chat_ia", e)
                 self._model = _DEFAULT_MODEL
+
+            # --- Carrega modelo fallback ---
+            try:
+                from config_prompt import load_fallback_model
+                self._fallback_model = load_fallback_model()
+                LOGGER.info("Fallback model loaded via config_prompt: %s", self._fallback_model)
+            except Exception as e:
+                log_exception(LOGGER, "Failed to load fallback model for chat_ia", e)
+                self._fallback_model = _FALLBACK_MODEL
 
             from config_prompt import load_chat_system_prompt
             today_prefix = get_today_date_text()
@@ -1307,7 +1432,9 @@ class ChatApp:
             LOGGER.info("Response discarded after user cancel")
             return
         self.last_ai_reply = reply
-        self.append_message("AI", reply)
+        if not getattr(self, '_streamed_reply', False):
+            self.append_message("AI", reply)
+        self._streamed_reply = False
         self.update_status("Pronto para conversar")
 
 def _activate_existing_window(title_prefix: str) -> bool:

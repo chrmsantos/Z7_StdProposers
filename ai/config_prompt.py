@@ -16,7 +16,7 @@ LOGGER = configure_component_logger("config_prompt")
 
 GITHUB_REPO_URL = "https://github.com/chrmsantos/Z7_StdProposers"
 
-_APP_VERSION = "8.6.3"
+_APP_VERSION = "8.7.0"
 _APP_AUTHOR  = "CMS"
 _ORG         = "Câmara Municipal de Santa Bárbara d'Oeste"
 _LICENSE     = "GPL-3.0"
@@ -57,8 +57,9 @@ Não reporte como problemas:
 - Pequenos erros formais ou desvios gramaticais leves que não comprometam a estrutura ou a lógica do texto (erros gramaticais graves, contudo, devem ser apontados);
 - As strings "$NUMERO$/$ANO$", "$ANO$" e "$DATAATUALEXTENSO$" são placeholders de template do sistema de padronização e estão corretas. NÃO as reporte como erros, inconsistências ou problemas de qualquer natureza.
 
-Se encontrar inconsistências, classifique-as por grau de gravidade (Crítica, Alta, Média, Baixa) e apresente-as ordenadas da mais grave para a menos grave. Cada item deve indicar claramente o nível de severidade, o trecho conflitante e a explicação do problema.
-Elabore sugestões de correção para cada inconsistência identificada, mantendo a integridade e o sentido jurídico do documento.
+Se encontrar inconsistências, classifique-as por grau de gravidade (Crítica, Alta, Média, Baixa) e apresente-as ordenadas da mais grave para a menos grave. Cada item deve indicar claramente o nível de severidade e o trecho conflitante, de forma sucinta e direta, sem alongar-se em explicações teóricas ou doutrinárias.
+Priorize sempre a apresentação das sugestões de correção em detrimento de explicações detalhadas dos erros encontrados. Para cada problema, apresente imediatamente a correção sugerida — preferencialmente na forma de texto revisado pronto para substituição.
+Se nenhum problema for encontrado, informe que o documento está consistente.
 
 Responda em Português do Brasil."""
 
@@ -90,7 +91,7 @@ Saída JSON:
 {{"titulo": "INDICAÇÃO Nº $NUMERO$/$ANO$","ementa": "Indica ao Poder Executivo Municipal a ampliação da rede de creches nos bairros com maior demanda por vagas.","vocativo": "Excelentíssimo Senhor Prefeito Municipal,","proposicao": "Nos termos do Art. 108 do Regimento Interno desta Casa de Leis, dirijo-me a Vossa Excelência para indicar que seja realizado um estudo técnico para ampliação da rede de creches públicas, com prioridade aos bairros com maior número de crianças em lista de espera, como o Jardim São Fernando e o Parque Zabani, neste Município.","titulo_da_justificativa": "Justificativa:","justificativa": "A falta de vagas em creches tem afetado diretamente as famílias, em especial mães que dependem do serviço para poder trabalhar. A ampliação do número de unidades ou convênios com instituições qualificadas atenderá à demanda crescente e garantirá o direito à educação infantil.","data": "Plenário \\"Dr. Tancredo Neves\\", $DATAATUALEXTENSO$.","assinatura": "AUTORIA\\n– Vereador –"}}"""
 
 
-DEFAULT_CHAT_SYSTEM_PROMPT = "Você é a LÉIA — Assistente Legislativa de IA. Sempre se apresente como LÉIA. Leia o documento ativo. Identifique erros. Auxilie o usuário alterando, revisando ou tirando dúvidas. As strings `$NUMERO$/$ANO$`, `$ANO$` e `$DATAATUALEXTENSO$` são placeholders de template do sistema de padronização automática — estão corretas e NÃO devem ser apontadas como erros."
+DEFAULT_CHAT_SYSTEM_PROMPT = "Você é a LÉIA — Assistente Legislativa de IA. Sempre se apresente como LÉIA. Leia o documento ativo. Identifique erros. Auxilie o usuário alterando, revisando ou tirando dúvidas. Ao apontar problemas, apresente-os de forma sucinta, ordenados por severidade (Crítica → Alta → Média → Baixa), e priorize sempre as sugestões de correção em vez de explicações detalhadas dos erros. As strings `$NUMERO$/$ANO$`, `$ANO$` e `$DATAATUALEXTENSO$` são placeholders de template do sistema de padronização automática — estão corretas e NÃO devem ser apontadas como erros."
 
 
 def get_chat_system_prompt_file_path() -> Path:
@@ -167,7 +168,7 @@ def load_ai_model() -> str:
             return model_file.read_text(encoding='utf-8').strip()
         except Exception as e:
             log_exception(LOGGER, "Failed to load custom model", e)
-    return "deepseek/deepseek-chat"
+    return "meta-llama/llama-3.3-70b-instruct:free"
 
 def save_ai_model(model_name: str) -> None:
     model_file = get_model_file_path()
@@ -176,6 +177,26 @@ def save_ai_model(model_name: str) -> None:
         LOGGER.info("Model saved successfully: %s", model_name)
     except Exception as e:
         log_exception(LOGGER, "Failed to save model", e)
+
+def get_fallback_model_file_path() -> Path:
+    return get_data_dir() / "selected_fallback_model.txt"
+
+def load_fallback_model() -> str:
+    fallback_file = get_fallback_model_file_path()
+    if fallback_file.exists():
+        try:
+            return fallback_file.read_text(encoding='utf-8').strip()
+        except Exception as e:
+            log_exception(LOGGER, "Failed to load fallback model", e)
+    return "google/gemma-2-9b-it:free"
+
+def save_fallback_model(model_name: str) -> None:
+    fallback_file = get_fallback_model_file_path()
+    try:
+        fallback_file.write_text(model_name, encoding='utf-8')
+        LOGGER.info("Fallback model saved successfully: %s", model_name)
+    except Exception as e:
+        log_exception(LOGGER, "Failed to save fallback model", e)
 
 def save_prompt(consistency_text: str, root: tk.Tk) -> None:
     if not consistency_text.strip():
@@ -940,6 +961,21 @@ def open_ai_api_dialog(
     )
     model_entry.pack(fill=tk.X, padx=22)
 
+    # ── Section: Fallback Model ────────────────────────────────────────────────
+    tk.Label(
+        dialog, text="MODELO FALLBACK (alternativo)",
+        font=("Segoe UI", 10, "bold"), fg=fg_muted, bg=bg, anchor="w",
+    ).pack(fill=tk.X, padx=22, pady=(14, 2))
+    tk.Frame(dialog, height=1, bg=border).pack(fill=tk.X, padx=22, pady=(0, 8))
+
+    fallback_var = tk.StringVar(value=load_fallback_model())
+    fallback_entry = tk.Entry(
+        dialog, textvariable=fallback_var, font=("Segoe UI", 11),
+        relief=tk.FLAT, bd=2, bg=text_bg, fg=fg, insertbackground=fg,
+        selectbackground=select_bg, selectforeground=select_fg,
+    )
+    fallback_entry.pack(fill=tk.X, padx=22)
+
     # ── Output area ───────────────────────────────────────────────────────────
     tk.Label(
         dialog, text="SAÍDA",
@@ -1005,10 +1041,11 @@ def open_ai_api_dialog(
     web_btn.pack(fill=tk.X, padx=22, pady=(0, 16))
 
     # ── Validation ────────────────────────────────────────────────────────────
-    def _validate_inputs() -> "tuple[str, str] | None":
+    def _validate_inputs() -> "tuple[str, str, str] | None":
         _clear_output()
         key = api_var.get().strip()
         model = model_var.get().strip()
+        fallback = fallback_var.get().strip()
         effective_key = key or load_api_key()
 
         if not effective_key:
@@ -1017,6 +1054,9 @@ def open_ai_api_dialog(
         if not model:
             _append("⚠  Informe um nome de modelo.", "warn")
             return None
+        if not fallback:
+            _append("⚠  Informe um nome de modelo fallback.", "warn")
+            return None
         if key and not _RE_API_KEY.match(key):
             _append(
                 "✘  Formato de chave inválido.\n"
@@ -1024,18 +1064,18 @@ def open_ai_api_dialog(
                 "error",
             )
             return None
-        return effective_key, model
+        return effective_key, model, fallback
 
     # ── Save ──────────────────────────────────────────────────────────────────
     def _on_save() -> None:
         validated = _validate_inputs()
         if validated is None:
             return
-        effective_key, model = validated
+        effective_key, model, fallback = validated
 
         save_btn.config(state=tk.DISABLED)
         test_btn.config(state=tk.DISABLED)
-        _append("Salvando chave e modelo…", "dim")
+        _append("Salvando chave e modelos…", "dim")
 
         def _do_save() -> None:
             try:
@@ -1046,6 +1086,8 @@ def open_ai_api_dialog(
                     dialog.after(0, lambda: _append("ℹ  Usando chave já armazenada.", "dim"))
                 save_ai_model(model)
                 dialog.after(0, lambda: _append("✔  Modelo salvo.", "success"))
+                save_fallback_model(fallback)
+                dialog.after(0, lambda: _append("✔  Modelo fallback salvo.", "success"))
                 dialog.after(0, lambda: _close_and_save(effective_key, model))
             except Exception as exc:
                 err_msg = str(exc)
@@ -1066,7 +1108,7 @@ def open_ai_api_dialog(
         validated = _validate_inputs()
         if validated is None:
             return
-        effective_key, model = validated
+        effective_key, model, fallback = validated
 
         test_btn.config(state=tk.DISABLED)
         save_btn.config(state=tk.DISABLED)
@@ -1088,6 +1130,9 @@ def open_ai_api_dialog(
                     base_url="https://openrouter.ai/api/v1",
                     api_key=effective_key,
                 )
+
+                # Testa modelo primário
+                dialog.after(0, lambda: _append(f"  Modelo primário: {model}", "dim"))
                 response = client.chat.completions.create(
                     model=model,
                     messages=[{"role": "user", "content": "Responda apenas com a palavra: OK"}],
@@ -1099,8 +1144,27 @@ def open_ai_api_dialog(
                 if not resp_text:
                     raise ValueError("A IA não retornou conteúdo na resposta.")
 
-                dialog.after(0, lambda: _append("✔  IA respondeu — configuração válida.", "success"))
+                dialog.after(0, lambda: _append("✔  Modelo primário respondeu — configuração válida.", "success"))
                 dialog.after(0, lambda: _append(f"   Resposta: {resp_text}"))
+
+                # Testa modelo fallback
+                dialog.after(0, lambda: _append(f"  Modelo fallback: {fallback}", "dim"))
+                try:
+                    fb_response = client.chat.completions.create(
+                        model=fallback,
+                        messages=[{"role": "user", "content": "Responda apenas com a palavra: OK"}],
+                    )
+                    fb_text = ""
+                    if getattr(fb_response, "choices", None) and len(fb_response.choices) > 0:
+                        fb_text = (fb_response.choices[0].message.content or "").strip()
+                    if fb_text:
+                        dialog.after(0, lambda: _append("✔  Modelo fallback respondeu — configuração válida.", "success"))
+                        dialog.after(0, lambda: _append(f"   Resposta: {fb_text}"))
+                    else:
+                        dialog.after(0, lambda: _append("⚠  Modelo fallback não retornou conteúdo.", "warn"))
+                except Exception as fb_exc:
+                    dialog.after(0, lambda: _append(f"⚠  Modelo fallback falhou: {fb_exc}", "warn"))
+
                 dialog.after(0, lambda: _status_lbl.configure(
                     text="✔  Chave configurada", fg="#10b981",
                 ))
