@@ -530,6 +530,77 @@ ErrorHandler:
 End Function
 
 '================================================================================
+' LIMPEZA DE BACKUPS ANTIGOS
+'================================================================================
+Public Sub CleanOldBackups(backupFolder As String, docBaseName As String)
+    On Error GoTo CleanExit
+
+    If MAX_BACKUP_FILES < 1 Then Exit Sub
+
+    Dim fso As Object
+    Set fso = CreateObject("Scripting.FileSystemObject")
+
+    If Not fso.FolderExists(backupFolder) Then GoTo CleanExit
+
+    Dim folder As Object
+    Set folder = fso.GetFolder(backupFolder)
+
+    Dim fileItem As Object
+    Dim prefix As String
+    prefix = LCase(docBaseName & "_backup_")
+
+    Dim items() As String
+    Dim itemCount As Long
+    itemCount = 0
+
+    For Each fileItem In folder.Files
+        If Left(LCase(fileItem.Name), Len(prefix)) = prefix Then
+            ReDim Preserve items(itemCount)
+            items(itemCount) = Format(fileItem.DateLastModified, "yyyymmddHHMMSS") & "|" & fileItem.Path
+            itemCount = itemCount + 1
+        End If
+    Next fileItem
+
+    If itemCount <= MAX_BACKUP_FILES Then GoTo CleanExit
+
+    Dim i As Long, j As Long, temp As String
+    For i = 0 To itemCount - 2
+        For j = i + 1 To itemCount - 1
+            If items(i) < items(j) Then
+                temp = items(i)
+                items(i) = items(j)
+                items(j) = temp
+            End If
+        Next j
+    Next i
+
+    Dim idx As Long
+    For idx = MAX_BACKUP_FILES To itemCount - 1
+        Dim parts() As String
+        parts = Split(items(idx), "|")
+        On Error Resume Next
+        fso.DeleteFile parts(1), True
+        If Err.Number <> 0 Then
+            If loggingEnabled Then
+                LogMessage "Failed to delete old backup: " & parts(1) & " - " & Err.Description, LOG_LEVEL_WARNING
+            End If
+            Err.Clear
+        Else
+            If loggingEnabled Then
+                LogMessage "Old backup removed: " & parts(1), LOG_LEVEL_INFO
+            End If
+        End If
+        On Error GoTo CleanExit
+    Next idx
+
+CleanExit:
+    On Error Resume Next
+    Erase items
+    Set folder = Nothing
+    Set fso = Nothing
+End Sub
+
+'================================================================================
 ' FUNCOES DE CAMINHO - Estrutura do projeto
 '================================================================================
 
