@@ -1,4 +1,4 @@
-# Z7_StdProposers
+﻿# Z7_StdProposers
 
 ## Sistema de Padronização de Proposituras Legislativas
 
@@ -16,7 +16,7 @@ Z7_StdProposers is an advanced, robust VBA macro project designed exclusively fo
 
 ## 🏗️ Architecture
 
-The VBA codebase is currently consolidated into 5 modules in `source/main/`:
+The VBA codebase is organized into 10 modules in `source/main/`:
 
 - `Mod1Infrastructure.bas`: Constants, global state, cross-cutting helpers, paths, backup/system integrations.
 - `Mod2Engine.bas`: Structural detection heuristics, paragraph cache, image/list preservation routines.

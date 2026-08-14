@@ -1,4 +1,4 @@
-# Z7_STDPROPOSERS - AI Assistant Developer Context
+﻿# Z7_STDPROPOSERS - AI Assistant Developer Context
 
 > Note to AI Agents: read this document before modifying the VBA pipeline or Python integration.
 >
@@ -17,7 +17,7 @@ The solution has two coordinated parts:
 
 ### 2.1 VBA (4 modules)
 
-The active VBA architecture is consolidated into four modules:
+The active VBA architecture is consolidated into 10 modules:
 
 - `Mod1Infrastructure.bas`: constants, global state, paths, safe wrappers, backup/system helpers.
 - `Mod2Engine.bas`: structure detection heuristics, cache system, image/list handling and restoration helpers.

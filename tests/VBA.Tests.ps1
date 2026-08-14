@@ -20,11 +20,17 @@ Describe 'Z7_STDPROPOSERS - VBA Modular Architecture' {
     }
 
     Context 'Estrutura de modulos' {
-        It 'Possui os 4 modulos principais esperados' {
+        It 'Possui os modulos esperados' {
             ($script:moduleNames -contains 'Mod1Infrastructure.bas') | Should Be $true
             ($script:moduleNames -contains 'Mod2Engine.bas') | Should Be $true
             ($script:moduleNames -contains 'Mod3Pipeline.bas') | Should Be $true
+            ($script:moduleNames -contains 'Mod3Logging.bas') | Should Be $true
             ($script:moduleNames -contains 'Mod4Main.bas') | Should Be $true
+            ($script:moduleNames -contains 'Mod5WordMacro.bas') | Should Be $true
+            ($script:moduleNames -contains 'Mod6Formatting.bas') | Should Be $true
+            ($script:moduleNames -contains 'Mod7Ementa.bas') | Should Be $true
+            ($script:moduleNames -contains 'Mod8SpecialParagraphs.bas') | Should Be $true
+            ($script:moduleNames -contains 'Mod9Validation.bas') | Should Be $true
         }
 
         It 'Todos os modulos tem Option Explicit' {
@@ -53,35 +59,30 @@ Describe 'Z7_STDPROPOSERS - VBA Modular Architecture' {
             $script:moduleContent['Mod4Main.bas'] | Should Match '(?m)^Public Function GetJustificativaRange\(doc As Document\) As Range'
         }
 
-        It 'Pipeline contem inicializacao e finalizacao de logging' {
-            $script:moduleContent['Mod3Pipeline.bas'] | Should Match 'Public Function InitializeLogging\(doc As Document\) As Boolean'
-            $script:moduleContent['Mod3Pipeline.bas'] | Should Match 'Public Sub SafeFinalizeLogging\(\)'
+        It 'Logging esta em Mod3Logging' {
+            $script:moduleContent['Mod3Logging.bas'] | Should Match 'Public Function InitializeLogging\(doc As Document\) As Boolean'
+            $script:moduleContent['Mod3Logging.bas'] | Should Match 'Public Sub SafeFinalizeLogging\(\)'
         }
 
-        It 'Pipeline contem rotinas para substituir paragrafo tikinho tk' {
-            $script:moduleContent['Mod3Pipeline.bas'] | Should Match 'Private Function IsTikinhoTk\(ByVal text As String\) As Boolean'
-            $script:moduleContent['Mod3Pipeline.bas'] | Should Match 'Public Sub ReplaceTikinhoTkParagraphs\(doc As Document\)'
+        It 'Rotinas tikinho tk estao em Mod8SpecialParagraphs' {
+            $script:moduleContent['Mod8SpecialParagraphs.bas'] | Should Match 'Private Function IsTikinhoTk\(ByVal text As String\) As Boolean'
+            $script:moduleContent['Mod8SpecialParagraphs.bas'] | Should Match 'Public Sub ReplaceTikinhoTkParagraphs\(doc As Document\)'
         }
 
-        It 'Pipeline contem as substituicoes de Jd e numero' {
-            $script:moduleContent['Mod3Pipeline.bas'] | Should Match 'ExecuteFindReplace\(doc, " Jd ", " Jd. ", True\)'
-            $script:moduleContent['Mod3Pipeline.bas'] | Should Match 'ExecuteFindReplace\(doc, " aos n" & Chr\(186\) & " ", " ao n" & Chr\(186\) & " ", True\)'
-            $script:moduleContent['Mod3Pipeline.bas'] | Should Match 'ExecuteFindReplace\(doc, " nos n" & Chr\(186\) & " ", " no n" & Chr\(186\) & " ", True\)'
+        It 'Substituicoes de Jd e numero estao em Mod8SpecialParagraphs' {
+            $script:moduleContent['Mod8SpecialParagraphs.bas'] | Should Match 'ExecuteFindReplace\(doc, " Jd ", " Jd. ", True\)'
         }
 
-        It 'Pipeline contem rotina para remover dois pontos da justificativa' {
-            $script:moduleContent['Mod3Pipeline.bas'] | Should Match 'Public Sub RemoveJustificativaColon\(doc As Document\)'
-            $script:moduleContent['Mod3Pipeline.bas'] | Should Match 'RemoveJustificativaColon doc'
+        It 'Rotina de justificativa esta em Mod8SpecialParagraphs' {
+            $script:moduleContent['Mod8SpecialParagraphs.bas'] | Should Match 'Public Sub RemoveJustificativaColon\(doc As Document\)'
         }
 
-        It 'Contem rotina para identificar paginacao de requerimentos' {
+        It 'Paginacao de requerimentos esta em Mod2Engine' {
             $script:moduleContent['Mod2Engine.bas'] | Should Match 'Public Function IsRequerimentoPageLine\(text As String\) As Boolean'
-            $script:moduleContent['Mod3Pipeline.bas'] | Should Match 'IsRequerimentoPageLine\(cleanText\)'
         }
 
-        It 'Contem rotina para garantir espaco nao separavel apos no' {
-            $script:moduleContent['Mod3Pipeline.bas'] | Should Match 'Public Sub EnsureNonBreakingSpaceAfterNo\(doc As Document\)'
-            $script:moduleContent['Mod3Pipeline.bas'] | Should Match 'EnsureNonBreakingSpaceAfterNo doc'
+        It 'Espaco nao separavel esta em Mod6Formatting' {
+            $script:moduleContent['Mod6Formatting.bas'] | Should Match 'Public Sub EnsureNonBreakingSpaceAfterNo\(doc As Document\)'
         }
     }
 

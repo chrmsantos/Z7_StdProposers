@@ -30,11 +30,16 @@ Describe 'Z7_STDPROPOSERS - Testes de Integridade' {
 
     Context 'VBA / BAS files' {
         $basFiles = Get-VbaFiles
-        It 'Existe o conjunto de modulos principais' {
+        It 'Existe o conjunto de modulos esperados' {
             ($basFiles.Name -contains 'Mod1Infrastructure.bas') | Should Be $true
             ($basFiles.Name -contains 'Mod2Engine.bas') | Should Be $true
             ($basFiles.Name -contains 'Mod3Pipeline.bas') | Should Be $true
+            ($basFiles.Name -contains 'Mod3Logging.bas') | Should Be $true
             ($basFiles.Name -contains 'Mod4Main.bas') | Should Be $true
+            ($basFiles.Name -contains 'Mod6Formatting.bas') | Should Be $true
+            ($basFiles.Name -contains 'Mod7Ementa.bas') | Should Be $true
+            ($basFiles.Name -contains 'Mod8SpecialParagraphs.bas') | Should Be $true
+            ($basFiles.Name -contains 'Mod9Validation.bas') | Should Be $true
         }
 
         It 'Nao existam backups duplicados com mesmo tamanho' {
