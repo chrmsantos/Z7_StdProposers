@@ -655,7 +655,7 @@ class TestInitAiThreadDocContext(unittest.TestCase):
              mock.patch.object(chat_ia, "_configure_ssl_certifi"), \
              mock.patch.object(chat_ia, "get_api_key", return_value="fake-key"), \
              mock.patch("openai.OpenAI"), \
-             mock.patch("config_prompt.load_ai_model", return_value="meta-llama/llama-3.3-70b-instruct:free"), \
+             mock.patch("config_prompt.load_ai_model", return_value="deepseek/deepseek-v4-pro"), \
              mock.patch("config_prompt.load_chat_system_prompt", return_value="system prompt"):
             self.app._init_ai_thread()
 

@@ -168,7 +168,7 @@ def load_ai_model() -> str:
             return model_file.read_text(encoding='utf-8').strip()
         except Exception as e:
             log_exception(LOGGER, "Failed to load custom model", e)
-    return "meta-llama/llama-3.3-70b-instruct:free"
+    return "deepseek/deepseek-v4-pro"
 
 def save_ai_model(model_name: str) -> None:
     model_file = get_model_file_path()
@@ -188,7 +188,7 @@ def load_fallback_model() -> str:
             return fallback_file.read_text(encoding='utf-8').strip()
         except Exception as e:
             log_exception(LOGGER, "Failed to load fallback model", e)
-    return "google/gemma-2-9b-it:free"
+    return "deepseek/deepseek-v4-flash"
 
 def save_fallback_model(model_name: str) -> None:
     fallback_file = get_fallback_model_file_path()

@@ -69,7 +69,7 @@ class TestLoadAiModel(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             with mock.patch("z7_logging.get_data_dir", return_value=Path(tmp)):
                 mod = _reload_config()
-                self.assertEqual(mod.load_ai_model(), "meta-llama/llama-3.3-70b-instruct:free")
+                self.assertEqual(mod.load_ai_model(), "deepseek/deepseek-v4-pro")
 
     def test_returns_saved_model(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -96,7 +96,7 @@ class TestLoadFallbackModel(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             with mock.patch("z7_logging.get_data_dir", return_value=Path(tmp)):
                 mod = _reload_config()
-                self.assertEqual(mod.load_fallback_model(), "google/gemma-2-9b-it:free")
+                self.assertEqual(mod.load_fallback_model(), "deepseek/deepseek-v4-flash")
 
     def test_returns_saved_fallback_model(self):
         with tempfile.TemporaryDirectory() as tmp:

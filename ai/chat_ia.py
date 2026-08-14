@@ -27,8 +27,8 @@ def _configure_ssl_certifi() -> None:
         LOGGER.warning("certifi not available; SSL may fail in frozen environment")
 
 
-_DEFAULT_MODEL = 'meta-llama/llama-3.3-70b-instruct:free'
-_FALLBACK_MODEL = 'google/gemma-2-9b-it:free'
+_DEFAULT_MODEL = 'deepseek/deepseek-v4-pro'
+_FALLBACK_MODEL = 'deepseek/deepseek-v4-flash'
 _OPENROUTER_BASE_URL = 'https://openrouter.ai/api/v1'
 _MAX_CONTEXT_CHARS = 150_000
 
