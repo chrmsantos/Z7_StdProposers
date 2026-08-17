@@ -2,7 +2,7 @@
 
 > Note to AI Agents: read this document before modifying the VBA pipeline or Python integration.
 >
-> Last updated: 2026-08-14 (v8.7.0 — streaming, fallback model, prompt refinements).
+> Last updated: 2026-08-17 (v8.7.3 — installer resilience: retry, rollback completeness, log improvements).
 
 ## 1. Project Overview
 
@@ -32,6 +32,17 @@ Main files in `ai/`:
 - `config_prompt.py`: UI for prompt editing. Hosts `DEFAULT_PROMPT` (grammar and general consistency prompt, including question checking rules) and `DEFAULT_CONSISTENCY_PROMPT` (controls consistency check output classification rules).
 - `z7_logging.py`: shared structured logger; uses `RotatingFileHandler` (2 MB / 3 backups).
 - `build_exe.ps1`: PyInstaller build workflow for `.exe` artifacts.
+
+### 2.3 Installer (`scripts/installer.py`)
+
+Self-updating installer wizard with the following resilience features:
+
+- **`_read_version()`**: reads `VERSION` file dynamically (no hardcoded version).
+- **Retry helpers**: `_retry_copytree()`, `_retry_copy2()`, `_retry_rmtree()` — exponential backoff for `[WinError 32]` (file locked by another process). Default: 3 attempts, 1s/2s/4s delays.
+- **Download retry**: up to 3 attempts per asset with 2s/4s backoff on network failures.
+- **Backup completeness**: `export_normal.exe` now included in backup/restore alongside `chat_ia`, `config_prompt`, `import_word.exe`, `Normal.dotm`, `Word.officeUI`.
+- **Rollback**: uses `_retry_rmtree()` + `_retry_copytree()` to handle locked DLLs during rollback.
+- **Logging**: `log_context` wraps GitHub API call and `import_word.exe` execution for timing. Version info in startup log line.
 
 ## 3. Operational Conventions
 
