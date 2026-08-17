@@ -9,6 +9,7 @@ Cobre:
 """
 import json
 import shutil
+import subprocess
 import sys
 import tempfile
 import unittest
@@ -51,6 +52,7 @@ class TestRetryCopytree(unittest.TestCase):
             (src / "file.txt").write_text("hello")
             installer._retry_copytree(src, dst)
             self.assertTrue((dst / "file.txt").exists())
+            self.assertEqual((dst / "file.txt").read_text(), "hello")
 
     def test_success_with_dirs_exist_ok(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -61,35 +63,47 @@ class TestRetryCopytree(unittest.TestCase):
             installer._retry_copytree(src, dst, dirs_exist_ok=True)
             self.assertTrue((dst / "a.txt").exists())
 
-    @mock.patch("installer.time.sleep")
-    @mock.patch("installer.shutil.copytree")
-    def test_retries_on_winerror32(self, mock_copytree, mock_sleep):
-        lock_err = shutil.Error([
-            ("src.dll", "dst.dll", "[WinError 32] O arquivo já está sendo usado por outro processo")
-        ])
-        mock_copytree.side_effect = [lock_err, None]
-        installer._retry_copytree(Path("src"), Path("dst"))
-        self.assertEqual(mock_copytree.call_count, 2)
-        mock_sleep.assert_called_once()
+    def test_copies_subdirectories(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            src = Path(tmp) / "src"
+            dst = Path(tmp) / "dst"
+            (src / "sub").mkdir(parents=True)
+            (src / "sub" / "deep.txt").write_text("deep")
+            installer._retry_copytree(src, dst)
+            self.assertTrue((dst / "sub" / "deep.txt").exists())
 
     @mock.patch("installer.time.sleep")
-    @mock.patch("installer.shutil.copytree")
-    def test_raises_after_max_retries(self, mock_copytree, mock_sleep):
-        lock_err = shutil.Error([
-            ("src.dll", "dst.dll", "[WinError 32] being used by another process")
-        ])
-        mock_copytree.side_effect = lock_err
-        with self.assertRaises(shutil.Error):
-            installer._retry_copytree(Path("src"), Path("dst"))
-        self.assertEqual(mock_copytree.call_count, installer._RETRY_ATTEMPTS)
+    @mock.patch("installer._copy_single_file")
+    @mock.patch("installer.kill_process_by_name")
+    def test_raises_after_kill_still_blocked(self, mock_kill, mock_copy, mock_sleep):
+        """Deve matar processos e ainda lançar se arquivos persistirem bloqueados."""
+        mock_copy.return_value = False
+        mock_kill.return_value = 1
 
-    @mock.patch("installer.shutil.copytree")
-    def test_raises_non_lock_errors_immediately(self, mock_copytree):
-        other_err = shutil.Error([("src", "dst", "disk full")])
-        mock_copytree.side_effect = other_err
-        with self.assertRaises(shutil.Error):
-            installer._retry_copytree(Path("src"), Path("dst"))
-        self.assertEqual(mock_copytree.call_count, 1)
+        with tempfile.TemporaryDirectory() as tmp:
+            src = Path(tmp) / "src"
+            dst = Path(tmp) / "dst"
+            src.mkdir()
+            (src / "blocked.dll").write_text("x")
+            with self.assertRaises(shutil.Error):
+                installer._retry_copytree(src, dst)
+
+    @mock.patch("installer.time.sleep")
+    @mock.patch("installer._copy_single_file")
+    @mock.patch("installer.kill_process_by_name")
+    def test_succeeds_after_kill(self, mock_kill, mock_copy, mock_sleep):
+        """Deve matar processos e então copiar com sucesso (sem levantar exceção)."""
+        mock_copy.side_effect = [False, True]  # falha 1a, sucesso 2a
+        mock_kill.return_value = 1
+
+        with tempfile.TemporaryDirectory() as tmp:
+            src = Path(tmp) / "src"
+            dst = Path(tmp) / "dst"
+            src.mkdir()
+            (src / "blocked.dll").write_text("x")
+            installer._retry_copytree(src, dst)
+            self.assertTrue(mock_kill.called)
+            self.assertEqual(mock_copy.call_count, 2)
 
 
 # ── _retry_copy2 ────────────────────────────────────────────────────────────
@@ -129,6 +143,68 @@ class TestRetryCopy2(unittest.TestCase):
         self.assertEqual(mock_copy2.call_count, 1)
 
 
+# ── kill_process_by_name ────────────────────────────────────────────────────
+
+class TestKillProcessByName(unittest.TestCase):
+    @mock.patch("installer.subprocess.run")
+    def test_returns_count_on_success(self, mock_run):
+        mock_run.return_value = mock.Mock(returncode=0, stdout="Sucesso: processo encerrado.", stderr="")
+        result = installer.kill_process_by_name("chat_ia.exe")
+        self.assertGreaterEqual(result, 1)
+        mock_run.assert_called_once_with(
+            ["taskkill", "/F", "/IM", "chat_ia.exe"],
+            capture_output=True, text=True, timeout=15,
+        )
+
+    @mock.patch("installer.subprocess.run")
+    def test_returns_zero_when_not_found(self, mock_run):
+        mock_run.return_value = mock.Mock(returncode=128, stdout="", stderr="não foi encontrado")
+        result = installer.kill_process_by_name("ghost.exe")
+        self.assertEqual(result, 0)
+
+    @mock.patch("installer.subprocess.run")
+    def test_returns_zero_on_timeout(self, mock_run):
+        mock_run.side_effect = subprocess.TimeoutExpired(cmd="taskkill", timeout=15)
+        result = installer.kill_process_by_name("stuck.exe")
+        self.assertEqual(result, 0)
+
+
+# ── _copy_single_file ───────────────────────────────────────────────────────
+
+class TestCopySingleFile(unittest.TestCase):
+    def test_success_on_first_attempt(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            src = Path(tmp) / "src.txt"
+            dst = Path(tmp) / "sub" / "dst.txt"
+            src.write_text("content")
+            result = installer._copy_single_file(src, dst)
+            self.assertTrue(result)
+            self.assertEqual(dst.read_text(), "content")
+
+    @mock.patch("installer.time.sleep")
+    @mock.patch("installer.shutil.copy2")
+    def test_retries_on_winerror32(self, mock_copy2, mock_sleep):
+        err = PermissionError("[WinError 32] file in use")
+        mock_copy2.side_effect = [err, None]
+        result = installer._copy_single_file(Path("src"), Path("dst"))
+        self.assertTrue(result)
+        self.assertEqual(mock_copy2.call_count, 2)
+
+    @mock.patch("installer.time.sleep")
+    @mock.patch("installer.shutil.copy2")
+    def test_returns_false_when_all_retries_exhausted(self, mock_copy2, mock_sleep):
+        mock_copy2.side_effect = PermissionError("[WinError 32] file in use")
+        result = installer._copy_single_file(Path("src"), Path("dst"))
+        self.assertFalse(result)
+        self.assertEqual(mock_copy2.call_count, installer._RETRY_ATTEMPTS)
+
+    @mock.patch("installer.shutil.copy2")
+    def test_raises_non_lock_errors(self, mock_copy2):
+        mock_copy2.side_effect = PermissionError("access denied")
+        with self.assertRaises(PermissionError):
+            installer._copy_single_file(Path("src"), Path("dst"))
+
+
 # ── _retry_rmtree ───────────────────────────────────────────────────────────
 
 class TestRetryRmtree(unittest.TestCase):
@@ -151,11 +227,29 @@ class TestRetryRmtree(unittest.TestCase):
 
     @mock.patch("installer.time.sleep")
     @mock.patch("installer.shutil.rmtree")
-    def test_returns_false_after_max_retries(self, mock_rmtree, mock_sleep):
-        mock_rmtree.side_effect = PermissionError("WinError 32")
+    @mock.patch("installer.kill_process_by_name")
+    def test_returns_false_after_kill_and_still_blocked(self, mock_kill, mock_rmtree, mock_sleep):
+        """Após esgotar tentativas, mata processos e ainda falha => False."""
+        mock_rmtree.side_effect = PermissionError("WinError 32")  # sempre falha
+        mock_kill.return_value = 1
+
         result = installer._retry_rmtree(Path("some_dir"))
         self.assertFalse(result)
-        self.assertEqual(mock_rmtree.call_count, installer._RETRY_ATTEMPTS)
+        # rmtree chamado: _RETRY_ATTEMPTS (retry loop) + 1 (tentativa pós-kill)
+        self.assertEqual(mock_rmtree.call_count, installer._RETRY_ATTEMPTS + 1)
+
+    @mock.patch("installer.time.sleep")
+    @mock.patch("installer.shutil.rmtree")
+    @mock.patch("installer.kill_process_by_name")
+    def test_succeeds_after_kill(self, mock_kill, mock_rmtree, mock_sleep):
+        """Após esgotar tentativas, mata processos e then rmtree succeeds."""
+        # Falha nas primeiras _RETRY_ATTEMPTS, sucesso na pós-kill
+        mock_rmtree.side_effect = [PermissionError("WinError 32")] * installer._RETRY_ATTEMPTS + [None]
+        mock_kill.return_value = 1
+
+        result = installer._retry_rmtree(Path("some_dir"))
+        self.assertTrue(result)
+        self.assertEqual(mock_rmtree.call_count, installer._RETRY_ATTEMPTS + 1)
 
 
 # ── get_latest_github_release ────────────────────────────────────────────────

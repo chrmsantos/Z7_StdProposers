@@ -77,26 +77,84 @@ _RETRY_ATTEMPTS = 3
 _RETRY_BASE_DELAY = 1.0  # segundos; dobra a cada tentativa
 
 
-def _retry_copytree(src: Path, dst: Path, *, dirs_exist_ok: bool = False) -> None:
-    """Copia árvore de diretórios com retry para WinError 32 (arquivo em uso)."""
+def kill_process_by_name(exe_name: str) -> int:
+    """Finaliza processos por nome via taskkill /F. Retorna o número de processos finalizados."""
+    try:
+        result = subprocess.run(
+            ["taskkill", "/F", "/IM", exe_name],
+            capture_output=True, text=True, timeout=15,
+        )
+        if result.returncode == 0:
+            count = max(1, result.stdout.lower().count("encerrado") + result.stdout.lower().count("terminated") or 1)
+            LOGGER.info("Processos '%s' finalizados (%d): %s", exe_name, count, result.stdout.strip()[:200])
+            return count
+        else:
+            LOGGER.debug("Nenhum processo '%s' em execucao (rc=%d)", exe_name, result.returncode)
+            return 0
+    except Exception as exc:
+        LOGGER.warning("Erro ao finalizar '%s': %s", exe_name, exc)
+        return 0
+
+
+def _copy_single_file(src_file: Path, dst_file: Path) -> bool:
+    """Copia um único arquivo com retry. Retorna True se copiou, False se bloqueado."""
+    dst_file.parent.mkdir(parents=True, exist_ok=True)
     for attempt in range(_RETRY_ATTEMPTS):
         try:
-            shutil.copytree(src, dst, dirs_exist_ok=dirs_exist_ok)
-            return
-        except shutil.Error as exc:
+            shutil.copy2(str(src_file), str(dst_file))
+            return True
+        except (PermissionError, OSError) as exc:
             msg = str(exc)
-            if "WinError 32" not in msg and "being used" not in msg:
-                raise
-            if attempt < _RETRY_ATTEMPTS - 1:
-                delay = _RETRY_BASE_DELAY * (2 ** attempt)
-                LOGGER.warning(
-                    "copytree bloqueado (tentativa %d/%d), aguardando %.1fs antes de retry: %s",
-                    attempt + 1, _RETRY_ATTEMPTS, delay, msg[:120],
-                )
-                time.sleep(delay)
+            if "WinError 32" in msg or "being used" in msg:
+                if attempt < _RETRY_ATTEMPTS - 1:
+                    delay = _RETRY_BASE_DELAY * (2 ** attempt)
+                    LOGGER.warning("Bloqueado (tentativa %d/%d), retry em %.1fs: %s", attempt + 1, _RETRY_ATTEMPTS, delay, src_file.name)
+                    time.sleep(delay)
+                else:
+                    return False
             else:
-                LOGGER.error("copytree falhou após %d tentativas: %s", _RETRY_ATTEMPTS, msg[:200])
                 raise
+    return False
+
+
+def _retry_copytree(src: Path, dst: Path, *, dirs_exist_ok: bool = False) -> None:
+    """Copia árvore file-by-file, tolerando e contornando arquivos bloqueados.
+
+    Em vez de shutil.copytree (que falha atomicamente), faz cópia por arquivo.
+    Bloqueios são retentados após matar processos via taskkill.
+    """
+    failed = []
+    src, dst = Path(src), Path(dst)
+    dst.mkdir(parents=True, exist_ok=True)
+
+    for src_entry in src.rglob("*"):
+        rel = src_entry.relative_to(src)
+        dst_entry = dst / rel
+        if src_entry.is_dir():
+            dst_entry.mkdir(parents=True, exist_ok=True)
+        else:
+            if not _copy_single_file(src_entry, dst_entry):
+                failed.append(str(rel))
+
+    if not failed:
+        return
+
+    # Houve falhas — matar processos bloqueadores e retentar
+    LOGGER.warning("Arquivos bloqueados na 1a tentativa (%d): %s", len(failed), failed[:5])
+    for proc_name in ("chat_ia.exe", "config_prompt.exe"):
+        if kill_process_by_name(proc_name):
+            time.sleep(1.0)
+
+    still_failed = []
+    for rel_path in failed:
+        src_f = src / rel_path
+        dst_f = dst / rel_path
+        if src_f.exists() and not _copy_single_file(src_f, dst_f):
+            still_failed.append(rel_path)
+
+    if still_failed:
+        LOGGER.error("Ainda bloqueados apos retry+kill (%d): %s", len(still_failed), still_failed[:5])
+        raise shutil.Error([(str(src / f), str(dst / f), "Bloqueado apos retry+kill") for f in still_failed])
 
 
 def _retry_copy2(src: Path, dst: Path) -> None:
@@ -129,14 +187,19 @@ def _retry_rmtree(path: Path) -> bool:
         except PermissionError as exc:
             if attempt < _RETRY_ATTEMPTS - 1:
                 delay = _RETRY_BASE_DELAY * (2 ** attempt)
-                LOGGER.warning(
-                    "rmtree bloqueado (tentativa %d/%d), aguardando %.1fs: %s",
-                    attempt + 1, _RETRY_ATTEMPTS, delay, exc,
-                )
+                LOGGER.warning("rmtree bloqueado (tentativa %d/%d), %.1fs", attempt + 1, _RETRY_ATTEMPTS, delay)
                 time.sleep(delay)
             else:
-                LOGGER.error("rmtree falhou apos %d tentativas: %s", _RETRY_ATTEMPTS, exc)
-                return False
+                LOGGER.warning("rmtree falhou apos %d tentativas. Matando processos...", _RETRY_ATTEMPTS)
+                for proc_name in ("chat_ia.exe", "config_prompt.exe"):
+                    kill_process_by_name(proc_name)
+                time.sleep(1.0)
+                try:
+                    shutil.rmtree(path)
+                    return True
+                except Exception as final_exc:
+                    LOGGER.error("rmtree falhou definitivamente: %s", final_exc)
+                    return False
     return False
 
 
@@ -521,8 +584,13 @@ def main() -> None:
             else:
                 LOGGER.info("Nenhuma instalacao previa encontrada em %s. Backup dispensado", install_dir)
             
-            LOGGER.info("Fase 5: Extraindo e aplicando novos binarios...")
-            update_progress(0.75, "Extraindo e aplicando novos binários...")
+            LOGGER.info("Fase 5: Finalizando processos bloqueadores e extraindo novos binarios...")
+            update_progress(0.75, "Finalizando processos anteriores e extraindo binários...")
+            
+            # Finaliza processos que podem estar usando DLLs/executaveis antigos
+            for proc_name in ("chat_ia.exe", "config_prompt.exe"):
+                kill_process_by_name(proc_name)
+            time.sleep(0.5)
             
             # Cria a estrutura final de pastas
             LOGGER.info("Garantindo estrutura de pastas finais em %s", install_dir)
