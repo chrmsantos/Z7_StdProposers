@@ -526,5 +526,77 @@ ErrorHandler:
 End Sub
 
 '================================================================================
+' ATUALIZACAO MANUAL VIA INSTALADOR
+'================================================================================
+Public Sub ExecutarInstalador()
+    On Error GoTo ErrorHandler
+
+    LogMessage "ExecutarInstalador acionado manualmente pelo usuario", LOG_LEVEL_INFO
+
+    ' Verifica se padronizacao esta em andamento
+    If undoGroupEnabled Then
+        LogMessage "ExecutarInstalador nao permitido: padronizacao em andamento", LOG_LEVEL_WARNING
+        MsgBox "A atualizacao nao pode ser executada durante a padronizacao." & vbCrLf & _
+               "Aguarde a conclusao e tente novamente.", vbExclamation, "Z7_STDPROPOSERS - Atualizacao"
+        Exit Sub
+    End If
+
+    ' Confirma com o usuario
+    Dim confirmMsg As String
+    confirmMsg = "Deseja executar o instalador para atualizar o Z7_STDPROPOSERS?" & vbCrLf & vbCrLf & _
+                 "O Word sera fechado durante a atualizacao."
+
+    If MsgBox(confirmMsg, vbYesNo + vbQuestion, "Z7_STDPROPOSERS - Atualizacao Manual") <> vbYes Then
+        LogMessage "ExecutarInstalador: usuario cancelou execucao do instalador", LOG_LEVEL_INFO
+        Exit Sub
+    End If
+
+    LogMessage "ExecutarInstalador: usuario confirmou execucao do instalador", LOG_LEVEL_INFO
+
+    ' Caminho do instalador
+    Dim installerPath As String
+    installerPath = Environ("USERPROFILE") & "\AppData\Local\Z7\Apps\Z7_StdProposers\installer.cmd"
+
+    ' Verifica se o instalador existe
+    Dim fso As Object
+    Set fso = CreateObject("Scripting.FileSystemObject")
+
+    If fso.FileExists(installerPath) Then
+        ' Executa o instalador
+        Dim shellCmd As String
+        shellCmd = "cmd.exe /c """"" & installerPath & """"""
+        LogMessage "Instalador localizado em: " & installerPath & ". Preparando salvamento de documentos...", LOG_LEVEL_INFO
+
+        ' Salva todos os documentos abertos
+        Dim doc As Object
+        For Each doc In Application.Documents
+            If doc.Saved = False Then
+                LogMessage "Salvando documento pendente: " & doc.Name, LOG_LEVEL_INFO
+                doc.Save
+            End If
+        Next doc
+
+        ' Executa instalador e fecha o Word
+        LogMessage "Disparando shell cmd para iniciar atualizacao manual: " & shellCmd, LOG_LEVEL_INFO
+        CreateObject("WScript.Shell").Run shellCmd, 1, False
+
+        LogMessage "Fechando Microsoft Word para atualizacao manual segura", LOG_LEVEL_INFO
+        MsgBox "O instalador sera executado. O Word sera fechado agora.", vbInformation, "Z7_STDPROPOSERS - Atualizacao Manual"
+        Application.Quit SaveChanges:=wdSaveChanges
+    Else
+        LogMessage "ERRO CRITICO: Arquivo do instalador nao encontrado em: " & installerPath, LOG_LEVEL_ERROR
+        MsgBox "Instalador nao encontrado em:" & vbCrLf & installerPath & vbCrLf & vbCrLf & _
+               "Baixe manualmente de: https://github.com/chrmsantos/Z7_StdProposers", _
+               vbExclamation, "Z7_STDPROPOSERS - Erro"
+    End If
+
+    Exit Sub
+
+ErrorHandler:
+    LogMessage "Erro ao executar atualizacao manual: " & Err.Description & " (Erro #" & Err.Number & ")", LOG_LEVEL_ERROR
+    MsgBox "Erro ao executar atualizacao manual: " & Err.Description, vbCritical, "Z7_STDPROPOSERS - Erro"
+End Sub
+
+'================================================================================
 ' LIMPEZA DE ESPACOS MULTIPLOS
 '================================================================================

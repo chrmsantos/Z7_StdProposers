@@ -85,7 +85,7 @@ def kill_process_by_name(exe_name: str) -> int:
             capture_output=True, text=True, timeout=15,
         )
         if result.returncode == 0:
-            count = max(1, result.stdout.lower().count("encerrado") + result.stdout.lower().count("terminated") or 1)
+            count = max(1, result.stdout.lower().count("encerrado") + result.stdout.lower().count("terminated"))
             LOGGER.info("Processos '%s' finalizados (%d): %s", exe_name, count, result.stdout.strip()[:200])
             return count
         else:
@@ -163,7 +163,7 @@ def _retry_copy2(src: Path, dst: Path) -> None:
         try:
             shutil.copy2(src, dst)
             return
-        except PermissionError as exc:
+        except (PermissionError, OSError) as exc:
             if "[WinError 32]" not in str(exc) and "being used" not in str(exc):
                 raise
             if attempt < _RETRY_ATTEMPTS - 1:
@@ -172,6 +172,9 @@ def _retry_copy2(src: Path, dst: Path) -> None:
                     "copy2 bloqueado (tentativa %d/%d), aguardando %.1fs: %s",
                     attempt + 1, _RETRY_ATTEMPTS, delay, exc,
                 )
+                # Mata processos bloqueadores antes de retry
+                for proc_name in ("chat_ia.exe", "config_prompt.exe"):
+                    kill_process_by_name(proc_name)
                 time.sleep(delay)
             else:
                 LOGGER.error("copy2 falhou após %d tentativas: %s", _RETRY_ATTEMPTS, exc)
@@ -184,23 +187,25 @@ def _retry_rmtree(path: Path) -> bool:
         try:
             shutil.rmtree(path)
             return True
-        except PermissionError as exc:
-            if attempt < _RETRY_ATTEMPTS - 1:
-                delay = _RETRY_BASE_DELAY * (2 ** attempt)
-                LOGGER.warning("rmtree bloqueado (tentativa %d/%d), %.1fs", attempt + 1, _RETRY_ATTEMPTS, delay)
-                time.sleep(delay)
-            else:
-                LOGGER.warning("rmtree falhou apos %d tentativas. Matando processos...", _RETRY_ATTEMPTS)
-                for proc_name in ("chat_ia.exe", "config_prompt.exe"):
-                    kill_process_by_name(proc_name)
-                time.sleep(1.0)
-                try:
-                    shutil.rmtree(path)
-                    return True
-                except Exception as final_exc:
-                    LOGGER.error("rmtree falhou definitivamente: %s", final_exc)
-                    return False
-    return False
+        except (PermissionError, OSError) as exc:
+            delay = _RETRY_BASE_DELAY * (2 ** attempt)
+            LOGGER.warning("rmtree bloqueado (tentativa %d/%d), %.1fs", attempt + 1, _RETRY_ATTEMPTS, delay)
+            # Mata processos bloqueadores entre tentativas para aumentar chance de sucesso
+            for proc_name in ("chat_ia.exe", "config_prompt.exe"):
+                kill_process_by_name(proc_name)
+            time.sleep(delay)
+
+    # Tentativa final apos matar processos
+    LOGGER.warning("rmtree falhou apos %d tentativas. Matando processos e tentando novamente...", _RETRY_ATTEMPTS)
+    for proc_name in ("chat_ia.exe", "config_prompt.exe"):
+        kill_process_by_name(proc_name)
+    time.sleep(1.0)
+    try:
+        shutil.rmtree(path)
+        return True
+    except Exception as final_exc:
+        LOGGER.error("rmtree falhou definitivamente: %s", final_exc)
+        return False
 
 
 class InstallerTheme:
@@ -562,25 +567,37 @@ def main() -> None:
                 backup_dir.mkdir(parents=True, exist_ok=True)
                 
                 backed_up_items = []
-                if (install_dir / "ai" / "chat_ia").exists():
-                    _retry_copytree(install_dir / "ai" / "chat_ia", backup_dir / "chat_ia", dirs_exist_ok=True)
-                    backed_up_items.append("ai/chat_ia")
-                if (install_dir / "ai" / "config_prompt").exists():
-                    _retry_copytree(install_dir / "ai" / "config_prompt", backup_dir / "config_prompt", dirs_exist_ok=True)
-                    backed_up_items.append("ai/config_prompt")
-                if (install_dir / "scripts" / "import_word.exe").exists():
-                    _retry_copy2(install_dir / "scripts" / "import_word.exe", backup_dir / "import_word.exe")
-                    backed_up_items.append("scripts/import_word.exe")
-                if (install_dir / "scripts" / "export_normal.exe").exists():
-                    _retry_copy2(install_dir / "scripts" / "export_normal.exe", backup_dir / "export_normal.exe")
-                    backed_up_items.append("scripts/export_normal.exe")
-                if (install_dir / "dist" / "Normal.dotm").exists():
-                    _retry_copy2(install_dir / "dist" / "Normal.dotm", backup_dir / "Normal.dotm")
-                    backed_up_items.append("dist/Normal.dotm")
-                if (install_dir / "dist" / "Word.officeUI").exists():
-                    _retry_copy2(install_dir / "dist" / "Word.officeUI", backup_dir / "Word.officeUI")
-                    backed_up_items.append("dist/Word.officeUI")
-                LOGGER.info("Backup dos seguintes itens concluido com sucesso: %s", backed_up_items)
+                # Cada item de backup é tratado independentemente para que uma falha
+                # em um item não impeça o backup dos demais nem a continuação da instalação
+                for src_rel, dst_rel in [
+                    ("ai/chat_ia", "chat_ia"),
+                    ("ai/config_prompt", "config_prompt"),
+                ]:
+                    src_path = install_dir / src_rel
+                    dst_path = backup_dir / dst_rel
+                    if src_path.exists():
+                        try:
+                            _retry_copytree(src_path, dst_path, dirs_exist_ok=True)
+                            backed_up_items.append(src_rel)
+                        except Exception as backup_err:
+                            LOGGER.warning("Backup parcial falhou para %s (instalacao prosseguira): %s", src_rel, backup_err)
+                
+                for src_rel, dst_name in [
+                    ("scripts/import_word.exe", "import_word.exe"),
+                    ("scripts/export_normal.exe", "export_normal.exe"),
+                    ("dist/Normal.dotm", "Normal.dotm"),
+                    ("dist/Word.officeUI", "Word.officeUI"),
+                ]:
+                    src_path = install_dir / src_rel
+                    dst_path = backup_dir / dst_name
+                    if src_path.exists():
+                        try:
+                            _retry_copy2(src_path, dst_path)
+                            backed_up_items.append(src_rel)
+                        except Exception as backup_err:
+                            LOGGER.warning("Backup parcial falhou para %s (instalacao prosseguira): %s", src_rel, backup_err)
+                
+                LOGGER.info("Backup concluido. Itens restaurados com sucesso: %s", backed_up_items)
             else:
                 LOGGER.info("Nenhuma instalacao previa encontrada em %s. Backup dispensado", install_dir)
             
