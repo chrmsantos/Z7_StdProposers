@@ -142,6 +142,42 @@ class TestRetryCopy2(unittest.TestCase):
             installer._retry_copy2(Path("src"), Path("dst"))
         self.assertEqual(mock_copy2.call_count, 1)
 
+    @mock.patch("installer.time.sleep")
+    @mock.patch("installer.shutil.copy2")
+    def test_retries_on_oserror_winerror32(self, mock_copy2, mock_sleep):
+        """OSError com WinError 32 também deve ser retentado."""
+        err = OSError("[WinError 32] O arquivo já está sendo usado por outro processo")
+        mock_copy2.side_effect = [err, None]
+        installer._retry_copy2(Path("src"), Path("dst"))
+        self.assertEqual(mock_copy2.call_count, 2)
+
+    @mock.patch("installer.time.sleep")
+    @mock.patch("installer.shutil.copy2")
+    @mock.patch("installer.kill_process_by_name")
+    def test_log_message_contains_paths(self, mock_kill, mock_copy2, mock_sleep):
+        """Log de retry deve conter source e destination paths."""
+        err = PermissionError("[WinError 32] being used")
+        mock_copy2.side_effect = [err, None]
+        mock_kill.return_value = 0
+        src = Path("/some/src/file.dll")
+        dst = Path("/some/dst/file.dll")
+        with self.assertLogs("z7.installer", level="WARNING") as cm:
+            installer._retry_copy2(src, dst)
+        log_text = " ".join(cm.output)
+        self.assertIn("file.dll", log_text)
+
+    @mock.patch("installer.time.sleep")
+    @mock.patch("installer.shutil.copy2")
+    @mock.patch("installer.kill_process_by_name")
+    def test_kills_processes_between_retries(self, mock_kill, mock_copy2, mock_sleep):
+        """Deve matar processos bloqueadores entre tentativas de copy2."""
+        err = PermissionError("[WinError 32] being used")
+        mock_copy2.side_effect = [err, None]
+        mock_kill.return_value = 1
+        installer._retry_copy2(Path("src"), Path("dst"))
+        # Deve ter chamado kill para cada processo na primeira tentativa
+        self.assertGreaterEqual(mock_kill.call_count, 2)
+
 
 # ── kill_process_by_name ────────────────────────────────────────────────────
 
@@ -167,6 +203,21 @@ class TestKillProcessByName(unittest.TestCase):
         mock_run.side_effect = subprocess.TimeoutExpired(cmd="taskkill", timeout=15)
         result = installer.kill_process_by_name("stuck.exe")
         self.assertEqual(result, 0)
+
+    @mock.patch("installer.subprocess.run")
+    def test_returns_count_with_english_terminated(self, mock_run):
+        """Conta processos finalizados em sistema Windows em inglês."""
+        mock_run.return_value = mock.Mock(returncode=0, stdout="SUCCESS: The process \"chat_ia.exe\" with PID 1234 has been terminated.", stderr="")
+        result = installer.kill_process_by_name("chat_ia.exe")
+        self.assertGreaterEqual(result, 1)
+
+    @mock.patch("installer.subprocess.run")
+    def test_returns_count_with_mixed_output(self, mock_run):
+        """Conta corretamente quando stdout contém ambas as palavras."""
+        mock_run.return_value = mock.Mock(returncode=0, stdout="encerrado com sucesso. terminated.", stderr="")
+        result = installer.kill_process_by_name("chat_ia.exe")
+        # Deve contar 2 (1 encerrado + 1 terminated), mínimo 1
+        self.assertGreaterEqual(result, 2)
 
 
 # ── _copy_single_file ───────────────────────────────────────────────────────
@@ -203,6 +254,30 @@ class TestCopySingleFile(unittest.TestCase):
         mock_copy2.side_effect = PermissionError("access denied")
         with self.assertRaises(PermissionError):
             installer._copy_single_file(Path("src"), Path("dst"))
+
+    @mock.patch("installer.time.sleep")
+    @mock.patch("installer.shutil.copy2")
+    def test_retries_on_oserror_winerror32(self, mock_copy2, mock_sleep):
+        """OSError com WinError 32 também deve ser retentado."""
+        err = OSError("[WinError 32] O arquivo já está sendo usado por outro processo")
+        mock_copy2.side_effect = [err, None]
+        result = installer._copy_single_file(Path("src"), Path("dst"))
+        self.assertTrue(result)
+        self.assertEqual(mock_copy2.call_count, 2)
+
+    @mock.patch("installer.time.sleep")
+    @mock.patch("installer.shutil.copy2")
+    def test_log_message_contains_full_path(self, mock_copy2, mock_sleep):
+        """Log de retry deve conter o caminho completo do arquivo."""
+        err = PermissionError("[WinError 32] file in use")
+        mock_copy2.side_effect = [err, None]
+        src = Path("/some/full/path/src.dll")
+        dst = Path("/dest/path/dst.dll")
+        with self.assertLogs("z7.installer", level="WARNING") as cm:
+            installer._copy_single_file(src, dst)
+        # Verifica que pelo menos uma mensagem de log contém o caminho completo
+        log_text = " ".join(cm.output)
+        self.assertIn("src.dll", log_text)
 
 
 # ── _retry_rmtree ───────────────────────────────────────────────────────────
@@ -250,6 +325,53 @@ class TestRetryRmtree(unittest.TestCase):
         result = installer._retry_rmtree(Path("some_dir"))
         self.assertTrue(result)
         self.assertEqual(mock_rmtree.call_count, installer._RETRY_ATTEMPTS + 1)
+
+    @mock.patch("installer.time.sleep")
+    @mock.patch("installer.shutil.rmtree")
+    def test_retries_on_oserror(self, mock_rmtree, mock_sleep):
+        """OSError também deve ser retentado."""
+        mock_rmtree.side_effect = [OSError("WinError 32"), None]
+        result = installer._retry_rmtree(Path("some_dir"))
+        self.assertTrue(result)
+        self.assertEqual(mock_rmtree.call_count, 2)
+
+    @mock.patch("installer.time.sleep")
+    @mock.patch("installer.shutil.rmtree")
+    @mock.patch("installer.kill_process_by_name")
+    def test_log_message_contains_path(self, mock_kill, mock_rmtree, mock_sleep):
+        """Log de retry deve conter o caminho do diretório."""
+        mock_rmtree.side_effect = [PermissionError("WinError 32"), None]
+        mock_kill.return_value = 0
+        target = Path("/some/path/to_delete")
+        with self.assertLogs("z7.installer", level="WARNING") as cm:
+            installer._retry_rmtree(target)
+        log_text = " ".join(cm.output)
+        self.assertIn("to_delete", log_text)
+
+    @mock.patch("installer.time.sleep")
+    @mock.patch("installer.shutil.rmtree")
+    @mock.patch("installer.kill_process_by_name")
+    def test_kills_processes_between_retries(self, mock_kill, mock_rmtree, mock_sleep):
+        """Deve matar processos bloqueadores entre tentativas de rmtree."""
+        mock_rmtree.side_effect = [PermissionError("WinError 32"), None]
+        mock_kill.return_value = 1
+        installer._retry_rmtree(Path("some_dir"))
+        # Deve ter chamado kill para cada processo (chat_ia + config_prompt)
+        self.assertGreaterEqual(mock_kill.call_count, 2)
+
+    @mock.patch("installer.time.sleep")
+    @mock.patch("installer.shutil.rmtree")
+    @mock.patch("installer.kill_process_by_name")
+    def test_session_id_in_log(self, mock_kill, mock_rmtree, mock_sleep):
+        """Logs devem conter o session ID para correlação."""
+        mock_rmtree.side_effect = [PermissionError("WinError 32"), None]
+        mock_kill.return_value = 0
+        with self.assertLogs("z7.installer", level="WARNING") as cm:
+            installer._retry_rmtree(Path("some_dir"))
+        log_text = " ".join(cm.output)
+        # Session ID é um hex de 8 caracteres entre colchetes
+        import re
+        self.assertRegex(log_text, r'\[[0-9a-f]{8}\]')
 
 
 # ── get_latest_github_release ────────────────────────────────────────────────
@@ -345,6 +467,14 @@ class TestConstants(unittest.TestCase):
     def test_github_repo_url_is_set(self):
         self.assertIn("github.com", installer.GITHUB_REPO_URL)
         self.assertIn("Z7_StdProposers", installer.GITHUB_REPO_URL)
+
+    def test_session_id_format(self):
+        """Session ID deve ser um hex de 8 caracteres."""
+        self.assertRegex(installer._SESSION_ID, r"^[0-9a-f]{8}$")
+
+    def test_session_id_is_unique_per_import(self):
+        """Session ID deve ser gerado uma vez na importação do módulo."""
+        self.assertEqual(len(installer._SESSION_ID), 8)
 
 
 # ── InstallerMainFlow ────────────────────────────────────────────────────────

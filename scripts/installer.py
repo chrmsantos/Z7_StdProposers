@@ -3,6 +3,7 @@ import sys
 import shutil
 import json
 import time
+import uuid
 import threading
 import urllib.request
 import urllib.error
@@ -72,6 +73,9 @@ def _read_version() -> str:
 _APP_VERSION = _read_version()
 GITHUB_REPO_URL = "https://github.com/chrmsantos/Z7_StdProposers"
 
+# ID de sessão para correlacionar logs da mesma execução do instalador
+_SESSION_ID = uuid.uuid4().hex[:8]
+
 # Número máximo de tentativas para operações de arquivo que podem falhar por lock (WinError 32)
 _RETRY_ATTEMPTS = 3
 _RETRY_BASE_DELAY = 1.0  # segundos; dobra a cada tentativa
@@ -108,9 +112,10 @@ def _copy_single_file(src_file: Path, dst_file: Path) -> bool:
             if "WinError 32" in msg or "being used" in msg:
                 if attempt < _RETRY_ATTEMPTS - 1:
                     delay = _RETRY_BASE_DELAY * (2 ** attempt)
-                    LOGGER.warning("Bloqueado (tentativa %d/%d), retry em %.1fs: %s", attempt + 1, _RETRY_ATTEMPTS, delay, src_file.name)
+                    LOGGER.warning("[%s] Arquivo bloqueado (tentativa %d/%d), retry em %.1fs: %s -> %s", _SESSION_ID, attempt + 1, _RETRY_ATTEMPTS, delay, src_file, dst_file)
                     time.sleep(delay)
                 else:
+                    LOGGER.error("[%s] Arquivo bloqueado apos %d tentativas: %s", _SESSION_ID, _RETRY_ATTEMPTS, src_file)
                     return False
             else:
                 raise
@@ -127,6 +132,7 @@ def _retry_copytree(src: Path, dst: Path, *, dirs_exist_ok: bool = False) -> Non
     src, dst = Path(src), Path(dst)
     dst.mkdir(parents=True, exist_ok=True)
 
+    LOGGER.info("[%s] Copiando arvore: %s -> %s", _SESSION_ID, src, dst)
     for src_entry in src.rglob("*"):
         rel = src_entry.relative_to(src)
         dst_entry = dst / rel
@@ -140,7 +146,7 @@ def _retry_copytree(src: Path, dst: Path, *, dirs_exist_ok: bool = False) -> Non
         return
 
     # Houve falhas — matar processos bloqueadores e retentar
-    LOGGER.warning("Arquivos bloqueados na 1a tentativa (%d): %s", len(failed), failed[:5])
+    LOGGER.warning("[%s] Arquivos bloqueados na 1a tentativa (%d): %s", _SESSION_ID, len(failed), failed[:5])
     for proc_name in ("chat_ia.exe", "config_prompt.exe"):
         if kill_process_by_name(proc_name):
             time.sleep(1.0)
@@ -153,7 +159,7 @@ def _retry_copytree(src: Path, dst: Path, *, dirs_exist_ok: bool = False) -> Non
             still_failed.append(rel_path)
 
     if still_failed:
-        LOGGER.error("Ainda bloqueados apos retry+kill (%d): %s", len(still_failed), still_failed[:5])
+        LOGGER.error("[%s] Ainda bloqueados apos retry+kill (%d): %s", _SESSION_ID, len(still_failed), still_failed[:5])
         raise shutil.Error([(str(src / f), str(dst / f), "Bloqueado apos retry+kill") for f in still_failed])
 
 
@@ -169,15 +175,15 @@ def _retry_copy2(src: Path, dst: Path) -> None:
             if attempt < _RETRY_ATTEMPTS - 1:
                 delay = _RETRY_BASE_DELAY * (2 ** attempt)
                 LOGGER.warning(
-                    "copy2 bloqueado (tentativa %d/%d), aguardando %.1fs: %s",
-                    attempt + 1, _RETRY_ATTEMPTS, delay, exc,
+                    "[%s] copy2 bloqueado (tentativa %d/%d), aguardando %.1fs: %s -> %s | %s",
+                    _SESSION_ID, attempt + 1, _RETRY_ATTEMPTS, delay, src, dst, exc,
                 )
                 # Mata processos bloqueadores antes de retry
                 for proc_name in ("chat_ia.exe", "config_prompt.exe"):
                     kill_process_by_name(proc_name)
                 time.sleep(delay)
             else:
-                LOGGER.error("copy2 falhou após %d tentativas: %s", _RETRY_ATTEMPTS, exc)
+                LOGGER.error("[%s] copy2 falhou apos %d tentativas: %s -> %s | %s", _SESSION_ID, _RETRY_ATTEMPTS, src, dst, exc)
                 raise
 
 
@@ -189,14 +195,14 @@ def _retry_rmtree(path: Path) -> bool:
             return True
         except (PermissionError, OSError) as exc:
             delay = _RETRY_BASE_DELAY * (2 ** attempt)
-            LOGGER.warning("rmtree bloqueado (tentativa %d/%d), %.1fs", attempt + 1, _RETRY_ATTEMPTS, delay)
+            LOGGER.warning("[%s] rmtree bloqueado (tentativa %d/%d), %.1fs: %s | %s", _SESSION_ID, attempt + 1, _RETRY_ATTEMPTS, delay, path, exc)
             # Mata processos bloqueadores entre tentativas para aumentar chance de sucesso
             for proc_name in ("chat_ia.exe", "config_prompt.exe"):
                 kill_process_by_name(proc_name)
             time.sleep(delay)
 
     # Tentativa final apos matar processos
-    LOGGER.warning("rmtree falhou apos %d tentativas. Matando processos e tentando novamente...", _RETRY_ATTEMPTS)
+    LOGGER.warning("[%s] rmtree esgotou %d tentativas. Kill final + retry: %s", _SESSION_ID, _RETRY_ATTEMPTS, path)
     for proc_name in ("chat_ia.exe", "config_prompt.exe"):
         kill_process_by_name(proc_name)
     time.sleep(1.0)
@@ -204,7 +210,7 @@ def _retry_rmtree(path: Path) -> bool:
         shutil.rmtree(path)
         return True
     except Exception as final_exc:
-        LOGGER.error("rmtree falhou definitivamente: %s", final_exc)
+        LOGGER.error("[%s] rmtree falhou definitivamente: %s | %s", _SESSION_ID, path, final_exc)
         return False
 
 
@@ -395,11 +401,12 @@ def main() -> None:
         # Pasta de backups
         backup_dir = temp_dir / "backup"
         
-        LOGGER.info("Iniciando processo de instalacao/atualizacao v%s. Pasta destino: %s, Pasta temp: %s", _APP_VERSION, install_dir, temp_dir)
+        LOGGER.info("[%s] === SESSAO DE INSTALACAO INICIADA === v%s", _SESSION_ID, _APP_VERSION)
+        LOGGER.info("[%s] Destino: %s | Temp: %s", _SESSION_ID, install_dir, temp_dir)
         
         try:
             # ── Fase 1: Verificação de versão remota ────────────────────────
-            LOGGER.info("Fase 1: Verificando versao estavel no GitHub...")
+            LOGGER.info("[%s] Fase 1/6: Verificando versao estavel no GitHub...", _SESSION_ID)
             update_progress(0.05, "Verificando versão estável mais recente no GitHub...")
             
             with log_context(LOGGER, "GitHub API - buscar ultima release"):
@@ -419,7 +426,7 @@ def main() -> None:
             temp_dir.mkdir(parents=True, exist_ok=True)
             
             # ── Fase 2: Download de Ativos de Release ───────────────────────
-            LOGGER.info("Fase 2: Baixando ativos da release...")
+            LOGGER.info("[%s] Fase 2/6: Baixando ativos da release...", _SESSION_ID)
             assets = data.get("assets", [])
             LOGGER.info("Encontrados %d ativos na release do GitHub", len(assets))
             
@@ -529,7 +536,7 @@ def main() -> None:
                 else:
                     LOGGER.info("Arquivo de fallback %s ja existe na pasta temporaria, download dispensado", local_name)
             
-            LOGGER.info("Fase 3: Detectando e fechando o Microsoft Word...")
+            LOGGER.info("[%s] Fase 3/6: Detectando e fechando o Microsoft Word...", _SESSION_ID)
             update_progress(0.55, "Detectando e fechando o Microsoft Word...")
             
             # Detecta documentos abertos para reabertura automática
@@ -558,7 +565,7 @@ def main() -> None:
             res_kill = subprocess.run("taskkill /f /im winword.exe", shell=True, capture_output=True, text=True)
             LOGGER.info("Resultado do taskkill: returncode=%d, stdout=%s, stderr=%s", res_kill.returncode, res_kill.stdout.strip(), res_kill.stderr.strip())
             
-            LOGGER.info("Fase 4: Criando backup da instalacao atual (se houver)...")
+            LOGGER.info("[%s] Fase 4/6: Criando backup da instalacao atual (se houver)...", _SESSION_ID)
             update_progress(0.65, "Criando backup da instalação atual (se houver)...")
             
             # Se já existir uma instalação prévia, cria backup de segurança
@@ -601,7 +608,7 @@ def main() -> None:
             else:
                 LOGGER.info("Nenhuma instalacao previa encontrada em %s. Backup dispensado", install_dir)
             
-            LOGGER.info("Fase 5: Finalizando processos bloqueadores e extraindo novos binarios...")
+            LOGGER.info("[%s] Fase 5/6: Finalizando processos bloqueadores e extraindo novos binarios...", _SESSION_ID)
             update_progress(0.75, "Finalizando processos anteriores e extraindo binários...")
             
             # Finaliza processos que podem estar usando DLLs/executaveis antigos
@@ -658,7 +665,7 @@ def main() -> None:
                 copied_assets.append("Word.officeUI")
             LOGGER.info("Arquivos avulsos copiados para a instalacao final: %s", copied_assets)
                 
-            LOGGER.info("Fase 6: Executando import_word.exe para configurar os templates no Word...")
+            LOGGER.info("[%s] Fase 6/6: Executando import_word.exe para configurar os templates no Word...", _SESSION_ID)
             update_progress(0.9, "Executando import_word.exe para configurar os templates no Word...")
             
             import_exe = install_dir / "scripts" / "import_word.exe"
@@ -674,7 +681,7 @@ def main() -> None:
                 if res.returncode != 0:
                     raise Exception(f"Falha ao executar import_word.exe: {res.stderr or res.stdout}")
             
-            LOGGER.info("Instalacao e configuracao concluidas com sucesso!")
+            LOGGER.info("[%s] Instalacao e configuracao concluidas com sucesso!", _SESSION_ID)
             update_progress(1.0, "Instalação concluída com sucesso!")
             
             # Limpa vestígios temporários

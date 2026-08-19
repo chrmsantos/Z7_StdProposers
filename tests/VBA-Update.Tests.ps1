@@ -36,6 +36,24 @@ Describe 'Z7_STDPROPOSERS - Update VBA' {
         $mod3 | Should Match '(?s)Public Sub ExecutarInstalador.*?On Error GoTo ErrorHandler'
     }
 
+    It 'ErrorHandler loga descricao do erro com LOG_LEVEL_ERROR' {
+        # CheckForUpdates ErrorHandler
+        $mod1 | Should Match '(?s)ErrorHandler:.*?LogMessage.*?Err\.Description.*?LOG_LEVEL_ERROR'
+        # PromptForUpdate ErrorHandler
+        $mod1 | Should Match '(?s)Public Sub PromptForUpdate.*?ErrorHandler:.*?LogMessage.*?Err\.Description.*?LOG_LEVEL_ERROR'
+        # ExecutarInstalador ErrorHandler
+        $mod3 | Should Match '(?s)Public Sub ExecutarInstalador.*?ErrorHandler:.*?LogMessage.*?Err\.Description.*?LOG_LEVEL_ERROR'
+    }
+
+    It 'Rotinas de atualizacao tem Exit Sub/Function antes do ErrorHandler' {
+        # CheckForUpdates deve ter Exit Function antes do ErrorHandler
+        $mod1 | Should Match '(?s)Public Function CheckForUpdates.*?Exit Function.*?ErrorHandler:'
+        # PromptForUpdate deve ter Exit Sub antes do ErrorHandler
+        $mod1 | Should Match '(?s)Public Sub PromptForUpdate.*?Exit Sub.*?ErrorHandler:'
+        # ExecutarInstalador deve ter Exit Sub antes do ErrorHandler
+        $mod3 | Should Match '(?s)Public Sub ExecutarInstalador.*?Exit Sub.*?ErrorHandler:'
+    }
+
     It 'Implementa logs detalhados (LogMessage) nos pontos decisivos das rotinas de atualizacao' {
         # Deve logar inicio e resultados de comparacao
         $mod1 | Should Match 'LogMessage "Iniciando verificacao de atualizacao\.\.\."'
@@ -52,5 +70,40 @@ Describe 'Z7_STDPROPOSERS - Update VBA' {
         $mod3 | Should Match 'LogMessage "ExecutarInstalador acionado manualmente pelo usuario"'
         $mod3 | Should Match 'LogMessage "ExecutarInstalador: usuario confirmou execucao do instalador"'
         $mod3 | Should Match 'LogMessage "Disparando shell cmd para iniciar atualizacao manual: "'
+    }
+
+    It 'LogMessages das rotinas de atualizacao usam nivel de log correto' {
+        # Extrai apenas as rotinas de atualizacao e verifica seus LogMessages
+        # CheckForUpdates
+        $checkBlock = [regex]::Match($mod1, '(?s)(Public Function CheckForUpdates.*?End Function)').Value
+        $logLines = $checkBlock -split "`n" | Where-Object { $_ -match '^\s*LogMessage\s+"' }
+        foreach ($line in $logLines) {
+            $line | Should Match 'LOG_LEVEL_(INFO|WARNING|ERROR)'
+        }
+        # PromptForUpdate
+        $promptBlock = [regex]::Match($mod1, '(?s)(Public Sub PromptForUpdate.*?End Sub)').Value
+        $logLines2 = $promptBlock -split "`n" | Where-Object { $_ -match '^\s*LogMessage\s+"' }
+        foreach ($line in $logLines2) {
+            $line | Should Match 'LOG_LEVEL_(INFO|WARNING|ERROR)'
+        }
+        # ExecutarInstalador
+        $execBlock = [regex]::Match($mod3, '(?s)(Public Sub ExecutarInstalador.*?End Sub)').Value
+        $logLines3 = $execBlock -split "`n" | Where-Object { $_ -match '^\s*LogMessage\s+"' }
+        foreach ($line in $logLines3) {
+            $line | Should Match 'LOG_LEVEL_(INFO|WARNING|ERROR)'
+        }
+    }
+
+    It 'CheckForUpdates tem log de resultado (atualizado ou atualizacao disponivel)' {
+        $mod1 | Should Match 'LogMessage "Nova atualizacao disponivel: v"'
+        $mod1 | Should Match 'LogMessage "Nenhuma atualizacao necessaria'
+    }
+
+    It 'ExecutarInstalador salva documentos abertos antes de executar' {
+        $mod3 | Should Match '(?s)Public Sub ExecutarInstalador.*?doc\.Save'
+    }
+
+    It 'PromptForUpdate tem undoGroupEnabled guard' {
+        $mod1 | Should Match '(?s)Public Sub PromptForUpdate.*?undoGroupEnabled'
     }
 }
