@@ -8,6 +8,7 @@ import os
 import sys
 import time
 import glob
+import tempfile
 from pathlib import Path
 
 def main():
@@ -57,13 +58,12 @@ def main():
 
         for bas_path in bas_files:
             bas_name = Path(bas_path).stem  # e.g., "Mod3Pipeline"
-            # VBA expects Windows-1252 (ANSI) encoding for .bas files.
-            # Try CP1252 first (correct for VBA), fall back to UTF-8.
+            # Source .bas files are UTF-8; try UTF-8 first, fall back to CP1252.
             raw = Path(bas_path).read_bytes()
             try:
-                bas_content = raw.decode("cp1252")
-            except (UnicodeDecodeError, ValueError):
                 bas_content = raw.decode("utf-8")
+            except (UnicodeDecodeError, ValueError):
+                bas_content = raw.decode("cp1252")
 
             # Check if module already exists
             existing_module = None
@@ -72,29 +72,41 @@ def main():
                     existing_module = comp
                     break
 
-            if existing_module:
-                # Replace the code in the existing module
+            try:
+                if existing_module:
+                    # Remove the existing module before re-importing.
+                    # CodeModule.AddFromString() does NOT process Attribute VB_Name
+                    # directives (it treats them as code, causing compile errors and
+                    # leaving the module unnamed). VBComponents.Import() handles
+                    # attributes correctly, so we always use Import for both new and
+                    # existing modules.
+                    vb_project.VBComponents.Remove(existing_module)
+
+                # VBComponents.Import() reads the file using the system ANSI
+                # codepage (CP1252 on Western European Windows). Write a temp
+                # file in CP1252 so accented characters survive the round-trip.
+                # Use errors='replace' to handle any character that cannot be
+                # represented in CP1252 (e.g. U+FFFD replacement characters
+                # or rare Unicode glyphs that crept into comments).
+                tmp_path = None
                 try:
-                    code_module = existing_module.CodeModule
-                    # Clear existing code
-                    if code_module.CountOfLines > 0:
-                        code_module.DeleteLines(1, code_module.CountOfLines)
-                    # Add new code
-                    code_module.AddFromString(bas_content)
-                    imported_count += 1
-                    print(f"  [OK] {bas_name} - codigo substituido ({len(bas_content)} chars)")
-                except Exception as e:
-                    error_count += 1
-                    print(f"  [ERRO] {bas_name} - {e}")
-            else:
-                # Import the .bas file as a new module
-                try:
-                    vb_project.VBComponents.Import(bas_path)
-                    imported_count += 1
-                    print(f"  [OK] {bas_name} - importado como novo modulo")
-                except Exception as e:
-                    error_count += 1
-                    print(f"  [ERRO] {bas_name} - {e}")
+                    fd, tmp_path = tempfile.mkstemp(suffix=".bas")
+                    os.close(fd)
+                    Path(tmp_path).write_text(bas_content, encoding="cp1252", errors="replace")
+                    vb_project.VBComponents.Import(tmp_path)
+                finally:
+                    if tmp_path and os.path.exists(tmp_path):
+                        try:
+                            os.unlink(tmp_path)
+                        except OSError:
+                            pass
+
+                imported_count += 1
+                action = "re-importado" if existing_module else "importado como novo modulo"
+                print(f"  [OK] {bas_name} - {action}")
+            except Exception as e:
+                error_count += 1
+                print(f"  [ERRO] {bas_name} - {e}")
 
         # Save the document
         doc.Save()

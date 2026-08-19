@@ -2,7 +2,7 @@
 
 > Note to AI Agents: read this document before modifying the VBA pipeline or Python integration.
 >
-> Last updated: 2026-08-17 (v8.7.3 — installer resilience: retry, rollback completeness, log improvements).
+> Last updated: 2026-08-19 (v8.8.0 — VBA import encoding fix, Word.officeUI dual-path, anti-regression tests).
 
 ## 1. Project Overview
 
@@ -98,7 +98,23 @@ pRange.Delete
 
 `word.StatusBar` is set via COM (ANSI/CP1252 on Windows). Do **not** use accented or non-ASCII characters in StatusBar strings — they render as garbage in the Word status bar. Use unaccented ASCII equivalents (e.g. `"verificacao"` not `"verificação"`).
 
-### G. Tkinter in tests rule
+### G. VBA module import encoding rule (critical — recurring regression)
+
+When importing `.bas` files into Word's VBProject (via `import_bas_to_normal.py` or any similar script), two rules **must** be followed:
+
+1. **Never use `CodeModule.AddFromString()` for `.bas` content that contains `Attribute` lines.** `AddFromString()` does NOT process VBA `Attribute` directives — it treats `Attribute VB_Name = "..."` as regular code, which (a) leaves the module unnamed and (b) causes a compile error. Always use `VBComponents.Import()` instead, which properly processes `Attribute VB_Name` and `Attribute VB_Base`. For existing modules, remove them first with `VBComponents.Remove()`, then re-import.
+
+2. **Source `.bas` files are UTF-8.** Always decode as UTF-8 first, fall back to CP1252 only if UTF-8 decoding fails. `VBComponents.Import()` reads files using the system ANSI codepage (CP1252), so write a temporary `.bas` file in CP1252 encoding before calling `Import()` — this preserves accented characters through the round-trip.
+
+**Anti-regression tests** enforcing these rules live in `tests/Encoding.Tests.ps1` (Context: `Import de Modulos VBA`). If any test fails, do NOT weaken the test — fix the import script instead.
+
+### H. Word.officeUI path rule (critical)
+
+Word reads QAT (Quick Access Toolbar) customizations from `%APPDATA%\Microsoft\Office\Word.officeUI` (Roaming) in Office 2016+/365. Older versions use `%LOCALAPPDATA%\Microsoft\Office\Word.officeUI` (Local).
+
+The `import_word.py` script **must** copy `Word.officeUI` to **both** locations to ensure compatibility across Office versions. The `export_normal.py` script must search Roaming **first** (since that's where modern Word stores the active file).
+
+### I. Tkinter in tests rule
 
 Never use real `tkinter.Tk()` in unit tests — multiple `Tk()` instances in the same process cause `_tkinter.TclError`. Always add `"tkinter": mock.MagicMock()` to the `sys.modules` stubs dict before calling any code that imports tkinter.
 

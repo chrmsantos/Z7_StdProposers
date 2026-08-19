@@ -50,23 +50,29 @@ def main():
         sys.exit(1)
 
     # Caminho de destino para o Word.officeUI
+    # Word reads QAT customizations from %APPDATA% (Roaming) in Office 2016+/365.
+    # Older Office versions use %LOCALAPPDATA% (Local). Copy to both for compat.
     localappdata = os.environ.get('LOCALAPPDATA')
-    dest_officeui_dir = None
-    if localappdata:
-        dest_officeui_dir = Path(localappdata) / 'Microsoft' / 'Office'
-    elif userprofile:
-        dest_officeui_dir = Path(userprofile) / 'AppData' / 'Local' / 'Microsoft' / 'Office'
 
-    if not dest_officeui_dir:
-        print("Erro: Nao foi possivel determinar o diretorio LocalAppData de destino.")
+    dest_officeui_paths = []
+    if appdata:
+        dest_officeui_paths.append(Path(appdata) / 'Microsoft' / 'Office')
+    if localappdata:
+        dest_officeui_paths.append(Path(localappdata) / 'Microsoft' / 'Office')
+    if userprofile and not dest_officeui_paths:
+        dest_officeui_paths.append(Path(userprofile) / 'AppData' / 'Roaming' / 'Microsoft' / 'Office')
+        dest_officeui_paths.append(Path(userprofile) / 'AppData' / 'Local' / 'Microsoft' / 'Office')
+
+    if not dest_officeui_paths:
+        print("Erro: Nao foi possivel determinar o diretorio de destino para Word.officeUI.")
         sys.exit(1)
 
     # Garante que os diretórios de destino existam
     dest_normal_dir.mkdir(parents=True, exist_ok=True)
-    dest_officeui_dir.mkdir(parents=True, exist_ok=True)
+    for p in dest_officeui_paths:
+        p.mkdir(parents=True, exist_ok=True)
 
     dest_normal = dest_normal_dir / 'Normal.dotm'
-    dest_officeui = dest_officeui_dir / 'Word.officeUI'
 
     # Copia o Normal.dotm
     try:
@@ -78,15 +84,29 @@ def main():
             print("\n>>> Dica: Certifique-se de fechar o Microsoft Word antes de importar o Normal.dotm. <<<")
         sys.exit(1)
 
-    # Copia o Word.officeUI
-    try:
-        shutil.copy2(src_officeui, dest_officeui)
-        print(f"Sucesso: 'Word.officeUI' importado para: {dest_officeui}")
-    except Exception as e:
-        print(f"Erro ao importar 'Word.officeUI': {e}")
-        if isinstance(e, PermissionError) or (hasattr(e, 'winerror') and getattr(e, 'winerror') == 32):
+    # Copia o Word.officeUI para todos os destinos possíveis
+    # (%APPDATA% p/ Office 2016+/365 e %LOCALAPPDATA% p/ Office 2010-2013)
+    officeui_errors = []
+    for dest_dir in dest_officeui_paths:
+        dest_officeui = dest_dir / 'Word.officeUI'
+        try:
+            shutil.copy2(src_officeui, dest_officeui)
+            print(f"Sucesso: 'Word.officeUI' importado para: {dest_officeui}")
+        except Exception as e:
+            officeui_errors.append((dest_officeui, e))
+            print(f"Aviso ao importar 'Word.officeUI' para {dest_officeui}: {e}")
+
+    if officeui_errors:
+        all_locked = all(
+            isinstance(e, PermissionError) or (hasattr(e, 'winerror') and getattr(e, 'winerror') == 32)
+            for _, e in officeui_errors
+        )
+        if all_locked:
             print("\n>>> Dica: Certifique-se de fechar o Microsoft Word antes de importar o Word.officeUI. <<<")
-        sys.exit(1)
+        # Only fail if ALL destinations failed
+        if len(officeui_errors) == len(dest_officeui_paths):
+            print("Erro: Falha ao importar 'Word.officeUI' para todos os destinos.")
+            sys.exit(1)
 
 if __name__ == '__main__':
     main()

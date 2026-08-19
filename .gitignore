@@ -40,3 +40,4 @@ desktop.ini
 # VS Code
 .vscode/
 `n# Cache de testes e linting`n.pytest_cache/`nruff_errors.txt
+.cline/

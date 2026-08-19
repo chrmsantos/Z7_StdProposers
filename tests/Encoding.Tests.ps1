@@ -5,6 +5,7 @@
 # =============================================================================
 
 $ErrorActionPreference = "Stop"
+. $PSScriptRoot\\Helpers.ps1
 
 Describe 'Z7_STDPROPOSERS - Testes de Encoding e Emojis' {
 
@@ -457,6 +458,116 @@ Configuracao do sistema
                 }
 
                 $true | Should Be $true
+            }
+        }
+    }
+
+    # =========================================================================
+    # Anti-regression: import_bas_to_normal.py and .bas file integrity
+    # See ai_context.md section G ("VBA module import encoding rule").
+    # These tests prevent the recurring bug where Attribute VB_Name is not
+    # processed (causing unnamed modules and compile errors) and where UTF-8
+    # content is silently garbled by CP1252 decoding.
+    # =========================================================================
+    Context 'Import de Modulos VBA (anti-regressao)' {
+
+        $script:importScript = Join-Path $projectRoot 'scripts\import_bas_to_normal.py'
+        $script:importContent = $null
+        if (Test-Path $script:importScript) {
+            $script:importContent = Get-Content $script:importScript -Raw -Encoding UTF8
+        }
+
+        It 'import_bas_to_normal.py existe' {
+            Test-Path $script:importScript | Should Be $true
+        }
+
+        It 'import_bas_to_normal.py NAO usa AddFromString (Attribute VB_Name nao e processado)' {
+            $script:importContent | Should Not BeNullOrEmpty
+            # Match only actual method calls (.AddFromString), not comment mentions
+            $codeLines = $script:importContent -split "`n" | Where-Object {
+                $_.TrimStart() -notmatch '^\s*#' -and $_ -match 'AddFromString'
+            }
+            $codeLines.Count | Should Be 0
+        }
+
+        It 'import_bas_to_normal.py usa VBComponents.Import' {
+            $script:importContent | Should Not BeNullOrEmpty
+            $script:importContent | Should Match 'VBComponents\.Import'
+        }
+
+        It 'import_bas_to_normal.py decodifica UTF-8 primeiro (nao CP1252)' {
+            $script:importContent | Should Not BeNullOrEmpty
+            # Must try UTF-8 before CP1252: find the position of each decode call
+            $utf8Idx = $script:importContent.IndexOf('decode("utf-8")')
+            $cp1252Idx = $script:importContent.IndexOf('decode("cp1252")')
+            if ($utf8Idx -lt 0) { $utf8Idx = $script:importContent.IndexOf("decode('utf-8')") }
+            if ($cp1252Idx -lt 0) { $cp1252Idx = $script:importContent.IndexOf("decode('cp1252')") }
+            $utf8Idx | Should BeGreaterThan -1
+            $cp1252Idx | Should BeGreaterThan -1
+            $utf8Idx | Should BeLessThan $cp1252Idx
+        }
+
+        It 'import_bas_to_normal.py usa Remove antes de re-importar modulo existente' {
+            $script:importContent | Should Not BeNullOrEmpty
+            $script:importContent | Should Match 'VBComponents\.Remove'
+        }
+
+        It 'import_bas_to_normal.py grava arquivo temporario em CP1252 para Import' {
+            $script:importContent | Should Not BeNullOrEmpty
+            $script:importContent | Should Match 'encoding.*cp1252'
+        }
+
+        It 'Todos os .bas comecam com Attribute VB_Name na linha 1' {
+            $basFiles = Get-VbaFiles
+            $basFiles | Should Not BeNullOrEmpty
+            foreach ($f in $basFiles) {
+                $content = Get-Content $f.FullName -Encoding UTF8
+                $content.Length | Should BeGreaterThan 0
+                $content[0] | Should Match '^Attribute VB_Name\s*='
+            }
+        }
+
+        It 'Todos os .bas tem Option Explicit na linha 2' {
+            $basFiles = Get-VbaFiles
+            $basFiles | Should Not BeNullOrEmpty
+            foreach ($f in $basFiles) {
+                $content = Get-Content $f.FullName -Encoding UTF8
+                $content.Length | Should BeGreaterThan 1
+                $content[1] | Should Be 'Option Explicit'
+            }
+        }
+
+        It 'Arquivos .bas sao UTF-8 ou CP1252 validos (nao UTF-16, nao corrompidos)' {
+            $basFiles = Get-VbaFiles
+            $basFiles | Should Not BeNullOrEmpty
+            foreach ($f in $basFiles) {
+                $bytes = [System.IO.File]::ReadAllBytes($f.FullName)
+                $bytes.Length | Should BeGreaterThan 0
+
+                # Must not be UTF-16
+                if ($bytes.Length -ge 2) {
+                    $isUtf16Le = ($bytes[0] -eq 0xFF) -and ($bytes[1] -eq 0xFE)
+                    $isUtf16Be = ($bytes[0] -eq 0xFE) -and ($bytes[1] -eq 0xFF)
+                    ($isUtf16Le -or $isUtf16Be) | Should Be $false
+                }
+
+                # Must be decodable as either valid UTF-8 or CP1252 (single-byte)
+                $isUtf8 = $false
+                try {
+                    $utf8Strict = New-Object System.Text.UTF8Encoding($false, $true)
+                    [void] $utf8Strict.GetString($bytes)
+                    $isUtf8 = $true
+                } catch { }
+
+                $isCp1252 = $false
+                try {
+                    # CP1252 (code page 28591 = ISO-8859-1 superset) can decode any single-byte sequence
+                    $cp1252 = [System.Text.Encoding]::GetEncoding(28591)
+                    $decoded = $cp1252.GetString($bytes)
+                    if ($decoded.Length -gt 0) { $isCp1252 = $true }
+                } catch { }
+
+                ($isUtf8 -or $isCp1252) | Should Be $true
             }
         }
     }

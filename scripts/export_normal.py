@@ -53,11 +53,16 @@ def main():
         sys.exit(1)
 
     # Resolve os possíveis caminhos do Word.officeUI
+    # Word stores QAT customizations in %APPDATA% (Roaming) for Office 2016+/365.
+    # Older Office versions use %LOCALAPPDATA% (Local). Check Roaming first.
     localappdata = os.environ.get('LOCALAPPDATA')
     possible_officeui_paths = []
+    if appdata:
+        possible_officeui_paths.append(Path(appdata) / 'Microsoft' / 'Office' / 'Word.officeUI')
     if localappdata:
         possible_officeui_paths.append(Path(localappdata) / 'Microsoft' / 'Office' / 'Word.officeUI')
     if userprofile:
+        possible_officeui_paths.append(Path(userprofile) / 'AppData' / 'Roaming' / 'Microsoft' / 'Office' / 'Word.officeUI')
         possible_officeui_paths.append(Path(userprofile) / 'AppData' / 'Local' / 'Microsoft' / 'Office' / 'Word.officeUI')
 
     source_officeui = None
