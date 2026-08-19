@@ -19,8 +19,7 @@ $ExpectedTestFiles = @(
     'test_z7_api_key.py',
     'test_z7_theme.py',
     'test_config_prompt.py',
-    'test_chat_ia.py',
-    'test_installer.py'
+    'test_chat_ia.py'
 )
 
 Describe 'Z7_STDPROPOSERS - Python Logging and Test Harness' {

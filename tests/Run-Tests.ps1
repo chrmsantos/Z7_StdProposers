@@ -4,7 +4,7 @@
 #>
 param(
     [switch]$InstallPester,
-    [string]$TestSuite = "All",  # All, VBA, Encoding, Python, VBA-Logging, VBA-Update
+    [string]$TestSuite = "All",  # All, VBA, Encoding, Python, VBA-Logging
     [switch]$Detailed,
     [switch]$NoProgress,
     [switch]$ShowProgress,
@@ -39,7 +39,6 @@ try {
         "Encoding" { @("./Encoding.Tests.ps1") }
         "Python" { @("./Python.Tests.ps1") }
         "VBA-Logging" { @("./VBA-Logging.Tests.ps1") }
-        "VBA-Update" { @("./VBA-Update.Tests.ps1") }
         default {
             @(Get-ChildItem -Path . -Filter "*.Tests.ps1" -File | Sort-Object Name | Select-Object -ExpandProperty FullName)
         }

@@ -33,17 +33,6 @@ Main files in `ai/`:
 - `z7_logging.py`: shared structured logger; uses `RotatingFileHandler` (2 MB / 3 backups).
 - `build_exe.ps1`: PyInstaller build workflow for `.exe` artifacts.
 
-### 2.3 Installer (`scripts/installer.py`)
-
-Self-updating installer wizard with the following resilience features:
-
-- **`_read_version()`**: reads `VERSION` file dynamically (no hardcoded version).
-- **Retry helpers**: `_retry_copytree()`, `_retry_copy2()`, `_retry_rmtree()` — exponential backoff for `[WinError 32]` (file locked by another process). Default: 3 attempts, 1s/2s/4s delays.
-- **Download retry**: up to 3 attempts per asset with 2s/4s backoff on network failures.
-- **Backup completeness**: `export_normal.exe` now included in backup/restore alongside `chat_ia`, `config_prompt`, `import_word.exe`, `Normal.dotm`, `Word.officeUI`.
-- **Rollback**: uses `_retry_rmtree()` + `_retry_copytree()` to handle locked DLLs during rollback.
-- **Logging**: `log_context` wraps GitHub API call and `import_word.exe` execution for timing. Version info in startup log line.
-
 ## 3. Operational Conventions
 
 ### A. Double-pass formatting pipeline
@@ -111,8 +100,6 @@ When importing `.bas` files into Word's VBProject (via `import_bas_to_normal.py`
 ### H. Word.officeUI path rule (critical)
 
 Word reads QAT (Quick Access Toolbar) customizations from `%APPDATA%\Microsoft\Office\Word.officeUI` (Roaming) in Office 2016+/365. Older versions use `%LOCALAPPDATA%\Microsoft\Office\Word.officeUI` (Local).
-
-The `import_word.py` script **must** copy `Word.officeUI` to **both** locations to ensure compatibility across Office versions. The `export_normal.py` script must search Roaming **first** (since that's where modern Word stores the active file).
 
 ### I. Tkinter in tests rule
 
