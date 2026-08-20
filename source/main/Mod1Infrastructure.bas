@@ -88,6 +88,7 @@ Public Const LOG_BUFFER_FLUSH_SECONDS As Long = 5
 Public Const MAX_RETRY_ATTEMPTS As Long = 3
 Public Const RETRY_DELAY_MS As Long = 1000
 Public Const MAX_LOOP_ITERATIONS As Long = 1000
+Public Const MAX_INITIAL_PARAGRAPHS_TO_SCAN As Long = 50
 
 Public Const CONSIDERANDO_PREFIX As String = "considerando"
 Public Const CONSIDERANDO_MIN_LENGTH As Long = 12
