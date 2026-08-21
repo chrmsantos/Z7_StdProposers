@@ -1,4 +1,4 @@
-﻿#requires -Version 5.1
+#requires -Version 5.1
 [System.Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseDeclaredVarsMoreThanAssignments', '', Justification = 'script: scope variables are used in Pester It blocks')]
 param()
 Import-Module Pester -ErrorAction Stop
@@ -31,6 +31,8 @@ Describe 'Z7_STDPROPOSERS - VBA Modular Architecture' {
             ($script:moduleNames -contains 'Mod8Ementa.bas') | Should Be $true
             ($script:moduleNames -contains 'Mod9SpecialParagraphs.bas') | Should Be $true
             ($script:moduleNames -contains 'Mod10Validation.bas') | Should Be $true
+            ($script:moduleNames -contains 'Mod11RevisionText.bas') | Should Be $true
+            ($script:moduleNames -contains 'Mod12AIStructure.bas') | Should Be $true
         }
 
         It 'Todos os modulos tem Option Explicit' {
@@ -55,7 +57,7 @@ Describe 'Z7_STDPROPOSERS - VBA Modular Architecture' {
             $script:moduleContent['Mod4Main.bas'] | Should Match '(?m)^Public Function GetTituloRange\(doc As Document\) As Range'
             $script:moduleContent['Mod4Main.bas'] | Should Match '(?m)^Public Function GetEmentaRange\(doc As Document\) As Range'
             $script:moduleContent['Mod4Main.bas'] | Should Match '(?m)^Public Function GetVocativoRange\(doc As Document\) As Range'
-            $script:moduleContent['Mod4Main.bas'] | Should Match '(?m)^Public Function GetProposicaoRange\(doc As Document\) As Range'
+            $script:moduleContent['Mod4Main.bas'] | Should Match '(?m)^Public Function GetCorpoRange\(doc As Document\) As Range'
             $script:moduleContent['Mod4Main.bas'] | Should Match '(?m)^Public Function GetJustificativaRange\(doc As Document\) As Range'
         }
 
@@ -84,6 +86,29 @@ Describe 'Z7_STDPROPOSERS - VBA Modular Architecture' {
         It 'Espaco nao separavel esta em Mod7Formatting' {
             $script:moduleContent['Mod7Formatting.bas'] | Should Match 'Public Sub EnsureNonBreakingSpaceAfterNo\(doc As Document\)'
         }
+
+        It 'Revisao IA de texto selecionado esta em Mod11RevisionText' {
+            $script:moduleContent['Mod11RevisionText.bas'] | Should Match '(?m)^Public Sub TestarRevisaoTextoSelecionado\('
+        }
+
+        It 'Revisao IA de documento inteiro esta em Mod11RevisionText' {
+            $script:moduleContent['Mod11RevisionText.bas'] | Should Match '(?m)^Public Sub CorrigirProposituraComIA\('
+        }
+
+        It 'Diagnostico OpenRouter esta em Mod11RevisionText' {
+            $script:moduleContent['Mod11RevisionText.bas'] | Should Match '(?m)^Public Sub DiagnosticarOpenRouter\('
+        }
+
+        It 'Mod11RevisionText usa caminhos centralizados de Mod1Infrastructure' {
+            $script:moduleContent['Mod11RevisionText.bas'] | Should Match 'GetZ7StdProposersDataPath'
+        }
+
+        It 'Mod11RevisionText usa logging do projeto' {
+            $script:moduleContent['Mod11RevisionText.bas'] | Should Match 'LogMessage'
+            $script:moduleContent['Mod11RevisionText.bas'] | Should Match 'LOG_LEVEL_INFO'
+            $script:moduleContent['Mod11RevisionText.bas'] | Should Match 'LOG_LEVEL_ERROR'
+        }
+
     }
 
     Context 'Qualidade basica de implementacao' {

@@ -2,7 +2,7 @@
 
 > Note to AI Agents: read this document before modifying the VBA pipeline or Python integration.
 >
-> Last updated: 2026-08-19 (v8.8.0 — VBA import encoding fix, Word.officeUI dual-path, anti-regression tests).
+> Last updated: 2026-08-21 (v8.9.0 — AI-based document structure identification, Proposicao→Corpo rename).
 
 ## 1. Project Overview
 
@@ -15,14 +15,16 @@ The solution has two coordinated parts:
 
 ## 2. Current Codebase Architecture
 
-### 2.1 VBA (4 modules)
+### 2.1 VBA (12 modules)
 
-The active VBA architecture is consolidated into 10 modules:
+The active VBA architecture is consolidated into 12 modules:
 
-- `Mod1Infrastructure.bas`: constants, global state, paths, safe wrappers, backup/system helpers.
-- `Mod2Engine.bas`: structure detection heuristics, cache system, image/list handling and restoration helpers.
+- `Mod1Infrastructure.bas`: constants, global state, paths (`GetZ7StdProposersDataPath`, `GetZ7StdProposersLogsPath`, etc.), safe wrappers, backup/system helpers.
+- `Mod2Engine.bas`: structure detection (AI-first with heuristic fallback), cache system, image/list handling and restoration helpers.
 - `Mod3Pipeline.bas`: core formatting pipeline (double-pass), normalization/cleanup routines (including blank paragraph numbering removal), logging primitives.
 - `Mod4Main.bas`: macro entrypoints (`PadronizarDocumentoMain`, public API helpers, Gemini integration bridge calling the blank paragraph cleanup).
+- `Mod11RevisionText.bas`: AI text revision via OpenRouter API. Public entrypoints: `TestarRevisaoTextoSelecionado` (selected text), `CorrigirProposituraComIA` (whole document), `DiagnosticarOpenRouter` (connectivity test). Uses DPAPI-encrypted API key and configurable model via `config_prompt.py`. Integrates with project logging (`LogMessage`) and progress system (`InitializeProgress`/`IncrementProgress`).
+- `Mod12AIStructure.bas`: AI-based document structure identification via OpenRouter API. Public entrypoint: `IdentifyDocumentStructureWithAI`. Sends document text with paragraph markers to AI, parses JSON response with paragraph ranges for each structural element (Titulo, Ementa, Vocativo, Corpo, Justificativa, Data, Assinatura, Anexo). Used as primary identification method by `IdentifyDocumentStructure` in `Mod2Engine.bas`.
 
 ### 2.2 Python (Gemini integration)
 

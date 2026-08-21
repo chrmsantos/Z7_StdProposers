@@ -730,7 +730,7 @@ NextVariant:
     ' Funcionalidade 14: Substitui "in loco" (com aspas) por in loco (italico, sem aspas)
     FormatInLocoItalic doc
 
-    ' Funcionalidade 16: "ÔøΩrea PÔøΩblica" e "RoÔøΩagem" sempre em minusculas (ChrW seguro)
+    ' Funcionalidade 16: "Ûrea P˙blica" e "Roagem" sempre em minusculas (ChrW seguro)
     Dim areaPublicaCount As Long
     Dim rocagemCount As Long
     areaPublicaCount = ExecuteFindReplace(doc, "" & ChrW(193) & "rea P" & ChrW(250) & "blica", "" & ChrW(225) & "rea p" & ChrW(250) & "blica", True)
@@ -752,7 +752,7 @@ NextVariant:
         LogMessage "Substituicao aplicada: 'Bairro'/'bairro:'/'Bairro:' -> 'bairro' (" & bairroCount & "x)", LOG_LEVEL_INFO
     End If
 
-    ' Funcionalidade 17: "retorne ÔøΩ esta Casa de Leis com as seguintes respostas" -> "retorne ÔøΩ esta Casa de Leis com as seguintes informaÔøΩÔøΩes" (ChrW seguro)
+    ' Funcionalidade 17: "retorne È esta Casa de Leis com as seguintes respostas" -> "retorne È esta Casa de Leis com as seguintes informaÁıes" (ChrW seguro)
     Dim casaLeisRespostasCount As Long
     casaLeisRespostasCount = ExecuteFindReplace(doc, "retorne " & ChrW(224) & " esta Casa de Leis com as seguintes respostas", "retorne " & ChrW(224) & " esta Casa de Leis com as seguintes informa" & ChrW(231) & ChrW(245) & "es", False)
     If casaLeisRespostasCount > 0 Then
@@ -766,32 +766,32 @@ NextVariant:
         LogMessage "Substituicao aplicada: ' Jd ' -> ' Jd. ' (" & jdCount & "x)", LOG_LEVEL_INFO
     End If
 
-    ' Substitui " aos nÔøΩ " / " aos nÔøΩ " por " ao nÔøΩ " / " ao nÔøΩ "
+    ' Substitui " aos nÈ " / " aos nÈ " por " ao nÈ " / " ao nÈ "
     Dim aosNoCount As Long
     aosNoCount = ExecuteFindReplace(doc, " aos n" & Chr(186) & " ", " ao n" & Chr(186) & " ", True)
     aosNoCount = aosNoCount + ExecuteFindReplace(doc, " aos n" & Chr(176) & " ", " ao n" & Chr(176) & " ", True)
     If aosNoCount > 0 Then
-        LogMessage "Substituicao aplicada: ' aos nÔøΩ ' -> ' ao nÔøΩ ' (" & aosNoCount & "x)", LOG_LEVEL_INFO
+        LogMessage "Substituicao aplicada: ' aos nÈ ' -> ' ao nÈ ' (" & aosNoCount & "x)", LOG_LEVEL_INFO
     End If
 
-    ' Substitui " nos nÔøΩ " / " nos nÔøΩ " por " no nÔøΩ " / " no nÔøΩ "
+    ' Substitui " nos nÈ " / " nos nÈ " por " no nÈ " / " no nÈ "
     Dim nosNoCount As Long
     nosNoCount = ExecuteFindReplace(doc, " nos n" & Chr(186) & " ", " no n" & Chr(186) & " ", True)
     nosNoCount = nosNoCount + ExecuteFindReplace(doc, " nos n" & Chr(176) & " ", " no n" & Chr(176) & " ", True)
     If nosNoCount > 0 Then
-        LogMessage "Substituicao aplicada: ' nos nÔøΩ ' -> ' no nÔøΩ ' (" & nosNoCount & "x)", LOG_LEVEL_INFO
+        LogMessage "Substituicao aplicada: ' nos nÈ ' -> ' no nÈ ' (" & nosNoCount & "x)", LOG_LEVEL_INFO
     End If
 
-    ' Substitui NÔøΩ por nÔøΩ exceto no titulo
+    ' Substitui NÈ por nÈ exceto no titulo
     ReplaceNoWithNoExceptTitle doc
 
-    ' Substitui parÔøΩgrafos contendo unicamente a string 'tikinho tk"'
+    ' Substitui par·grafos contendo unicamente a string 'tikinho tk"'
     ReplaceTikinhoTkParagraphs doc
     
-    ' Garante espaÔøΩo nÔøΩo separÔøΩvel apÔøΩs nÔøΩ/nÔøΩ antes de algarismos
+    ' Garante espa„o n„o separÌvel apÈs nÈ/nÈ antes de algarismos
     EnsureNonBreakingSpaceAfterNo doc
 
-    ' Substitui todos os espaÔøΩos nÔøΩo separÔøΩveis por espaÔøΩos comuns, exceto apÔøΩs nÔøΩ/nÔøΩ antes de algarismos
+    ' Substitui todos os espa„os n„o separÌveis por espa„os comuns, exceto apÈs nÈ/nÈ antes de algarismos
     ReplaceNonBreakingSpacesExceptAfterNo doc
 
     ApplyTextReplacements = True
@@ -1258,8 +1258,8 @@ Public Sub FormatVereadorParagraphs(doc As Document)
         ' A deteccao abaixo ignora tudo que nao for letra e valida se sobrou apenas "vereador".
         If IsVereadorPattern(para.Range.text) Then
 
-            ' Divide paragrafo: se "Vereador" e seguido de hifens/tra√ßos + "P" + ate 5 caracteres,
-            ' separa o que vem depois em um novo paragrafo abaixo, removendo hifens/tra√ßos.
+            ' Divide paragrafo: se "Vereador" e seguido de hifens/tra„os + "P" + ate 5 caracteres,
+            ' separa o que vem depois em um novo paragrafo abaixo, removendo hifens/tra„os.
             Dim rawText As String
             rawText = Replace(Replace(para.Range.text, vbCr, ""), vbLf, "")
             Dim rawLower As String
@@ -1270,7 +1270,7 @@ Public Sub FormatVereadorParagraphs(doc As Document)
             If verPos > 0 Then
                 Dim textAfter As String
                 textAfter = Mid(rawText, verPos + 8) ' 8 = Len("vereador")
-                ' Normaliza hifens/tra√ßos para detectar padrao
+                ' Normaliza hifens/tra„os para detectar padrao
                 Dim normAfter As String
                 normAfter = textAfter
                 normAfter = Replace(normAfter, ChrW(8209), "-") ' non-breaking hyphen
@@ -1290,7 +1290,7 @@ Public Sub FormatVereadorParagraphs(doc As Document)
                         baseWord = GetVereadorNormalizedWord(rawText)
                         If baseWord = "" Then baseWord = "Vereador"
 
-                        ' Monta o texto para o novo paragrafo (sem hifens/tra√ßos)
+                        ' Monta o texto para o novo paragrafo (sem hifens/tra„os)
                         Dim newParaText As String
                         newParaText = afterHyphen
 

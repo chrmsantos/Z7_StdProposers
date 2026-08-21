@@ -264,19 +264,19 @@ Public Sub LogMessage(message As String, Optional level As Long = LOG_LEVEL_INFO
     Select Case level
         Case LOG_LEVEL_INFO
             levelText = "INFO "
-            levelPrefix = "?"
+            levelPrefix = "י"
             infoCount = infoCount + 1
         Case LOG_LEVEL_WARNING
             levelText = "WARN "
-            levelPrefix = "?"
+            levelPrefix = "י"
             warningCount = warningCount + 1
         Case LOG_LEVEL_ERROR
             levelText = "ERROR"
-            levelPrefix = "?"
+            levelPrefix = "י"
             errorCount = errorCount + 1
         Case Else
             levelText = "DEBUG"
-            levelPrefix = "?"
+            levelPrefix = "י"
     End Select
 
     ' Formata mensagem com timestamp, tempo decorrido e nivel
@@ -351,14 +351,14 @@ End Sub
 
 Public Sub LogStepStart(stepName As String)
     On Error Resume Next
-    LogMessage "? Iniciando: " & stepName, LOG_LEVEL_INFO
+    LogMessage "י Iniciando: " & stepName, LOG_LEVEL_INFO
 End Sub
 
 
 Public Sub LogStepComplete(stepName As String, Optional details As String = "")
     On Error Resume Next
     Dim msg As String
-    msg = "? Concluido: " & stepName
+    msg = "י Concluido: " & stepName
     If Len(details) > 0 Then msg = msg & " | " & details
     LogMessage msg, LOG_LEVEL_INFO
 End Sub
@@ -366,14 +366,14 @@ End Sub
 
 Public Sub LogStepSkipped(stepName As String, reason As String)
     On Error Resume Next
-    LogMessage "? Ignorado: " & stepName & " | Motivo: " & reason, LOG_LEVEL_INFO
+    LogMessage "י Ignorado: " & stepName & " | Motivo: " & reason, LOG_LEVEL_INFO
 End Sub
 
 
 Public Sub LogMetric(metricName As String, value As Variant, Optional unit As String = "")
     On Error Resume Next
     Dim msg As String
-    msg = "?? " & metricName & ": " & CStr(value)
+    msg = "יי " & metricName & ": " & CStr(value)
     If Len(unit) > 0 Then msg = msg & " " & unit
     LogMessage msg, LOG_LEVEL_INFO
 End Sub
@@ -427,16 +427,16 @@ Public Sub SafeFinalizeLogging()
     ' Determina status final
     If formattingCancelled Then
         statusText = "CANCELADO PELO USUARIO"
-        statusIcon = "?"
+        statusIcon = "י"
     ElseIf errorCount > 0 Then
         statusText = "CONCLUIDO COM ERROS"
-        statusIcon = "?"
+        statusIcon = "י"
     ElseIf warningCount > 0 Then
         statusText = "CONCLUIDO COM AVISOS"
-        statusIcon = "?"
+        statusIcon = "י"
     Else
         statusText = "CONCLUIDO COM SUCESSO"
-        statusIcon = "?"
+        statusIcon = "י"
     End If
 
     totalEvents = infoCount + warningCount + errorCount
@@ -511,7 +511,7 @@ Public Function SanitizeFileName(fileName As String) As String
     Dim i As Long
 
     result = fileName
-    invalidChars = "\/:*?""<>|"
+    invalidChars = "\/:*י""<>|"
 
     For i = 1 To Len(invalidChars)
         result = Replace(result, Mid(invalidChars, i, 1), "_")

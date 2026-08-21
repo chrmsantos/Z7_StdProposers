@@ -51,7 +51,7 @@ A subrotina opera em três fases:
 | Etapa | Descrição |
 |---|---|
 | 4.1 | Para cada parágrafo: captura texto bruto, texto normalizado (sem acentos, caixa baixa), se tem imagens, se é parágrafo especial (CONSIDERANDO, Justificativa, Vereador, Diante do exposto, Requeiro, Anexo). |
-| 4.2 | **Identificação da estrutura do documento** (`IdentifyDocumentStructure`): identifica por heurísticas posição/texto/formatação os seguintes elementos: **Título**, **Ementa**, **Vocativo**, **Proposição**, **Título da Justificativa**, **Justificativa**, **Data (Plenário)**, **Assinatura**, **Título do Anexo**, **Anexo**. |
+| 4.2 | **Identificação da estrutura do documento** (`IdentifyDocumentStructure`): identifica por heurísticas posição/texto/formatação os seguintes elementos: **Título**, **Ementa**, **Vocativo**, **Corpo**, **Título da Justificativa**, **Justificativa**, **Data (Plenário)**, **Assinatura**, **Título do Anexo**, **Anexo**. |
 
 ---
 
@@ -125,7 +125,7 @@ Para **cada parágrafo** do documento (preservando imagens):
 
 - Encontra o primeiro parágrafo com texto.
 - Remove ponto final do título, se existir.
-- **Se for proposição** (Indicação, Requerimento ou Moção): normaliza o número/ano no formato `Nº $NUMERO$/$ANO$`.
+- **Se for Corpo** (Indicação, Requerimento ou Moção): normaliza o número/ano no formato `Nº $NUMERO$/$ANO$`.
 - Aplica formatação ao título:
   - **Caixa alta** (`AllCaps = True`).
   - **Negrito** (`Bold = True`).
@@ -174,7 +174,7 @@ Para **cada parágrafo** (preservando imagens e parágrafos especiais):
 
 ### 5.17 Formatação do Corpo após a Ementa (`FormatPostEmentaBodyParagraphs`)
 
-- Para parágrafos do corpo da proposição (após a ementa, antes da justificativa):
+- Para parágrafos do corpo da Corpo (após a ementa, antes da justificativa):
   - Remove linhas em branco extras entre parágrafos (mantém no máximo 1).
   - **Recuo da primeira linha:** 2,5cm.
   - **Fonte:** Arial 12, negrito.

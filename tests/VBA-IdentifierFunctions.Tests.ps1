@@ -26,8 +26,8 @@ Describe 'Z7_STDPROPOSERS - VBA Identifier Functions (Modular)' {
             $script:mod4Content | Should Match '(?m)^Public Function GetVocativoRange\(doc As Document\) As Range'
         }
 
-        It 'Declara GetProposicaoRange' {
-            $script:mod4Content | Should Match '(?m)^Public Function GetProposicaoRange\(doc As Document\) As Range'
+        It 'Declara GetCorpoRange' {
+            $script:mod4Content | Should Match '(?m)^Public Function GetCorpoRange\(doc As Document\) As Range'
         }
 
         It 'Declara GetJustificativaRange' {
@@ -75,14 +75,14 @@ Describe 'Z7_STDPROPOSERS - VBA Identifier Functions (Modular)' {
 
     Context 'Padrao de retorno seguro' {
         It 'Inicializa retorno como Nothing nas funcoes Get*' {
-            $functions = @('GetTituloRange','GetEmentaRange','GetVocativoRange','GetProposicaoRange','GetJustificativaRange','GetDataRange','GetAssinaturaRange')
+            $functions = @('GetTituloRange','GetEmentaRange','GetVocativoRange','GetCorpoRange','GetJustificativaRange','GetDataRange','GetAssinaturaRange')
             foreach ($f in $functions) {
                 $script:mod4Content | Should Match "(?s)Public Function $f.*?Set $f = Nothing"
             }
         }
 
         It 'Funcoes Get* possuem tratamento de erro' {
-            $functions = @('GetTituloRange','GetEmentaRange','GetVocativoRange','GetProposicaoRange','GetJustificativaRange','GetDataRange','GetAssinaturaRange')
+            $functions = @('GetTituloRange','GetEmentaRange','GetVocativoRange','GetCorpoRange','GetJustificativaRange','GetDataRange','GetAssinaturaRange')
             foreach ($f in $functions) {
                 $script:mod4Content | Should Match "(?s)Public Function $f.*?ErrorHandler:"
             }

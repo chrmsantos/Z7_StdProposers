@@ -1,0 +1,28 @@
+# EditorConfig para projeto Z7_StdProposers
+# https://editorconfig.org
+
+root = true
+
+# Módulos VBA (.bas) DEVEM estar em Windows-1252 (CP1252)
+# O Word importa .bas como ANSI; UTF-8 corrompe caracteres acentuados.
+# Agentes de IA e editores devem RESPEITAR esta codificação.
+[*.bas]
+charset = latin1
+end_of_line = crlf
+insert_final_newline = false
+trim_trailing_whitespace = false
+
+# Scripts Python
+[*.py]
+charset = utf-8
+end_of_line = lf
+
+# PowerShell
+[*.ps1]
+charset = utf-8
+end_of_line = crlf
+
+# Markdown e docs
+[*.{md,txt}]
+charset = utf-8
+end_of_line = crlf

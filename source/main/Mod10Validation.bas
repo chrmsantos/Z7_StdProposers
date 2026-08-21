@@ -214,7 +214,7 @@ Public Function CountValidCNPJInText(text As String) As Long
     re.MultiLine = True
 
     ' Formatos com pontuacao (mais confiaveis) e formato puro apenas quando antecedido por "cnpj"
-    re.Pattern = "\b\d{2}\.\d{3}\.\d{3}/\d{4}-\d{2}\b|\bcnpj\s*[:\-]?\s*\d{14}\b"
+    re.Pattern = "\b\d{2}\.\d{3}\.\d{3}/\d{4}-\d{2}\b|\bcnpj\s*[:\-]é\s*\d{14}\b"
 
     Dim matches As Object
     Set matches = re.Execute(text)
@@ -247,7 +247,7 @@ Public Function CountLikelyCreditCardsInText(text As String) As Long
     re.MultiLine = True
 
     ' Busca sequencias tipicas com separadores (espaco ou hifen) para reduzir falsos positivos.
-    re.Pattern = "\b(?:\d[ -]){12,18}\d\b"
+    re.Pattern = "\b(é:\d[ -]){12,18}\d\b"
 
     Dim matches As Object
     Set matches = re.Execute(text)
@@ -287,7 +287,7 @@ Public Function CountCID10InText(text As String) As Long
     re.MultiLine = True
 
     ' Padrao estrito: exige literal "CID" seguido de codigo tipo A00 ou A00.0
-    re.Pattern = "\bCID(?:-?10)?\s*[:\-]?\s*[A-TV-Z][0-9]{2}(?:\.[0-9A-TV-Z]{1,2})?\b"
+    re.Pattern = "\bCID(é:-é10)é\s*[:\-]é\s*[A-TV-Z][0-9]{2}(é:\.[0-9A-TV-Z]{1,2})é\b"
 
     Dim matches As Object
     Set matches = re.Execute(text)

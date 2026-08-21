@@ -1,4 +1,4 @@
-﻿Attribute VB_Name = "Mod1Infrastructure"
+Attribute VB_Name = "Mod1Infrastructure"
 Option Explicit
 
 ' Mod1Infrastructure.bas
@@ -76,6 +76,7 @@ Public Const CHAT_IA_SCRIPT_RELATIVE_PATH As String = "\AppData\Local\Z7\Apps\Z7
 ' CONSTANTES DE SISTEMA
 '================================================================================
 Public Const MIN_SUPPORTED_VERSION As Long = 14
+Public Const Z7_STDPROPOSERS_VERSION As String = "8.9.0"
 Public Const REQUIRED_STRING As String = "$NUMERO$/$ANO$"
 Public Const MAX_BACKUP_FILES As Long = 10
 Public Const DEBUG_MODE As Boolean = False
@@ -135,7 +136,7 @@ Public Type paragraphCache
     isTitulo As Boolean
     isEmenta As Boolean
     isVocativo As Boolean
-    isProposicaoContent As Boolean
+    isCorpoContent As Boolean
     isTituloJustificativa As Boolean
     isJustificativaContent As Boolean
     isData As Boolean
@@ -223,8 +224,8 @@ Public tituloParaIndex As Long
 Public ementaParaIndex As Long
 Public vocativoStartIndex As Long
 Public vocativoEndIndex As Long
-Public proposicaoStartIndex As Long
-Public proposicaoEndIndex As Long
+Public corpoStartIndex As Long
+Public corpoEndIndex As Long
 Public tituloJustificativaIndex As Long
 Public justificativaStartIndex As Long
 Public justificativaEndIndex As Long
@@ -614,6 +615,18 @@ End Function
 
 Public Function GetZ7StdProposersLogsPath() As String
     GetZ7StdProposersLogsPath = Environ("USERPROFILE") & "\AppData\Local\Z7\Tmp\StdProposers\logs"
+End Function
+
+' Caminho para o diretorio de dados do usuario (config_prompt, chave API, modelo IA).
+' Espelho de z7_logging.get_data_dir() no Python.
+Public Function GetZ7StdProposersDataPath() As String
+    Dim userProfile As String
+    userProfile = Environ$("USERPROFILE")
+    If Len(userProfile) > 0 Then
+        GetZ7StdProposersDataPath = userProfile & "\AppData\Local\Z7\Tmp\StdProposers"
+    Else
+        GetZ7StdProposersDataPath = Environ$("LOCALAPPDATA") & "\Z7\Apps\Z7_StdProposers\data"
+    End If
 End Function
 
 Public Sub EnsureZ7StdProposersFolders()

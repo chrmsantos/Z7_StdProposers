@@ -2421,7 +2421,7 @@ Public Sub RemoverLinhasEmBrancoExtras(doc As Document)
         .Replacement.text = "Indica ao Poder Executivo Municipal que efetue"
         If .Execute(Replace:=2) Then replacedCount = replacedCount + 1
 
-        .text = "Indica ao Poder Executivo Municipal e aos ï¿½rgï¿½os competentes"
+        .text = "Indica ao Poder Executivo Municipal e aos órgãos competentes"
         .Replacement.text = "Indica ao Poder Executivo Municipal"
         If .Execute(Replace:=2) Then replacedCount = replacedCount + 1
 
@@ -2518,7 +2518,7 @@ Public Sub RemoverLinhasEmBrancoExtras(doc As Document)
     
     ' CORRECAO CRITICA (Index Staleness):
     ' Como linhas em branco foram deletadas fisicamente, os indices globais (titulo, ementa, justificativa) 
-    ' agora apontam para o limbo (desalinhados). Forï¿½amos a reconstruï¿½ï¿½o do cache antes de prosseguir.
+    ' agora apontam para o limbo (desalinhados). Forãamos a reconstrução do cache antes de prosseguir.
     If removedCount > 0 Then
         LogMessage "Reconstruindo cache arquitetural devido as delecoes fisicas...", LOG_LEVEL_INFO
         ClearParagraphCache
@@ -2793,12 +2793,12 @@ Public Sub ExecutarInstalador()
 
     ' Pergunta confirmacao ao usuario
     Dim msgInstaller As String
-    msgInstaller = "Deseja executar o instalador do Z7_STDPROPOSERS?" & vbCrLf & vbCrLf & _
+    msgInstaller = "Deseja executar o instalador do Z7_STDPROPOSERSé" & vbCrLf & vbCrLf & _
                    "Isso ira:" & vbCrLf & _
                    " Baixar a versao mais recente do GitHub" & vbCrLf & _
                    " Instalar/atualizar o sistema" & vbCrLf & _
                    " Fechar o Word ao final da instalacao" & vbCrLf & vbCrLf & _
-                   "Continuar?"
+                   "Continuaré"
     response = MsgBox(msgInstaller, vbYesNo + vbQuestion, "Z7_STDPROPOSERS - Executar Instalador")
 
     If response <> vbYes Then
@@ -3142,7 +3142,7 @@ ErrorHandler:
 End Sub
 
 '================================================================================
-' SUBSTITUI "Nï¿½" POR "nï¿½" EXCENTUANDO O TITULO DO DOCUMENTO
+' SUBSTITUI "Né" POR "né" EXCENTUANDO O TITULO DO DOCUMENTO
 '================================================================================
 
 Public Sub ReplaceNoWithNoExceptTitle(doc As Document)
@@ -3155,12 +3155,12 @@ Public Sub ReplaceNoWithNoExceptTitle(doc As Document)
     Set searchRng = doc.Range
 
     Dim findTexts(0 To 2) As String
-    findTexts(0) = "N" & Chr(186)  ' Nï¿½ (maiusculo, ordinal)
-    findTexts(1) = "N" & Chr(176)  ' Nï¿½ (maiusculo, grau)
-    findTexts(2) = "n" & Chr(186)  ' nï¿½ (minusculo, ordinal)
+    findTexts(0) = "N" & Chr(186)  ' Né (maiusculo, ordinal)
+    findTexts(1) = "N" & Chr(176)  ' Né (maiusculo, grau)
+    findTexts(2) = "n" & Chr(186)  ' né (minusculo, ordinal)
 
     Dim replaceText As String
-    replaceText = "n" & Chr(176)   ' nï¿½ (minusculo, grau)
+    replaceText = "n" & Chr(176)   ' né (minusculo, grau)
 
     Dim i As Integer
     Dim foundCount As Long
@@ -3199,13 +3199,13 @@ Public Sub ReplaceNoWithNoExceptTitle(doc As Document)
     Next i
 
     If foundCount > 0 Then
-        LogMessage "Substituicao aplicada: 'Nï¿½'/'Nï¿½'/'nï¿½' por 'nï¿½' (" & foundCount & "x), exceto no titulo", LOG_LEVEL_INFO
+        LogMessage "Substituicao aplicada: 'Né'/'Né'/'né' por 'né' (" & foundCount & "x), exceto no titulo", LOG_LEVEL_INFO
     End If
 
     Exit Sub
 
 ErrorHandler:
-    LogMessage "Erro ao substituir 'Nï¿½' por 'nï¿½': " & Err.Description, LOG_LEVEL_WARNING
+    LogMessage "Erro ao substituir 'Né' por 'né': " & Err.Description, LOG_LEVEL_WARNING
 End Sub
 
 
@@ -3258,7 +3258,7 @@ End Function
 
 
 '================================================================================
-' REPLACE NON BREAKING SPACES EXCEPT AFTER NO - Substitui espacos nao separaveis por comuns, exceto apos nï¿½/nï¿½
+' REPLACE NON BREAKING SPACES EXCEPT AFTER NO - Substitui espacos nao separaveis por comuns, exceto apos né/né
 '================================================================================
 
 Public Sub ReplaceNonBreakingSpacesExceptAfterNo(doc As Document)
@@ -3273,7 +3273,7 @@ Public Sub ReplaceNonBreakingSpacesExceptAfterNo(doc As Document)
     Dim noDegreeLower As String: noDegreeLower = "n" & Chr(176)
     Dim noDegreeUpper As String: noDegreeUpper = "N" & Chr(176)
     
-    ' 1. Protege os espacos nao separaveis que devem ser mantidos (apos nï¿½/nï¿½ e antes de algarismos)
+    ' 1. Protege os espacos nao separaveis que devem ser mantidos (apos né/né e antes de algarismos)
     For i = 0 To 9
         digit = CStr(i)
         ExecuteFindReplace doc, noOrdinalLower & nbsp & digit, noOrdinalLower & tempMarker & digit, True
@@ -3300,7 +3300,7 @@ ErrorHandler:
 End Sub
 
 '================================================================================
-' ENSURE NON BREAKING SPACE AFTER NO - Garante espaco nao separavel apos nï¿½/nï¿½
+' ENSURE NON BREAKING SPACE AFTER NO - Garante espaco nao separavel apos né/né
 '================================================================================
 
 Public Sub EnsureNonBreakingSpaceAfterNo(doc As Document)
@@ -3317,13 +3317,13 @@ Public Sub EnsureNonBreakingSpaceAfterNo(doc As Document)
     For i = 0 To 9
         digit = CStr(i)
         
-        ' 1. nï¿½ seguida de algarismo sem espaco -> com espaco nao separavel
+        ' 1. né seguida de algarismo sem espaco -> com espaco nao separavel
         ExecuteFindReplace doc, noOrdinalLower & digit, noOrdinalLower & nbsp & digit, True
         ExecuteFindReplace doc, noOrdinalUpper & digit, noOrdinalUpper & nbsp & digit, True
         ExecuteFindReplace doc, noDegreeLower & digit, noDegreeLower & nbsp & digit, True
         ExecuteFindReplace doc, noDegreeUpper & digit, noDegreeUpper & nbsp & digit, True
         
-        ' 2. nï¿½ seguida de algarismo com espaco comum -> com espaco nao separavel
+        ' 2. né seguida de algarismo com espaco comum -> com espaco nao separavel
         ExecuteFindReplace doc, noOrdinalLower & " " & digit, noOrdinalLower & nbsp & digit, True
         ExecuteFindReplace doc, noOrdinalUpper & " " & digit, noOrdinalUpper & nbsp & digit, True
         ExecuteFindReplace doc, noDegreeLower & " " & digit, noDegreeLower & nbsp & digit, True
@@ -3332,6 +3332,6 @@ Public Sub EnsureNonBreakingSpaceAfterNo(doc As Document)
     
     Exit Sub
 ErrorHandler:
-    LogMessage "Erro ao garantir espaco nao separavel apos nï¿½: " & Err.Description, LOG_LEVEL_WARNING
+    LogMessage "Erro ao garantir espaco nao separavel apos né: " & Err.Description, LOG_LEVEL_WARNING
 End Sub
 

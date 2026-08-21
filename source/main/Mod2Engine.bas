@@ -388,7 +388,7 @@ Public Function IsDataElement(para As Paragraph) As Boolean
                 firstChar = Left$(origText, 1)
                 Dim firstCharUpper As String
                 firstCharUpper = UCase$(firstChar)
-                If (firstCharUpper Like "[A-Z0-9À-ÚÇ]") Or (firstCharUpper = "$") Then
+                If (firstCharUpper Like "[A-Z0-9ï¿½-ï¿½ï¿½]") Or (firstCharUpper = "$") Then
                     IsDataElement = True
                     Exit Function
                 End If
@@ -543,21 +543,49 @@ End Function
 '--------------------------------------------------------------------------------
 ' IdentifyDocumentStructure - Identifica todos os elementos estruturais
 '--------------------------------------------------------------------------------
-' Esta funcao percorre o documento e identifica:
-' - Titulo, Ementa, Proposicao, Justificativa, Data, Assinatura, Anexo
+' Tenta identificacao via IA primeiro; em caso de falha, usa heuristica.
 '--------------------------------------------------------------------------------
 Public Sub IdentifyDocumentStructure(doc As Document)
     On Error GoTo ErrorHandler
 
     LogMessage "Identificando estrutura do documento...", LOG_LEVEL_INFO
 
+    ' Tenta identificacao via IA (Mod12AIStructure)
+    Dim aiSuccess As Boolean
+    aiSuccess = IdentifyDocumentStructureWithAI(doc)
+
+    If aiSuccess Then
+        LogMessage "Estrutura identificada com sucesso via IA.", LOG_LEVEL_INFO
+        Exit Sub
+    End If
+
+    ' Fallback: usa heuristica (implementacao original)
+    LogMessage "IA nao disponivel ou falhou - usando heuristica como fallback.", LOG_LEVEL_WARNING
+    IdentifyDocumentStructureHeuristics doc
+    Exit Sub
+
+ErrorHandler:
+    LogMessage "Erro ao identificar estrutura do documento: " & Err.Description, LOG_LEVEL_ERROR
+End Sub
+
+'--------------------------------------------------------------------------------
+' IdentifyDocumentStructureHeuristics - Identifica estrutura por heuristicas
+'--------------------------------------------------------------------------------
+' Implementacao original baseada em posicao, texto e formatacao dos paragrafos.
+' Mantida como fallback defensivo em caso de falha da IA.
+'--------------------------------------------------------------------------------
+Private Sub IdentifyDocumentStructureHeuristics(doc As Document)
+    On Error GoTo ErrorHandler
+
+    LogMessage "Identificando estrutura do documento (heuristica)...", LOG_LEVEL_INFO
+
     ' Reseta todos os indices
     tituloParaIndex = 0
     ementaParaIndex = 0
     vocativoStartIndex = 0
     vocativoEndIndex = 0
-    proposicaoStartIndex = 0
-    proposicaoEndIndex = 0
+    corpoStartIndex = 0
+    corpoEndIndex = 0
     tituloJustificativaIndex = 0
     justificativaStartIndex = 0
     justificativaEndIndex = 0
@@ -594,7 +622,7 @@ Public Sub IdentifyDocumentStructure(doc As Document)
     foundJustificativa = False
     foundData = False
 
-    ' 1. Identifica Titulo, Ementa, Data e Assinatura por regras posicionais dos parágrafos com elementos visíveis
+    ' 1. Identifica Titulo, Ementa, Data e Assinatura por regras posicionais dos parï¿½grafos com elementos visï¿½veis
     Dim visibleIndices() As Long
     Dim visibleCount As Long
     ReDim visibleIndices(1 To cacheSize)
@@ -609,7 +637,7 @@ Public Sub IdentifyDocumentStructure(doc As Document)
         End If
     Next idx
 
-    ' Atribui índices baseados nas posições relativas dos parágrafos visíveis (Título e Ementa apenas, Assinatura e Data serão decididas com base nas novas regras abaixo)
+    ' Atribui ï¿½ndices baseados nas posiï¿½ï¿½es relativas dos parï¿½grafos visï¿½veis (Tï¿½tulo e Ementa apenas, Assinatura e Data serï¿½o decididas com base nas novas regras abaixo)
     If visibleCount >= 1 Then
         tituloParaIndex = visibleIndices(1)
         foundTitulo = True
@@ -651,7 +679,7 @@ Public Sub IdentifyDocumentStructure(doc As Document)
     End If
 
     ' Regra especifica para Assinatura:
-    ' Os três parágrafos textuais posteriores à data, desde que não contenham a palavra "anexo" ou "anexos" (case insensitive), são a Assinatura.
+    ' Os trï¿½s parï¿½grafos textuais posteriores ï¿½ data, desde que nï¿½o contenham a palavra "anexo" ou "anexos" (case insensitive), sï¿½o a Assinatura.
     foundCustomAssinatura = False
     p1 = 0
     p2 = 0
@@ -703,7 +731,7 @@ Public Sub IdentifyDocumentStructure(doc As Document)
     End If
 
     ' Regra especifica para Anexos:
-    ' O parágrafo posterior à assinatura que contenha apenas "anexo" ou "anexos" (case insensitive) é o Anexo.
+    ' O parï¿½grafo posterior ï¿½ assinatura que contenha apenas "anexo" ou "anexos" (case insensitive) ï¿½ o Anexo.
     If assinaturaEndIndex > 0 Then
         nextParaIdx = 0
         
@@ -828,7 +856,7 @@ Public Sub IdentifyDocumentStructure(doc As Document)
                             Next tempJ
                             If hasDigits Then Exit For
                             
-                            ' Se parecer com proposicao, para
+                            ' Se parecer com corpo, para
                             If Left(nextNorm, 8) = "requeiro" Or _
                                Left(nextNorm, 6) = "indico" Or _
                                Left(nextNorm, 8) = "solicito" Or _
@@ -845,7 +873,7 @@ Public Sub IdentifyDocumentStructure(doc As Document)
                 End If
             End If
         
-        ' Encontra o inicio da Proposicao
+        ' Encontra o inicio do Corpo
         Dim startPropSearch As Long
         If vocativoEndIndex > 0 Then
             startPropSearch = vocativoEndIndex + 1
@@ -860,7 +888,7 @@ Public Sub IdentifyDocumentStructure(doc As Document)
             Set para = doc.Paragraphs(i)
             If Len(Trim(para.Range.text)) > 0 Then
                 If Not IsJustificativaTitleElement(para) And (dataParaIndex = 0 Or i <> dataParaIndex) And Not IsTituloAnexoElement(para) Then
-                    proposicaoStartIndex = i
+                    corpoStartIndex = i
                     Exit For
                 End If
             End If
@@ -879,7 +907,7 @@ Public Sub IdentifyDocumentStructure(doc As Document)
             .isTitulo = False
             .isEmenta = False
             .isVocativo = False
-            .isProposicaoContent = False
+            .isCorpoContent = False
             .isTituloJustificativa = False
             .isJustificativaContent = False
             .isData = False
@@ -908,14 +936,14 @@ Public Sub IdentifyDocumentStructure(doc As Document)
                     .isTituloJustificativa = True
                     tituloJustificativaIndex = i
                     foundJustificativa = True
-                    ' Proposicao termina antes da Justificativa
-                    If proposicaoStartIndex > 0 Then
-                        proposicaoEndIndex = i - 1
+                    ' Corpo termina antes da Justificativa
+                    If corpoStartIndex > 0 Then
+                        corpoEndIndex = i - 1
                     End If
                     justificativaStartIndex = i + 1 ' Justificativa comeca logo apos o titulo
                     LogMessage "Titulo da Justificativa identificado no paragrafo " & i, LOG_LEVEL_INFO
 
-                ' 4. Identifica DATA (Plenario) - já foi identificada, mas em caso de loop definimos justificativaEndIndex se i = dataParaIndex
+                ' 4. Identifica DATA (Plenario) - jï¿½ foi identificada, mas em caso de loop definimos justificativaEndIndex se i = dataParaIndex
                 ElseIf i = dataParaIndex Then
                     ' Justificativa termina antes da Data
                     If justificativaStartIndex > 0 Then
@@ -945,13 +973,13 @@ Public Sub IdentifyDocumentStructure(doc As Document)
     Next i
 
     ' Se nao encontrou fim da proposicao, define ate antes da justificativa ou data
-    If proposicaoStartIndex > 0 And proposicaoEndIndex = 0 Then
+    If corpoStartIndex > 0 And corpoEndIndex = 0 Then
         If tituloJustificativaIndex > 0 Then
-            proposicaoEndIndex = tituloJustificativaIndex - 1
+            corpoEndIndex = tituloJustificativaIndex - 1
         ElseIf dataParaIndex > 0 Then
-            proposicaoEndIndex = dataParaIndex - 1
+            corpoEndIndex = dataParaIndex - 1
         Else
-            proposicaoEndIndex = cacheSize
+            corpoEndIndex = cacheSize
         End If
     End If
 
@@ -968,10 +996,10 @@ Public Sub IdentifyDocumentStructure(doc As Document)
     For i = 1 To cacheSize
         If i > doc.Paragraphs.count Then Exit For
         With paragraphCache(i)
-            If proposicaoStartIndex > 0 And proposicaoEndIndex > 0 Then
-                If i >= proposicaoStartIndex And i <= proposicaoEndIndex Then
+            If corpoStartIndex > 0 And corpoEndIndex > 0 Then
+                If i >= corpoStartIndex And i <= corpoEndIndex Then
                     If Not .isVocativo Then
-                        .isProposicaoContent = True
+                        .isCorpoContent = True
                     End If
                 End If
             End If
@@ -988,7 +1016,7 @@ Public Sub IdentifyDocumentStructure(doc As Document)
     LogMessage "Titulo: paragrafo " & tituloParaIndex, LOG_LEVEL_INFO
     LogMessage "Ementa: paragrafo " & ementaParaIndex, LOG_LEVEL_INFO
     LogMessage "Vocativo: paragrafos " & vocativoStartIndex & " a " & vocativoEndIndex, LOG_LEVEL_INFO
-    LogMessage "Proposicao: paragrafos " & proposicaoStartIndex & " a " & proposicaoEndIndex, LOG_LEVEL_INFO
+    LogMessage "Corpo: paragrafos " & corpoStartIndex & " a " & corpoEndIndex, LOG_LEVEL_INFO
     LogMessage "Titulo Justificativa: paragrafo " & tituloJustificativaIndex, LOG_LEVEL_INFO
     LogMessage "Justificativa: paragrafos " & justificativaStartIndex & " a " & justificativaEndIndex, LOG_LEVEL_INFO
     LogMessage "Data: paragrafo " & dataParaIndex, LOG_LEVEL_INFO
@@ -1077,8 +1105,8 @@ Public Sub ClearParagraphCache()
     ementaParaIndex = 0
     vocativoStartIndex = 0
     vocativoEndIndex = 0
-    proposicaoStartIndex = 0
-    proposicaoEndIndex = 0
+    corpoStartIndex = 0
+    corpoEndIndex = 0
     tituloJustificativaIndex = 0
     justificativaStartIndex = 0
     justificativaEndIndex = 0
@@ -1460,13 +1488,13 @@ Public Function IsPageNumberLine(text As String) As Boolean
     lowerText = LCase(text)
 
     ' Verifica se contem o padrao base
-    If InStr(lowerText, "$NUMERO$/$ANO$ – P") = 0 Then Exit Function
+    If InStr(lowerText, "$NUMERO$/$ANO$ ï¿½ P") = 0 Then Exit Function
 
     ' Procura pelos padroes possiveis no final
     Dim patterns() As String
     ReDim patterns(0 To 1)
-    patterns(0) = "$NUMERO$/$ANO$ – Pagina"
-    patterns(1) = "$NUMERO$/$ANO$ – Página"
+    patterns(0) = "$NUMERO$/$ANO$ ï¿½ Pagina"
+    patterns(1) = "$NUMERO$/$ANO$ ï¿½ Pï¿½gina"
 
     Dim pattern As String
     Dim i As Long
@@ -1527,14 +1555,14 @@ Private Function IsProposituraPageLineImpl(normalizedText As String, keyword As 
     
     ' Verifica se o caractere anterior a "pagina" e um separador valido
     Dim ndash As String
-    ndash = ChrW(8211)  ' en dash "–" (U+2013)
+    ndash = ChrW(8211)  ' en dash "ï¿½" (U+2013)
     
     If posPagina > 1 Then
         Dim charBefore As String
         charBefore = Mid(afterMarker, posPagina - 1, 1)
         ' Aceita barra, espaco, hifen, travessao
         If charBefore <> "/" And charBefore <> " " And charBefore <> "-" And charBefore <> ndash Then
-            ' Verifica se ha um espaco + travessao antes (ex: " – pagina" ou " - pagina")
+            ' Verifica se ha um espaco + travessao antes (ex: " ï¿½ pagina" ou " - pagina")
             If posPagina > 3 Then
                 Dim twoBefore As String
                 twoBefore = Mid(afterMarker, posPagina - 2, 2)
@@ -1588,7 +1616,7 @@ End Function
 
 '================================================================================
 ' IS REQUERIMENTO PAGE LINE - Verifica se texto e exclusivamente a linha de pagina
-' de um requerimento no formato "REQUERIMENTO n° $NUMERO$/$ANO$ – Página X" etc.
+' de um requerimento no formato "REQUERIMENTO nï¿½ $NUMERO$/$ANO$ ï¿½ Pï¿½gina X" etc.
 '================================================================================
 Public Function IsRequerimentoPageLine(text As String) As Boolean
     On Error GoTo ErrorHandler
@@ -1612,7 +1640,7 @@ End Function
 
 '--------------------------------------------------------------------------------
 ' IS INDICACAO PAGE LINE - Verifica se texto e exclusivamente a linha de pagina
-' de uma indicacao no formato "INDICAÇÃO n° $NUMERO$/$ANO$ – Página X" etc.
+' de uma indicacao no formato "INDICAï¿½ï¿½O nï¿½ $NUMERO$/$ANO$ ï¿½ Pï¿½gina X" etc.
 '--------------------------------------------------------------------------------
 Public Function IsIndicacaoPageLine(text As String) As Boolean
     On Error GoTo ErrorHandler
@@ -1636,7 +1664,7 @@ End Function
 
 '--------------------------------------------------------------------------------
 ' IS MOCACAO PAGE LINE - Verifica se texto e exclusivamente a linha de pagina
-' de uma mocao no formato "MOÇÃO n° $NUMERO$/$ANO$ – Página X" etc.
+' de uma mocao no formato "MOï¿½ï¿½O nï¿½ $NUMERO$/$ANO$ ï¿½ Pï¿½gina X" etc.
 '--------------------------------------------------------------------------------
 Public Function IsMocaoPageLine(text As String) As Boolean
     On Error GoTo ErrorHandler

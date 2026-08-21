@@ -366,29 +366,29 @@ ErrorHandler:
 End Function
 
 '--------------------------------------------------------------------------------
-' GetProposicaoRange - Retorna o Range da proposicao (conjunto de paragrafos)
+' GetCorpoRange - Retorna o Range do corpo (conjunto de paragrafos)
 '--------------------------------------------------------------------------------
-Public Function GetProposicaoRange(doc As Document) As Range
+Public Function GetCorpoRange(doc As Document) As Range
     On Error GoTo ErrorHandler
 
-    Set GetProposicaoRange = Nothing
+    Set GetCorpoRange = Nothing
 
-    If proposicaoStartIndex <= 0 Or proposicaoEndIndex <= 0 Then Exit Function
-    If proposicaoStartIndex > proposicaoEndIndex Then Exit Function
-    If proposicaoStartIndex > doc.Paragraphs.count Then Exit Function
-    If proposicaoEndIndex > doc.Paragraphs.count Then Exit Function
+    If corpoStartIndex <= 0 Or corpoEndIndex <= 0 Then Exit Function
+    If corpoStartIndex > corpoEndIndex Then Exit Function
+    If corpoStartIndex > doc.Paragraphs.count Then Exit Function
+    If corpoEndIndex > doc.Paragraphs.count Then Exit Function
 
     Dim startPos As Long
     Dim endPos As Long
 
-    startPos = doc.Paragraphs(proposicaoStartIndex).Range.Start
-    endPos = doc.Paragraphs(proposicaoEndIndex).Range.End
+    startPos = doc.Paragraphs(corpoStartIndex).Range.Start
+    endPos = doc.Paragraphs(corpoEndIndex).Range.End
 
-    Set GetProposicaoRange = doc.Range(startPos, endPos)
+    Set GetCorpoRange = doc.Range(startPos, endPos)
     Exit Function
 
 ErrorHandler:
-    Set GetProposicaoRange = Nothing
+    Set GetCorpoRange = Nothing
 End Function
 
 '--------------------------------------------------------------------------------
@@ -573,11 +573,11 @@ Public Function GetElementInfo(doc As Document) As String
     End If
     Set rng = Nothing
 
-    ' Proposicao - usa GetProposicaoRange
-    Set rng = GetProposicaoRange(doc)
+    ' Proposicao - usa GetCorpoRange
+    Set rng = GetCorpoRange(doc)
     If Not rng Is Nothing Then
-        info = info & "Proposicao: Paragrafos " & proposicaoStartIndex & " a " & proposicaoEndIndex & _
-                      " (" & (proposicaoEndIndex - proposicaoStartIndex + 1) & " paragrafos)" & vbCrLf
+        info = info & "Proposicao: Paragrafos " & corpoStartIndex & " a " & corpoEndIndex & _
+                      " (" & (corpoEndIndex - corpoStartIndex + 1) & " paragrafos)" & vbCrLf
     Else
         info = info & "Proposicao: Nao identificado" & vbCrLf
     End If
@@ -840,10 +840,10 @@ End Sub
 
 
 '================================================================================
-' SUBROTINA PUBLICA: CHAT COM A LÉIA
+' SUBROTINA PUBLICA: CHAT COM A Lï¿½IA
 '================================================================================
 Public Sub ChatComGemini()
-    ' Macro para abrir a interface em Python do Chat Interativo com a LÉIA
+    ' Macro para abrir a interface em Python do Chat Interativo com a Lï¿½IA
     Dim objShell As Object
     Dim comandoExecucao As String
     Dim caminhoScript As String
@@ -936,10 +936,10 @@ Public Sub ComentarElementosPropositura()
     End If
     Set rng = Nothing
 
-    ' 3. Proposição
-    Set rng = GetProposicaoRange(doc)
+    ' 3. Corpo
+    Set rng = GetCorpoRange(doc)
     If Not rng Is Nothing Then
-        doc.Comments.Add Range:=rng, text:="[Z7] Proposi" & ChrW(231) & ChrW(227) & "o"
+        doc.Comments.Add Range:=rng, text:="[Z7] Corpo"
         commentAddedCount = commentAddedCount + 1
     End If
     Set rng = Nothing
