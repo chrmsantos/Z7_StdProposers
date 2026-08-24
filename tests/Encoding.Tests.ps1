@@ -81,7 +81,7 @@ Describe 'Z7_STDPROPOSERS - Testes de Encoding e Emojis' {
         }
 
         It 'Arquivo VBA esta em formato legivel' {
-            $vbaFile = "$projectRoot\source\main\Mod3Pipeline.bas"
+            $vbaFile = "$projectRoot\source\main\Mod_03_Pipeline.bas"
 
             if (Test-Path $vbaFile) {
                 $content = Get-Content $vbaFile -Raw
@@ -185,7 +185,7 @@ Describe 'Z7_STDPROPOSERS - Testes de Encoding e Emojis' {
         }
 
         It 'Arquivo VBA nao contem emojis' {
-            $vbaFile = "$projectRoot\source\main\Mod3Pipeline.bas"
+            $vbaFile = "$projectRoot\source\main\Mod_03_Pipeline.bas"
 
             if (Test-Path $vbaFile) {
                 $content = Get-Content $vbaFile -Raw -Encoding UTF8
@@ -264,7 +264,7 @@ Describe 'Z7_STDPROPOSERS - Testes de Encoding e Emojis' {
         }
 
         It 'Arquivo VBA nao contem tabs (usa espacos conforme padrao)' {
-            $vbaFile = "$projectRoot\source\main\Mod3Pipeline.bas"
+            $vbaFile = "$projectRoot\source\main\Mod_03_Pipeline.bas"
 
             if (Test-Path $vbaFile) {
                 $content = Get-Content $vbaFile -Raw
@@ -328,7 +328,7 @@ Describe 'Z7_STDPROPOSERS - Testes de Encoding e Emojis' {
     Context 'Validacao de Politica ASCII (Texto)' {
 
         It 'Arquivo VBA esta em formato textual valido (nao UTF-16)' {
-            $vbaFile = "$projectRoot\source\main\Mod3Pipeline.bas"
+            $vbaFile = "$projectRoot\source\main\Mod_03_Pipeline.bas"
 
             if (Test-Path $vbaFile) {
                 $bytes = [System.IO.File]::ReadAllBytes($vbaFile)

@@ -1,7 +1,7 @@
-Attribute VB_Name = "Mod5Logging"
+Attribute VB_Name = "Mod_05_Logging"
 Option Explicit
 
-' Mod5Logging
+' Mod_05_Logging
 ' =============================================================================
 ' Z7_STDPROPOSERS - Sistema de Padronizacao de Proposituras Legislativas
 ' =============================================================================
@@ -264,19 +264,19 @@ Public Sub LogMessage(message As String, Optional level As Long = LOG_LEVEL_INFO
     Select Case level
         Case LOG_LEVEL_INFO
             levelText = "INFO "
-            levelPrefix = "é"
+            levelPrefix = "ï¿½"
             infoCount = infoCount + 1
         Case LOG_LEVEL_WARNING
             levelText = "WARN "
-            levelPrefix = "é"
+            levelPrefix = "ï¿½"
             warningCount = warningCount + 1
         Case LOG_LEVEL_ERROR
             levelText = "ERROR"
-            levelPrefix = "é"
+            levelPrefix = "ï¿½"
             errorCount = errorCount + 1
         Case Else
             levelText = "DEBUG"
-            levelPrefix = "é"
+            levelPrefix = "ï¿½"
     End Select
 
     ' Formata mensagem com timestamp, tempo decorrido e nivel
@@ -351,14 +351,14 @@ End Sub
 
 Public Sub LogStepStart(stepName As String)
     On Error Resume Next
-    LogMessage "é Iniciando: " & stepName, LOG_LEVEL_INFO
+    LogMessage "ï¿½ Iniciando: " & stepName, LOG_LEVEL_INFO
 End Sub
 
 
 Public Sub LogStepComplete(stepName As String, Optional details As String = "")
     On Error Resume Next
     Dim msg As String
-    msg = "é Concluido: " & stepName
+    msg = "ï¿½ Concluido: " & stepName
     If Len(details) > 0 Then msg = msg & " | " & details
     LogMessage msg, LOG_LEVEL_INFO
 End Sub
@@ -366,14 +366,14 @@ End Sub
 
 Public Sub LogStepSkipped(stepName As String, reason As String)
     On Error Resume Next
-    LogMessage "é Ignorado: " & stepName & " | Motivo: " & reason, LOG_LEVEL_INFO
+    LogMessage "ï¿½ Ignorado: " & stepName & " | Motivo: " & reason, LOG_LEVEL_INFO
 End Sub
 
 
 Public Sub LogMetric(metricName As String, value As Variant, Optional unit As String = "")
     On Error Resume Next
     Dim msg As String
-    msg = "éé " & metricName & ": " & CStr(value)
+    msg = "ï¿½ï¿½ " & metricName & ": " & CStr(value)
     If Len(unit) > 0 Then msg = msg & " " & unit
     LogMessage msg, LOG_LEVEL_INFO
 End Sub
@@ -427,16 +427,16 @@ Public Sub SafeFinalizeLogging()
     ' Determina status final
     If formattingCancelled Then
         statusText = "CANCELADO PELO USUARIO"
-        statusIcon = "é"
+        statusIcon = "ï¿½"
     ElseIf errorCount > 0 Then
         statusText = "CONCLUIDO COM ERROS"
-        statusIcon = "é"
+        statusIcon = "ï¿½"
     ElseIf warningCount > 0 Then
         statusText = "CONCLUIDO COM AVISOS"
-        statusIcon = "é"
+        statusIcon = "ï¿½"
     Else
         statusText = "CONCLUIDO COM SUCESSO"
-        statusIcon = "é"
+        statusIcon = "ï¿½"
     End If
 
     totalEvents = infoCount + warningCount + errorCount
@@ -511,7 +511,7 @@ Public Function SanitizeFileName(fileName As String) As String
     Dim i As Long
 
     result = fileName
-    invalidChars = "\/:*é""<>|"
+    invalidChars = "\/:*ï¿½""<>|"
 
     For i = 1 To Len(invalidChars)
         result = Replace(result, Mid(invalidChars, i, 1), "_")

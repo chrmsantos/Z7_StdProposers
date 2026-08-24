@@ -19,12 +19,12 @@ The solution has two coordinated parts:
 
 The active VBA architecture is consolidated into 12 modules:
 
-- `Mod1Infrastructure.bas`: constants, global state, paths (`GetZ7StdProposersDataPath`, `GetZ7StdProposersLogsPath`, etc.), safe wrappers, backup/system helpers.
-- `Mod2Engine.bas`: structure detection (AI-first with heuristic fallback), cache system, image/list handling and restoration helpers.
-- `Mod3Pipeline.bas`: core formatting pipeline (double-pass), normalization/cleanup routines (including blank paragraph numbering removal), logging primitives.
-- `Mod4Main.bas`: macro entrypoints (`PadronizarDocumentoMain`, public API helpers, Gemini integration bridge calling the blank paragraph cleanup).
-- `Mod11RevisionText.bas`: AI text revision via OpenRouter API. Public entrypoints: `TestarRevisaoTextoSelecionado` (selected text), `CorrigirProposituraComIA` (whole document), `DiagnosticarOpenRouter` (connectivity test). Uses DPAPI-encrypted API key and configurable model via `config_prompt.py`. Integrates with project logging (`LogMessage`) and progress system (`InitializeProgress`/`IncrementProgress`).
-- `Mod12AIStructure.bas`: AI-based document structure identification via OpenRouter API. Public entrypoint: `IdentifyDocumentStructureWithAI`. Sends document text with paragraph markers to AI, parses JSON response with paragraph ranges for each structural element (Titulo, Ementa, Vocativo, Corpo, Justificativa, Data, Assinatura, Anexo). Used as primary identification method by `IdentifyDocumentStructure` in `Mod2Engine.bas`.
+- `Mod_01_Infrastructure.bas`: constants, global state, paths (`GetZ7StdProposersDataPath`, `GetZ7StdProposersLogsPath`, etc.), safe wrappers, backup/system helpers.
+- `Mod_02_Engine.bas`: structure detection (AI-first with heuristic fallback), cache system, image/list handling and restoration helpers.
+- `Mod_03_Pipeline.bas`: core formatting pipeline (double-pass), normalization/cleanup routines (including blank paragraph numbering removal), logging primitives.
+- `Mod_04_Main.bas`: macro entrypoints (`PadronizarDocumentoMain`, public API helpers, Gemini integration bridge calling the blank paragraph cleanup).
+- `Mod_11_RevisionText.bas`: AI text revision via OpenRouter API. Public entrypoints: `TestarRevisaoTextoSelecionado` (selected text), `CorrigirProposituraComIA` (whole document), `DiagnosticarOpenRouter` (connectivity test). Uses DPAPI-encrypted API key and configurable model via `config_prompt.py`. Integrates with project logging (`LogMessage`) and progress system (`InitializeProgress`/`IncrementProgress`).
+- `Mod_12_AIStructure.bas`: AI-based document structure identification via OpenRouter API. Public entrypoint: `IdentifyDocumentStructureWithAI`. Sends document text with paragraph markers to AI, parses JSON response with paragraph ranges for each structural element (Titulo, Ementa, Vocativo, Corpo, Justificativa, Data, Assinatura, Anexo). Used as primary identification method by `IdentifyDocumentStructure` in `Mod_02_Engine.bas`.
 
 ### 2.2 Python (Gemini integration)
 
@@ -72,7 +72,7 @@ Do not move this call above the deletion loop.
 
 Main flow must keep `StartCustomRecord` and `EndCustomRecord` paired across all exit paths.
 
-Current design in `Mod4Main.bas` routes failures through `CriticalErrorHandler -> GoTo CleanUp`, and `CleanUp` closes UndoRecord under guarded error handling.
+Current design in `Mod_04_Main.bas` routes failures through `CriticalErrorHandler -> GoTo CleanUp`, and `CleanUp` closes UndoRecord under guarded error handling.
 
 ### E. COM discipline rule
 
@@ -111,7 +111,7 @@ Never use real `tkinter.Tk()` in unit tests — multiple `Tk()` instances in the
 
 ### 4.1 VBA logging
 
-VBA logging core is in `Mod3Pipeline.bas` (`InitializeLogging`, `LogMessage`, `SafeFinalizeLogging`).
+VBA logging core is in `Mod_03_Pipeline.bas` (`InitializeLogging`, `LogMessage`, `SafeFinalizeLogging`).
 
 Current behavior includes:
 
@@ -120,7 +120,7 @@ Current behavior includes:
 - Buffered flushing controlled by `LOG_BUFFER_FLUSH_SECONDS`.
 - Context snapshots via `LogContextSnapshot doc, "..."`.
 
-Current snapshots are executed in `Mod4Main.bas` at:
+Current snapshots are executed in `Mod_04_Main.bas` at:
 
 - Pipeline start (`INICIO`).
 - Successful completion (`FIM`).
@@ -159,7 +159,7 @@ Log coverage includes:
 
 - `tests/All.Tests.ps1`: integrity checks aligned to current modular architecture.
 - `tests/VBA.Tests.ps1`: VBA architecture and API contracts for Mod1..Mod4.
-- `tests/VBA-IdentifierFunctions.Tests.ps1`: identifier-range safety and declarations in `Mod4Main.bas`.
+- `tests/VBA-IdentifierFunctions.Tests.ps1`: identifier-range safety and declarations in `Mod_04_Main.bas`.
 - `tests/VBA-Logging.Tests.ps1`: observability assertions (session/op IDs, snapshots, logging primitives).
 - `tests/Python.Tests.ps1`: Python integration checks and unittest invocation.
 - `tests/python/test_z7_logging.py`: unit tests for `z7_logging.py`.
@@ -175,7 +175,7 @@ As of v8.7.0 (2026-08-14), `Run-Tests.ps1 -TestSuite All -NoProgress` passes. Py
 
 1. Keep logic in the current 4-module VBA topology; do not reintroduce monoliths.
 2. Preserve `Option Explicit` in every VBA module.
-3. For formatting core changes, focus `Mod2Engine.bas`, `Mod3Pipeline.bas`, and `Mod4Main.bas` according to responsibility boundaries.
+3. For formatting core changes, focus `Mod_02_Engine.bas`, `Mod_03_Pipeline.bas`, and `Mod_04_Main.bas` according to responsibility boundaries.
 4. After any paragraph-deletion change, enforce a structure refresh before index usage (Section 3.C).
 5. Preserve UndoRecord closure invariants (Section 3.D).
 6. If editing Python integrations, keep logging instrumentation through `z7_logging.py`.

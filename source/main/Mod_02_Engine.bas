@@ -1,7 +1,7 @@
-Attribute VB_Name = "Mod2Engine"
+Attribute VB_Name = "Mod_02_Engine"
 Option Explicit
 
-' Mod2Engine.bas
+' Mod_02_Engine.bas
 ' =============================================================================
 ' Z7_STDPROPOSERS - Sistema de Padronizacao de Proposituras Legislativas
 ' =============================================================================

@@ -8,9 +8,9 @@ Describe 'Z7_STDPROPOSERS - Logging VBA' {
         $mainPath = Join-Path $repoRoot 'source\main'
         $modules = Get-ChildItem -Path $mainPath -Filter '*.bas' -File -ErrorAction Stop
 
-        $mod3Path = Join-Path $mainPath 'Mod5Logging.bas'
-        $mod4Path = Join-Path $mainPath 'Mod4Main.bas'
-        $mod1Path = Join-Path $mainPath 'Mod1Infrastructure.bas'
+        $mod3Path = Join-Path $mainPath 'Mod_05_Logging.bas'
+        $mod4Path = Join-Path $mainPath 'Mod_04_Main.bas'
+        $mod1Path = Join-Path $mainPath 'Mod_01_Infrastructure.bas'
 
         $mod3 = Get-Content $mod3Path -Raw -Encoding UTF8
         $mod4 = Get-Content $mod4Path -Raw -Encoding UTF8

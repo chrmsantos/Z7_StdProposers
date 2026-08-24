@@ -1,7 +1,7 @@
-Attribute VB_Name = "Mod3Pipeline"
+Attribute VB_Name = "Mod_03_Pipeline"
 Option Explicit
 
-' Mod3Pipeline
+' Mod_03_Pipeline
 ' =============================================================================
 ' Z7_STDPROPOSERS - Sistema de Padronizacao de Proposituras Legislativas
 ' =============================================================================
@@ -154,7 +154,7 @@ ErrorHandler:
 End Function
 
 '--------------------------------------------------------------------------------
-' SafeReplaceText - Substitui o texto de um range mantendo a formatação original
+' SafeReplaceText - Substitui o texto de um range mantendo a formataï¿½ï¿½o original
 '--------------------------------------------------------------------------------
 Public Sub SafeReplaceText(ByVal rng As Range, ByVal newText As String)
     If rng Is Nothing Then Exit Sub
@@ -162,16 +162,16 @@ Public Sub SafeReplaceText(ByVal rng As Range, ByVal newText As String)
     Dim origFont As Font
     Dim origParaFormat As ParagraphFormat
     
-    ' Salva a formatação original com seguranéa
+    ' Salva a formataï¿½ï¿½o original com seguranï¿½a
     On Error Resume Next
     Set origFont = rng.Font.Duplicate
     Set origParaFormat = rng.ParagraphFormat.Duplicate
     On Error GoTo 0
     
-    ' Realiza a substituição
+    ' Realiza a substituiï¿½ï¿½o
     rng.text = newText
     
-    ' Restaura a formatação original no novo range (que agora contúm o novo texto)
+    ' Restaura a formataï¿½ï¿½o original no novo range (que agora contï¿½m o novo texto)
     On Error Resume Next
     If Not origFont Is Nothing Then rng.Font = origFont
     If Not origParaFormat Is Nothing Then rng.ParagraphFormat = origParaFormat
@@ -454,7 +454,7 @@ Public Sub RestaurarBackup()
 
     ' Confirma com usuario
     Dim confirmMsg As String
-    confirmMsg = "[é] Deseja restaurar o backup mais antigo do documentoé" & vbCrLf & vbCrLf & _
+    confirmMsg = "[ï¿½] Deseja restaurar o backup mais antigo do documentoï¿½" & vbCrLf & vbCrLf & _
                  "[!] ATENCAO: O documento atual sera descartado!" & vbCrLf & vbCrLf & _
                  "[DIR] Documento atual: " & doc.Name & vbCrLf & _
                  "[DIR] Backup (mais antigo): " & targetBackupName

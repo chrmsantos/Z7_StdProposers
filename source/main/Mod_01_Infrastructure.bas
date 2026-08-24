@@ -1,7 +1,7 @@
-Attribute VB_Name = "Mod1Infrastructure"
+Attribute VB_Name = "Mod_01_Infrastructure"
 Option Explicit
 
-' Mod1Infrastructure.bas
+' Mod_01_Infrastructure.bas
 ' =============================================================================
 ' Z7_STDPROPOSERS - Sistema de Padronizacao de Proposituras Legislativas
 ' =============================================================================

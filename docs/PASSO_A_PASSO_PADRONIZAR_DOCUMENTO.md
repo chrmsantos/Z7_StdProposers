@@ -1,6 +1,6 @@
 # Passo-a-Passo: Edições realizadas por `PadronizarDocumentoMain`
 
-> **Descrição geral:** Este documento lista, na ordem exata de execução, todas as formatações e substituições de texto aplicadas ao documento ao rodar a subrotina `PadronizarDocumentoMain` (módulo `Mod4Main.bas`).
+> **Descrição geral:** Este documento lista, na ordem exata de execução, todas as formatações e substituições de texto aplicadas ao documento ao rodar a subrotina `PadronizarDocumentoMain` (módulo `Mod_04_Main.bas`).
 
 ---
 

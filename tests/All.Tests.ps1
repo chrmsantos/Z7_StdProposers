@@ -1,4 +1,4 @@
-﻿#requires -Version 5.1
+#requires -Version 5.1
 Import-Module Pester -ErrorAction Stop
 . $PSScriptRoot\Helpers.ps1
 
@@ -31,17 +31,17 @@ Describe 'Z7_STDPROPOSERS - Testes de Integridade' {
     Context 'VBA / BAS files' {
         $basFiles = Get-VbaFiles
         It 'Existe o conjunto de modulos esperados' {
-            ($basFiles.Name -contains 'Mod1Infrastructure.bas') | Should Be $true
-            ($basFiles.Name -contains 'Mod2Engine.bas') | Should Be $true
-            ($basFiles.Name -contains 'Mod3Pipeline.bas') | Should Be $true
-            ($basFiles.Name -contains 'Mod5Logging.bas') | Should Be $true
-            ($basFiles.Name -contains 'Mod4Main.bas') | Should Be $true
-            ($basFiles.Name -contains 'Mod7Formatting.bas') | Should Be $true
-            ($basFiles.Name -contains 'Mod8Ementa.bas') | Should Be $true
-            ($basFiles.Name -contains 'Mod9SpecialParagraphs.bas') | Should Be $true
-            ($basFiles.Name -contains 'Mod10Validation.bas') | Should Be $true
-            ($basFiles.Name -contains 'Mod11RevisionText.bas') | Should Be $true
-            ($basFiles.Name -contains 'Mod12AIStructure.bas') | Should Be $true
+            ($basFiles.Name -contains 'Mod_01_Infrastructure.bas') | Should Be $true
+            ($basFiles.Name -contains 'Mod_02_Engine.bas') | Should Be $true
+            ($basFiles.Name -contains 'Mod_03_Pipeline.bas') | Should Be $true
+            ($basFiles.Name -contains 'Mod_05_Logging.bas') | Should Be $true
+            ($basFiles.Name -contains 'Mod_04_Main.bas') | Should Be $true
+            ($basFiles.Name -contains 'Mod_07_Formatting.bas') | Should Be $true
+            ($basFiles.Name -contains 'Mod_08_Ementa.bas') | Should Be $true
+            ($basFiles.Name -contains 'Mod_09_SpecialParagraphs.bas') | Should Be $true
+            ($basFiles.Name -contains 'Mod_10_Validation.bas') | Should Be $true
+            ($basFiles.Name -contains 'Mod_11_RevisionText.bas') | Should Be $true
+            ($basFiles.Name -contains 'Mod_12_AIStructure.bas') | Should Be $true
         }
 
         It 'Nao existam backups duplicados com mesmo tamanho' {
@@ -75,8 +75,8 @@ Describe 'Z7_STDPROPOSERS - Testes de Integridade' {
     }
 
     Context 'Consistencia de versao' {
-        It 'Z7_STDPROPOSERS_VERSION em Mod1Infrastructure.bas coincide com o arquivo VERSION' {
-            $mod1Path = Join-Path (Get-RepoRoot) 'source\main\Mod1Infrastructure.bas'
+        It 'Z7_STDPROPOSERS_VERSION em Mod_01_Infrastructure.bas coincide com o arquivo VERSION' {
+            $mod1Path = Join-Path (Get-RepoRoot) 'source\main\Mod_01_Infrastructure.bas'
             $mod1Content = Get-Content $mod1Path -Raw -Encoding UTF8
             $vbaVer = [regex]::Match($mod1Content, 'Z7_STDPROPOSERS_VERSION As String = "([^"]+)"').Groups[1].Value
             $fileVer = (Get-Content (Join-Path (Get-RepoRoot) 'VERSION') -Raw -Encoding UTF8).Trim()

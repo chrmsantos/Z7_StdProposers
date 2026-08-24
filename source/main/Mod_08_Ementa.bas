@@ -1,7 +1,7 @@
-Attribute VB_Name = "Mod8Ementa"
+Attribute VB_Name = "Mod_08_Ementa"
 Option Explicit
 
-' Mod8Ementa
+' Mod_08_Ementa
 ' =============================================================================
 ' Z7_STDPROPOSERS - Sistema de Padronizacao de Proposituras Legislativas
 ' =============================================================================
@@ -210,7 +210,7 @@ Public Sub RemoveEmentaTrailingMunicipioSuffix(doc As Document)
     ' Construcao ASCII-safe de ",neste municipio" (com e sem acento)
     Dim municipio1 As String
     Dim municipio2 As String
-    municipio1 = "mun" & ChrW(237) & "cipio" ' municópio (com acento)
+    municipio1 = "mun" & ChrW(237) & "cipio" ' municï¿½pio (com acento)
     municipio2 = "municipio"               ' municipio (sem acento)
     
     Dim suffix1 As String, suffix2 As String
@@ -309,10 +309,10 @@ ErrorHandler:
 End Sub
 
 '================================================================================
-' EMENTA - Remove aspas envolventes ("...", é...é, é...é, '...')
+' EMENTA - Remove aspas envolventes ("...", ï¿½...ï¿½, ï¿½...ï¿½, '...')
 ' Regras:
 ' - Remove aspas duplas ou simples do inicio e fim do paragrafo da ementa
-' - Trata aspas ASCII (" ') e tipograficas (é é é é)
+' - Trata aspas ASCII (" ') e tipograficas (ï¿½ ï¿½ ï¿½ ï¿½)
 ' - So remove se ambos os lados tiverem aspas correspondentes
 '================================================================================
 
@@ -354,9 +354,9 @@ Public Sub RemoveEmentaQuotes(doc As Document)
     closeOffset = 1
 
     If firstCh = Chr(34) And lastCh = Chr(34) Then isMatch = True          ' " ... "
-    If firstCh = ChrW(8220) And lastCh = ChrW(8221) Then isMatch = True   ' é ... é
+    If firstCh = ChrW(8220) And lastCh = ChrW(8221) Then isMatch = True   ' ï¿½ ... ï¿½
     If firstCh = Chr(39) And lastCh = Chr(39) Then isMatch = True          ' ' ... '
-    If firstCh = ChrW(8216) And lastCh = ChrW(8217) Then isMatch = True   ' é ... é
+    If firstCh = ChrW(8216) And lastCh = ChrW(8217) Then isMatch = True   ' ï¿½ ... ï¿½
 
     ' Caso 2: ponto final apos aspa de fechamento ("texto".)
     If Not isMatch And lastCh = "." And Len(txt) >= 3 Then
@@ -391,7 +391,7 @@ End Sub
 
 '================================================================================
 ' EMENTA - Substitui "Indica ao DAE" ou "Sugere ao DAE" por "Indica ao Poder Executivo Municipal"
-' em indicações (documentos cujo tétulo comeãa com "INDICAÇÃO").
+' em indicaï¿½ï¿½es (documentos cujo tï¿½tulo comeï¿½a com "INDICAï¿½ï¿½O").
 '================================================================================
 
 Public Sub ProcessEmentaIndicacao(doc As Document)
@@ -409,8 +409,8 @@ Public Sub ProcessEmentaIndicacao(doc As Document)
     Dim lowerTitle As String
     lowerTitle = LCase$(titleText)
 
-    ' Verifica se o tétulo comeãa com "INDICAÇÃO" ou "INDICACAO"
-    If Left$(lowerTitle, 9) = "indicação" Or Left$(lowerTitle, 9) = "indicacao" Then
+    ' Verifica se o tï¿½tulo comeï¿½a com "INDICAï¿½ï¿½O" ou "INDICACAO"
+    If Left$(lowerTitle, 9) = "indicaï¿½ï¿½o" Or Left$(lowerTitle, 9) = "indicacao" Then
         Dim ementaRng As Range
         Set ementaRng = GetEmentaRange(doc)
         If ementaRng Is Nothing Then Exit Sub
@@ -418,7 +418,7 @@ Public Sub ProcessEmentaIndicacao(doc As Document)
         Dim ementaText As String
         ementaText = ementaRng.text
 
-        ' Remove o parágrafo vbCr final para manipulação de string
+        ' Remove o parï¿½grafo vbCr final para manipulaï¿½ï¿½o de string
         Dim hasCr As Boolean
         hasCr = (Right$(ementaText, 1) = vbCr)
         
@@ -435,7 +435,7 @@ Public Sub ProcessEmentaIndicacao(doc As Document)
         Dim modified As Boolean
         modified = False
 
-        ' Verifica se comeãa com "Indica ao DAE" ou "Sugere ao DAE" (13 caracteres)
+        ' Verifica se comeï¿½a com "Indica ao DAE" ou "Sugere ao DAE" (13 caracteres)
         If Len(lowerTrimEmenta) >= 13 Then
             If Left$(lowerTrimEmenta, 13) = "indica ao dae" Then
                 trimEmenta = "Indica ao Poder Executivo Municipal" & Mid$(trimEmenta, 14)

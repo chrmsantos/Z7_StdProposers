@@ -1,7 +1,7 @@
-Attribute VB_Name = "Mod4Main"
+Attribute VB_Name = "Mod_04_Main"
 Option Explicit
 
-' Mod4Main.bas
+' Mod_04_Main.bas
 ' =============================================================================
 ' Z7_STDPROPOSERS - Sistema de Padronizacao de Proposituras Legislativas
 ' =============================================================================

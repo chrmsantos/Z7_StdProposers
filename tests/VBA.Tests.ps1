@@ -21,18 +21,18 @@ Describe 'Z7_STDPROPOSERS - VBA Modular Architecture' {
 
     Context 'Estrutura de modulos' {
         It 'Possui os modulos esperados' {
-            ($script:moduleNames -contains 'Mod1Infrastructure.bas') | Should Be $true
-            ($script:moduleNames -contains 'Mod2Engine.bas') | Should Be $true
-            ($script:moduleNames -contains 'Mod3Pipeline.bas') | Should Be $true
-            ($script:moduleNames -contains 'Mod5Logging.bas') | Should Be $true
-            ($script:moduleNames -contains 'Mod4Main.bas') | Should Be $true
-            ($script:moduleNames -contains 'Mod6WordMacro.bas') | Should Be $true
-            ($script:moduleNames -contains 'Mod7Formatting.bas') | Should Be $true
-            ($script:moduleNames -contains 'Mod8Ementa.bas') | Should Be $true
-            ($script:moduleNames -contains 'Mod9SpecialParagraphs.bas') | Should Be $true
-            ($script:moduleNames -contains 'Mod10Validation.bas') | Should Be $true
-            ($script:moduleNames -contains 'Mod11RevisionText.bas') | Should Be $true
-            ($script:moduleNames -contains 'Mod12AIStructure.bas') | Should Be $true
+            ($script:moduleNames -contains 'Mod_01_Infrastructure.bas') | Should Be $true
+            ($script:moduleNames -contains 'Mod_02_Engine.bas') | Should Be $true
+            ($script:moduleNames -contains 'Mod_03_Pipeline.bas') | Should Be $true
+            ($script:moduleNames -contains 'Mod_05_Logging.bas') | Should Be $true
+            ($script:moduleNames -contains 'Mod_04_Main.bas') | Should Be $true
+            ($script:moduleNames -contains 'Mod_06_WordMacro.bas') | Should Be $true
+            ($script:moduleNames -contains 'Mod_07_Formatting.bas') | Should Be $true
+            ($script:moduleNames -contains 'Mod_08_Ementa.bas') | Should Be $true
+            ($script:moduleNames -contains 'Mod_09_SpecialParagraphs.bas') | Should Be $true
+            ($script:moduleNames -contains 'Mod_10_Validation.bas') | Should Be $true
+            ($script:moduleNames -contains 'Mod_11_RevisionText.bas') | Should Be $true
+            ($script:moduleNames -contains 'Mod_12_AIStructure.bas') | Should Be $true
         }
 
         It 'Todos os modulos tem Option Explicit' {
@@ -50,63 +50,63 @@ Describe 'Z7_STDPROPOSERS - VBA Modular Architecture' {
 
     Context 'Pontos de entrada e pipeline' {
         It 'Tem entrypoint principal PadronizarDocumentoMain' {
-            $script:moduleContent['Mod4Main.bas'] | Should Match '(?m)^Public Sub PadronizarDocumentoMain\('
+            $script:moduleContent['Mod_04_Main.bas'] | Should Match '(?m)^Public Sub PadronizarDocumentoMain\('
         }
 
         It 'Mantem as funcoes publicas de ranges estruturais' {
-            $script:moduleContent['Mod4Main.bas'] | Should Match '(?m)^Public Function GetTituloRange\(doc As Document\) As Range'
-            $script:moduleContent['Mod4Main.bas'] | Should Match '(?m)^Public Function GetEmentaRange\(doc As Document\) As Range'
-            $script:moduleContent['Mod4Main.bas'] | Should Match '(?m)^Public Function GetVocativoRange\(doc As Document\) As Range'
-            $script:moduleContent['Mod4Main.bas'] | Should Match '(?m)^Public Function GetCorpoRange\(doc As Document\) As Range'
-            $script:moduleContent['Mod4Main.bas'] | Should Match '(?m)^Public Function GetJustificativaRange\(doc As Document\) As Range'
+            $script:moduleContent['Mod_04_Main.bas'] | Should Match '(?m)^Public Function GetTituloRange\(doc As Document\) As Range'
+            $script:moduleContent['Mod_04_Main.bas'] | Should Match '(?m)^Public Function GetEmentaRange\(doc As Document\) As Range'
+            $script:moduleContent['Mod_04_Main.bas'] | Should Match '(?m)^Public Function GetVocativoRange\(doc As Document\) As Range'
+            $script:moduleContent['Mod_04_Main.bas'] | Should Match '(?m)^Public Function GetCorpoRange\(doc As Document\) As Range'
+            $script:moduleContent['Mod_04_Main.bas'] | Should Match '(?m)^Public Function GetJustificativaRange\(doc As Document\) As Range'
         }
 
-        It 'Logging esta em Mod5Logging' {
-            $script:moduleContent['Mod5Logging.bas'] | Should Match 'Public Function InitializeLogging\(doc As Document\) As Boolean'
-            $script:moduleContent['Mod5Logging.bas'] | Should Match 'Public Sub SafeFinalizeLogging\(\)'
+        It 'Logging esta em Mod_05_Logging' {
+            $script:moduleContent['Mod_05_Logging.bas'] | Should Match 'Public Function InitializeLogging\(doc As Document\) As Boolean'
+            $script:moduleContent['Mod_05_Logging.bas'] | Should Match 'Public Sub SafeFinalizeLogging\(\)'
         }
 
-        It 'Rotinas tikinho tk estao em Mod9SpecialParagraphs' {
-            $script:moduleContent['Mod9SpecialParagraphs.bas'] | Should Match 'Private Function IsTikinhoTk\(ByVal text As String\) As Boolean'
-            $script:moduleContent['Mod9SpecialParagraphs.bas'] | Should Match 'Public Sub ReplaceTikinhoTkParagraphs\(doc As Document\)'
+        It 'Rotinas tikinho tk estao em Mod_09_SpecialParagraphs' {
+            $script:moduleContent['Mod_09_SpecialParagraphs.bas'] | Should Match 'Private Function IsTikinhoTk\(ByVal text As String\) As Boolean'
+            $script:moduleContent['Mod_09_SpecialParagraphs.bas'] | Should Match 'Public Sub ReplaceTikinhoTkParagraphs\(doc As Document\)'
         }
 
-        It 'Substituicoes de Jd e numero estao em Mod9SpecialParagraphs' {
-            $script:moduleContent['Mod9SpecialParagraphs.bas'] | Should Match 'ExecuteFindReplace\(doc, " Jd ", " Jd. ", True\)'
+        It 'Substituicoes de Jd e numero estao em Mod_09_SpecialParagraphs' {
+            $script:moduleContent['Mod_09_SpecialParagraphs.bas'] | Should Match 'ExecuteFindReplace\(doc, " Jd ", " Jd. ", True\)'
         }
 
-        It 'Rotina de justificativa esta em Mod9SpecialParagraphs' {
-            $script:moduleContent['Mod9SpecialParagraphs.bas'] | Should Match 'Public Sub RemoveJustificativaColon\(doc As Document\)'
+        It 'Rotina de justificativa esta em Mod_09_SpecialParagraphs' {
+            $script:moduleContent['Mod_09_SpecialParagraphs.bas'] | Should Match 'Public Sub RemoveJustificativaColon\(doc As Document\)'
         }
 
-        It 'Paginacao de requerimentos esta em Mod2Engine' {
-            $script:moduleContent['Mod2Engine.bas'] | Should Match 'Public Function IsRequerimentoPageLine\(text As String\) As Boolean'
+        It 'Paginacao de requerimentos esta em Mod_02_Engine' {
+            $script:moduleContent['Mod_02_Engine.bas'] | Should Match 'Public Function IsRequerimentoPageLine\(text As String\) As Boolean'
         }
 
-        It 'Espaco nao separavel esta em Mod7Formatting' {
-            $script:moduleContent['Mod7Formatting.bas'] | Should Match 'Public Sub EnsureNonBreakingSpaceAfterNo\(doc As Document\)'
+        It 'Espaco nao separavel esta em Mod_07_Formatting' {
+            $script:moduleContent['Mod_07_Formatting.bas'] | Should Match 'Public Sub EnsureNonBreakingSpaceAfterNo\(doc As Document\)'
         }
 
-        It 'Revisao IA de texto selecionado esta em Mod11RevisionText' {
-            $script:moduleContent['Mod11RevisionText.bas'] | Should Match '(?m)^Public Sub TestarRevisaoTextoSelecionado\('
+        It 'Revisao IA de texto selecionado esta em Mod_11_RevisionText' {
+            $script:moduleContent['Mod_11_RevisionText.bas'] | Should Match '(?m)^Public Sub TestarRevisaoTextoSelecionado\('
         }
 
-        It 'Revisao IA de documento inteiro esta em Mod11RevisionText' {
-            $script:moduleContent['Mod11RevisionText.bas'] | Should Match '(?m)^Public Sub CorrigirProposituraComIA\('
+        It 'Revisao IA de documento inteiro esta em Mod_11_RevisionText' {
+            $script:moduleContent['Mod_11_RevisionText.bas'] | Should Match '(?m)^Public Sub CorrigirProposituraComIA\('
         }
 
-        It 'Diagnostico OpenRouter esta em Mod11RevisionText' {
-            $script:moduleContent['Mod11RevisionText.bas'] | Should Match '(?m)^Public Sub DiagnosticarOpenRouter\('
+        It 'Diagnostico OpenRouter esta em Mod_11_RevisionText' {
+            $script:moduleContent['Mod_11_RevisionText.bas'] | Should Match '(?m)^Public Sub DiagnosticarOpenRouter\('
         }
 
-        It 'Mod11RevisionText usa caminhos centralizados de Mod1Infrastructure' {
-            $script:moduleContent['Mod11RevisionText.bas'] | Should Match 'GetZ7StdProposersDataPath'
+        It 'Mod_11_RevisionText usa caminhos centralizados de Mod_01_Infrastructure' {
+            $script:moduleContent['Mod_11_RevisionText.bas'] | Should Match 'GetZ7StdProposersDataPath'
         }
 
-        It 'Mod11RevisionText usa logging do projeto' {
-            $script:moduleContent['Mod11RevisionText.bas'] | Should Match 'LogMessage'
-            $script:moduleContent['Mod11RevisionText.bas'] | Should Match 'LOG_LEVEL_INFO'
-            $script:moduleContent['Mod11RevisionText.bas'] | Should Match 'LOG_LEVEL_ERROR'
+        It 'Mod_11_RevisionText usa logging do projeto' {
+            $script:moduleContent['Mod_11_RevisionText.bas'] | Should Match 'LogMessage'
+            $script:moduleContent['Mod_11_RevisionText.bas'] | Should Match 'LOG_LEVEL_INFO'
+            $script:moduleContent['Mod_11_RevisionText.bas'] | Should Match 'LOG_LEVEL_ERROR'
         }
 
     }

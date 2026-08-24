@@ -1,7 +1,7 @@
-Attribute VB_Name = "Mod6WordMacro"
+Attribute VB_Name = "Mod_06_WordMacro"
 Option Explicit
 
-' Mod6WordMacro.bas
+' Mod_06_WordMacro.bas
 ' =============================================================================
 ' Z7_STDPROPOSERS - Sistema de Padronizacao de Proposituras Legislativas
 ' =============================================================================

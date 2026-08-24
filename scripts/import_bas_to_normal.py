@@ -1,4 +1,4 @@
-"""
+﻿"""
 import_bas_to_normal.py
 Imports .bas VBA module files from source/main/ into Normal.dotm's VBProject.
 Requires: Word closed before running, or Word opened programmatically.
@@ -57,7 +57,7 @@ def main():
         error_count = 0
 
         for bas_path in bas_files:
-            bas_name = Path(bas_path).stem  # e.g., "Mod3Pipeline"
+            bas_name = Path(bas_path).stem  # e.g., "Mod_03_Pipeline"
             # Source .bas files are UTF-8; try UTF-8 first, fall back to CP1252.
             raw = Path(bas_path).read_bytes()
             try:

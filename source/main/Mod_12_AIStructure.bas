@@ -1,7 +1,7 @@
-Attribute VB_Name = "Mod12AIStructure"
+Attribute VB_Name = "Mod_12_AIStructure"
 Option Explicit
 
-' Mod12AIStructure.bas
+' Mod_12_AIStructure.bas
 ' =============================================================================
 ' Z7_STDPROPOSERS - Identificacao de Estrutura do Documento via IA (OpenRouter)
 ' =============================================================================
@@ -10,12 +10,12 @@ Option Explicit
 ' =============================================================================
 ' Este modulo fornece identificacao de elementos estruturais de proposituras
 ' legislativas utilizando a API da OpenRouter (mesma infraestrutura de
-' Mod11RevisionText.bas). A IA analisa o texto completo do documento e
+' Mod_11_RevisionText.bas). A IA analisa o texto completo do documento e
 ' identifica: Titulo, Ementa, Vocativo, Corpo, Titulo da Justificativa,
 ' Justificativa, Data, Assinatura, Titulo do Anexo e Anexo.
 '
 ' Em caso de falha na chamada a IA, o chamador deve recorrer a implementacao
-' heuristica (IdentifyDocumentStructureHeuristics em Mod2Engine.bas).
+' heuristica (IdentifyDocumentStructureHeuristics em Mod_02_Engine.bas).
 ' =============================================================================
 
 ' =============================================================================

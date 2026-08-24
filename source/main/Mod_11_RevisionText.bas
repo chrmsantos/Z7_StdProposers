@@ -1,7 +1,7 @@
-Attribute VB_Name = "Mod11RevisionText"
+Attribute VB_Name = "Mod_11_RevisionText"
 Option Explicit
 
-' Mod11RevisionText.bas
+' Mod_11_RevisionText.bas
 ' =============================================================================
 ' Z7_STDPROPOSERS - Sistema de Padronizacao de Proposituras Legislativas
 ' =============================================================================

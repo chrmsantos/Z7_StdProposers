@@ -5,7 +5,7 @@ Import-Module Pester -ErrorAction Stop
 Describe 'Z7_STDPROPOSERS - VBA Identifier Functions (Modular)' {
     BeforeAll {
         $repoRoot = Get-RepoRoot
-        $mod4Path = Join-Path $repoRoot 'source\main\Mod4Main.bas'
+        $mod4Path = Join-Path $repoRoot 'source\main\Mod_04_Main.bas'
         if (-not (Test-Path $mod4Path)) {
             throw "Arquivo nao encontrado: $mod4Path"
         }
@@ -45,7 +45,7 @@ Describe 'Z7_STDPROPOSERS - VBA Identifier Functions (Modular)' {
 
     Context 'Novas funcoes de identificacao' {
         It 'Declara IsVocativoElement' {
-            $mod2Path = Join-Path $repoRoot 'source\main\Mod2Engine.bas'
+            $mod2Path = Join-Path $repoRoot 'source\main\Mod_02_Engine.bas'
             $mod2Content = Get-Content $mod2Path -Raw -Encoding UTF8
             $mod2Content | Should Match '(?m)^Public Function IsVocativoElement\(para As Paragraph\) As Boolean'
         }

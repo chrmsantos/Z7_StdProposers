@@ -18,11 +18,11 @@ Z7_StdProposers is an advanced, robust VBA macro project designed exclusively fo
 
 The VBA codebase is organized into 10 modules in `source/main/`:
 
-- `Mod1Infrastructure.bas`: Constants, global state, cross-cutting helpers, paths, backup/system integrations.
-- `Mod2Engine.bas`: Structural detection heuristics, paragraph cache, image/list preservation routines.
-- `Mod3Pipeline.bas`: Core formatting pipeline (double-pass), normalization, cleanup, and logging primitives.
-- `Mod4Main.bas`: Public entrypoints/macros, orchestration, and structural range identification.
-- `Mod6WordMacro.bas`: Asynchronous Word-to-Python integration bridge (launches AI chat and prompt configurations).
+- `Mod_01_Infrastructure.bas`: Constants, global state, cross-cutting helpers, paths, backup/system integrations.
+- `Mod_02_Engine.bas`: Structural detection heuristics, paragraph cache, image/list preservation routines.
+- `Mod_03_Pipeline.bas`: Core formatting pipeline (double-pass), normalization, cleanup, and logging primitives.
+- `Mod_04_Main.bas`: Public entrypoints/macros, orchestration, and structural range identification.
+- `Mod_06_WordMacro.bas`: Asynchronous Word-to-Python integration bridge (launches AI chat and prompt configurations).
 
 The repository also contains a Python integration package in `ai/` for OpenRouter-based AI grammar correction and chat utilities.
 
