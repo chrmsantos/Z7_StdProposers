@@ -226,10 +226,6 @@ def import_modules_to_normal(
 def _import_single_module(vb_project, bas_path: str, bas_name: str, logger: logging.Logger):
     """Import a single .bas module into the VBProject."""
     raw = Path(bas_path).read_bytes()
-    try:
-        bas_content = raw.decode("utf-8")
-    except (UnicodeDecodeError, ValueError):
-        bas_content = raw.decode("cp1252")
 
     existing_module = None
     for comp in vb_project.VBComponents:
@@ -240,11 +236,15 @@ def _import_single_module(vb_project, bas_path: str, bas_name: str, logger: logg
     if existing_module:
         vb_project.VBComponents.Remove(existing_module)
 
+    # Write temp file preserving exact bytes — no decode/encode round-trip.
+    # Source .bas files are already CP1252 (verified by fix_bas_encoding.py).
+    # VBComponents.Import() reads using the system ANSI codepage (CP1252),
+    # so the bytes can be written directly.
     tmp_path = None
     try:
         fd, tmp_path = tempfile.mkstemp(suffix=".bas")
         os.close(fd)
-        Path(tmp_path).write_text(bas_content, encoding="cp1252", errors="replace")
+        Path(tmp_path).write_bytes(raw)
         vb_project.VBComponents.Import(tmp_path)
     finally:
         if tmp_path and os.path.exists(tmp_path):
