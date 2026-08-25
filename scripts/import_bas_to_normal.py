@@ -31,6 +31,7 @@ from pathlib import Path
 LOGGER_NAME = "import_bas"
 BACKUP_NAME = "Normal_backup.dotm"
 NORMAL_DOTM_RELATIVE = os.path.join("Microsoft", "Templates", "Normal.dotm")
+Z7_MODULE_PREFIX = "Mod_"
 
 # ---------------------------------------------------------------------------
 # Logging setup
@@ -198,6 +199,12 @@ def import_modules_to_normal(
         logger.info("VBProject: %s | Modulos existentes: %d",
                      vb_project.Name, vb_project.VBComponents.Count)
 
+        # Step 1: Remove ALL existing Z7 modules (including stale ones).
+        removed = _remove_z7_modules(vb_project, logger)
+        if removed:
+            logger.info("Modulos Z7 removidos: %d", removed)
+
+        # Step 2: Import all .bas files.
         for bas_path in bas_files:
             bas_name = Path(bas_path).stem
             try:
@@ -241,36 +248,65 @@ def import_modules_to_normal(
 
 def _copy_back_to_normal(tmp_copy: Path, normal_dotm: Path,
                          logger: logging.Logger):
-    """Replace Normal.dotm with the updated temporary copy."""
-    try:
-        shutil.copy2(str(tmp_copy), str(normal_dotm))
-        logger.info("Normal.dotm atualizado a partir da copia temporaria.")
-        # Clean up temp file on success.
+    """Replace Normal.dotm with the updated temporary copy.
+
+    Retries a few times with a short delay because Word may not have fully
+    released the file lock yet after quitting.
+    """
+    max_retries = 5
+    for attempt in range(1, max_retries + 1):
         try:
-            tmp_copy.unlink(missing_ok=True)
-        except OSError:
-            pass
-    except PermissionError:
-        logger.warning(
-            "Nao foi possivel substituir Normal.dotm (arquivo bloqueado). "
-            "Feche o Word e execute novamente, ou copie manualmente:\n"
-            "  de: %s\n  para: %s", tmp_copy, normal_dotm
-        )
+            shutil.copy2(str(tmp_copy), str(normal_dotm))
+            logger.info("Normal.dotm atualizado a partir da copia temporaria.")
+            # Clean up temp file on success.
+            try:
+                tmp_copy.unlink(missing_ok=True)
+            except OSError:
+                pass
+            return
+        except PermissionError:
+            if attempt < max_retries:
+                logger.debug("Arquivo bloqueado, tentativa %d/%d...",
+                             attempt, max_retries)
+                time.sleep(1)
+            else:
+                logger.warning(
+                    "Nao foi possivel substituir Normal.dotm (arquivo bloqueado). "
+                    "Feche o Word e execute novamente, ou copie manualmente:\n"
+                    "  de: %s\n  para: %s", tmp_copy, normal_dotm
+                )
 
 # PLACEHOLDER_PART5
 
-def _import_single_module(vb_project, bas_path: str, bas_name: str, logger: logging.Logger):
-    """Import a single .bas module into the VBProject."""
-    raw = Path(bas_path).read_bytes()
+def _remove_z7_modules(vb_project, logger: logging.Logger) -> int:
+    """Remove all Z7 modules (names starting with Z7_MODULE_PREFIX) from the VBProject.
 
-    existing_module = None
+    Returns the number of modules removed.  Modules are collected first and
+    removed in a second pass to avoid mutating the VBComponents collection
+    while iterating over it.
+    """
+    to_remove = []
     for comp in vb_project.VBComponents:
-        if comp.Name == bas_name:
-            existing_module = comp
-            break
+        if comp.Name.startswith(Z7_MODULE_PREFIX):
+            to_remove.append(comp)
 
-    if existing_module:
-        vb_project.VBComponents.Remove(existing_module)
+    for comp in to_remove:
+        try:
+            logger.info("  [REM] %s", comp.Name)
+            vb_project.VBComponents.Remove(comp)
+        except Exception as e:
+            logger.warning("  [REM] %s - falha ao remover: %s", comp.Name, e)
+
+    return len(to_remove)
+
+
+def _import_single_module(vb_project, bas_path: str, bas_name: str, logger: logging.Logger):
+    """Import a single .bas module into the VBProject.
+
+    Assumes that any pre-existing module with the same name has already been
+    removed by _remove_z7_modules().
+    """
+    raw = Path(bas_path).read_bytes()
 
     # Write temp file preserving exact bytes — no decode/encode round-trip.
     # Source .bas files are already CP1252 (verified by fix_bas_encoding.py).
@@ -289,8 +325,7 @@ def _import_single_module(vb_project, bas_path: str, bas_name: str, logger: logg
             except OSError:
                 pass
 
-    action = "re-importado" if existing_module else "importado como novo modulo"
-    logger.info("  [OK] %s - %s", bas_name, action)
+    logger.info("  [OK] %s - importado", bas_name)
 
 # PLACEHOLDER_PART6
 

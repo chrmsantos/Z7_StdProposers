@@ -17,6 +17,7 @@ if str(SCRIPTS_DIR) not in sys.path:
 
 from import_bas_to_normal import (  # noqa: E402
     BACKUP_NAME,
+    Z7_MODULE_PREFIX,
     _get_logs_dir,
     create_backup,
     discover_bas_files,
@@ -185,6 +186,29 @@ class TestGetLogsDir(unittest.TestCase):
             result = _get_logs_dir()
             self.assertIn("Z7", str(result))
             self.assertIn("logs", str(result))
+
+
+class TestZ7ModulePrefix(unittest.TestCase):
+    def test_prefix_value(self):
+        self.assertEqual(Z7_MODULE_PREFIX, "Mod_")
+
+    def test_prefix_matches_known_modules(self):
+        modules = [
+            "Mod_01_Infrastructure", "Mod_02_Engine", "Mod_03_Pipeline",
+            "Mod_04_Main", "Mod_05_Logging", "Mod_06_WordMacro",
+            "Mod_07_Formatting", "Mod_08_Ementa", "Mod_09_SpecialParagraphs",
+            "Mod_10_Validation", "Mod_11_RevisionText", "Mod_12_AIStructure",
+        ]
+        for name in modules:
+            self.assertTrue(
+                name.startswith(Z7_MODULE_PREFIX),
+                f"{name} should start with {Z7_MODULE_PREFIX}",
+            )
+
+    def test_prefix_does_not_match_non_z7(self):
+        non_z7 = ["Normal", "ThisDocument", "UserForm1", "Module1"]
+        for name in non_z7:
+            self.assertFalse(name.startswith(Z7_MODULE_PREFIX))
 
 
 if __name__ == "__main__":
