@@ -90,6 +90,12 @@ Private Declare Sub CopyMemory _
     Lib "kernel32" Alias "RtlMoveMemory" ( _
     ByRef Destination As Any, _
     ByRef Source As Any, _
+    ByVal Length As Long)
+Private Declare Function LocalFree _
+    Lib "kernel32" ( _
+    ByVal hMem As Long _
+    ) As Long
+#End If
 
 ' =============================================================================
 ' CARREGAR MODELO IA DO CONFIG_PROMPT
@@ -211,13 +217,6 @@ ErrorHandler:
     LogMessage LOG_PREFIX & ": Erro ao carregar chave API: " & Err.Description, LOG_LEVEL_ERROR
     CarregarChaveAPI = ""
 End Function
-
-    ByVal Length As Long)
-Private Declare Function LocalFree _
-    Lib "kernel32" ( _
-    ByVal hMem As Long _
-    ) As Long
-#End If
 
 ' =============================================================================
 ' VALIDAR CHAVE API (ANTES DA PRIMEIRA CHAMADA)
