@@ -699,12 +699,24 @@ End Function
 
 
 ' =============================================================================
-' SUBSTITUI TEXTO PRESERVANDO FORMATACAO
+' SUBSTITUI TEXTO PRESERVANDO FORMATACAO (ROBUSTA)
 ' =============================================================================
 '
-' Salva a formatacao de CADA caractere individualmente, agrupa em
-' "runs" (trechos com formatacao identica) e aplica por run atraves
-' de mapeamento proporcional de posicoes.
+' Estrategia robusta de preservacao de formatacao:
+'
+' 1. Salva TODAS as propriedades do paragrafo ANTES da substituicao
+'    (incluindo Style, Borders, Shading, KeepWithNext, etc.).
+' 2. Detecta e EXCLUI marcas de paragrafo (vbCr) do range de
+'    substituicao para que a marca ¶ (que armazena a formatacao
+'    do paragrafo) NAO seja destruida pelo rng.Text = novoTexto.
+' 3. Salva a formatacao caractere-a-caractere APENAS do range
+'    ajustado (sem as marcas de paragrafo), garantindo que o
+'    mapeamento proporcional entre lenOld e lenNew seja exato.
+' 4. Agrupa em "runs" (trechos com formatacao identica) e aplica
+'    por run com mapeamento proporcional de posicoes.
+' 5. Restaura a formatacao do paragrafo APOS a formatacao de
+'    caractere, garantindo que propriedades como alinhamento,
+'    espacamento, bordas e sombreamento sejam reaplicadas.
 '
 ' Propriedades salvas por caractere:
 '   Font.Name, Font.Size, Font.Bold, Font.Italic,
@@ -713,9 +725,14 @@ End Function
 '   Font.Superscript, Font.Subscript, Font.Spacing,
 '   Font.Position
 '
-' Propriedades de paragrafo (valor unico):
+' Propriedades de paragrafo salvas:
 '   Style, Alignment, SpaceBefore, SpaceAfter,
-'   LineSpacing, LeftIndent, RightIndent, FirstLineIndent
+'   SpaceBeforeAuto, SpaceAfterAuto, LineSpacing,
+'   LineSpacingRule, LeftIndent, RightIndent,
+'   FirstLineIndent, KeepWithNext, KeepTogether,
+'   PageBreakBefore, WidowControl, OutlineLevel,
+'   Borders (left/right/top/bottom), Shading
+'   (BackgroundPatternColor, ForegroundPatternColor, Texture)
 '
 ' =============================================================================
 Private Sub SubstituirTextoPreservandoFormatacao( _
@@ -730,6 +747,7 @@ Private Sub SubstituirTextoPreservandoFormatacao( _
     Dim charRng As Range
     Dim runRng As Range
 
+    ' --- arrays de formatacao de caractere ---
     Dim arrFontName() As String
     Dim arrFontSize() As Single
     Dim arrBold() As Long
@@ -748,43 +766,138 @@ Private Sub SubstituirTextoPreservandoFormatacao( _
     Dim runCount As Long
     Dim runEndPos() As Long
 
+    ' --- propriedades de paragrafo (salvamento completo) ---
     Dim estilo As Variant
-    Dim alinhamento As WdParagraphAlignment
+    Dim alinhamento As Long
     Dim espAntes As Single
     Dim espDepois As Single
+    Dim espAntesAuto As Long
+    Dim espDepoisAuto As Long
     Dim espLinha As Single
+    Dim espLinhaRegra As Long
     Dim recuoEsquerdo As Single
     Dim recuoDireito As Single
     Dim primeiraLinha As Single
+    Dim keepWithNext As Long
+    Dim keepTogether As Long
+    Dim pageBreakBefore As Long
+    Dim widowControl As Long
+    Dim outlineLevel As Long
 
+    ' --- bordas do paragrafo ---
+    Dim bordaEsqEstilo As Long
+    Dim bordaEsqCor As Long
+    Dim bordaEsqLargura As Long
+    Dim bordaDirEstilo As Long
+    Dim bordaDirCor As Long
+    Dim bordaDirLargura As Long
+    Dim bordaTopEstilo As Long
+    Dim bordaTopCor As Long
+    Dim bordaTopLargura As Long
+    Dim bordaBotEstilo As Long
+    Dim bordaBotCor As Long
+    Dim bordaBotLargura As Long
+
+    ' --- shading do paragrafo ---
+    Dim shadingBgColor As Long
+    Dim shadingFgColor As Long
+    Dim shadingTexture As Long
+
+    ' --- controle de posicao ---
     Dim oldStart As Long
     Dim oldEnd As Long
     Dim newStart As Long
     Dim newEnd As Long
+    Dim temMarcaParagrafo As Boolean
+    Dim testRng As Range
 
     ' -----------------------------------------------------------------
-    ' DUPLICA RANGE
+    ' 1. DUPLICA RANGE E VERIFICA TAMANHO
     ' -----------------------------------------------------------------
     Set rng = rngOriginal.Duplicate
     lenOld = rng.End - rng.Start
     If lenOld <= 0 Then Exit Sub
 
     ' -----------------------------------------------------------------
-    ' SALVA FORMATACAO DO PARAGRAFO
+    ' 2. SALVA FORMATACAO COMPLETA DO PARAGRAFO (ANTES DE QUALQUER
+    '    ALTERACAO NO TEXTO)
     ' -----------------------------------------------------------------
     On Error Resume Next
     estilo = rng.Style
     alinhamento = rng.ParagraphFormat.alignment
     espAntes = rng.ParagraphFormat.SpaceBefore
     espDepois = rng.ParagraphFormat.SpaceAfter
+    espAntesAuto = rng.ParagraphFormat.SpaceBeforeAuto
+    espDepoisAuto = rng.ParagraphFormat.SpaceAfterAuto
     espLinha = rng.ParagraphFormat.LineSpacing
+    espLinhaRegra = rng.ParagraphFormat.LineSpacingRule
     recuoEsquerdo = rng.ParagraphFormat.leftIndent
     recuoDireito = rng.ParagraphFormat.RightIndent
     primeiraLinha = rng.ParagraphFormat.firstLineIndent
+    keepWithNext = rng.ParagraphFormat.KeepWithNext
+    keepTogether = rng.ParagraphFormat.KeepTogether
+    pageBreakBefore = rng.ParagraphFormat.PageBreakBefore
+    widowControl = rng.ParagraphFormat.WidowControl
+    outlineLevel = rng.ParagraphFormat.OutlineLevel
+
+    ' Bordas
+    bordaEsqEstilo = rng.ParagraphFormat.Borders(wdBorderLeft).LineStyle
+    bordaEsqCor = rng.ParagraphFormat.Borders(wdBorderLeft).Color
+    bordaEsqLargura = rng.ParagraphFormat.Borders(wdBorderLeft).LineWidth
+    bordaDirEstilo = rng.ParagraphFormat.Borders(wdBorderRight).LineStyle
+    bordaDirCor = rng.ParagraphFormat.Borders(wdBorderRight).Color
+    bordaDirLargura = rng.ParagraphFormat.Borders(wdBorderRight).LineWidth
+    bordaTopEstilo = rng.ParagraphFormat.Borders(wdBorderTop).LineStyle
+    bordaTopCor = rng.ParagraphFormat.Borders(wdBorderTop).Color
+    bordaTopLargura = rng.ParagraphFormat.Borders(wdBorderTop).LineWidth
+    bordaBotEstilo = rng.ParagraphFormat.Borders(wdBorderBottom).LineStyle
+    bordaBotCor = rng.ParagraphFormat.Borders(wdBorderBottom).Color
+    bordaBotLargura = rng.ParagraphFormat.Borders(wdBorderBottom).LineWidth
+
+    ' Shading
+    shadingBgColor = rng.ParagraphFormat.Shading.BackgroundPatternColor
+    shadingFgColor = rng.ParagraphFormat.Shading.ForegroundPatternColor
+    shadingTexture = rng.ParagraphFormat.Shading.Texture
+    On Error GoTo ErrorHandler
+
+    LogMessage LOG_PREFIX & ": Formatacao do paragrafo salva (" & _
+        "Style=" & TypeName(estilo) & ", Align=" & alinhamento & ")", LOG_LEVEL_INFO
+
+    ' -----------------------------------------------------------------
+    ' 3. DETECTA E EXCLUI MARCA DE PARAGRAFO (vbCr) DO FINAL DO RANGE
+    '    Esta e a correcao CRITICA: a marca ¶ armazena a formatacao
+    '    do paragrafo e NAO pode ser destruida pelo rng.Text = novoTexto.
+    ' -----------------------------------------------------------------
+    temMarcaParagrafo = False
+    On Error Resume Next
+    If rng.End > rng.Start Then
+        Set testRng = rng.Duplicate
+        testRng.Collapse wdCollapseEnd
+        testRng.MoveStart wdCharacter, -1
+        If Asc(testRng.text) = 13 Then
+            temMarcaParagrafo = True
+            rng.MoveEnd wdCharacter, -1
+            LogMessage LOG_PREFIX & ": Marca de paragrafo detectada e " & _
+                "excluida do range de substituicao", LOG_LEVEL_INFO
+        End If
+    End If
     On Error GoTo ErrorHandler
 
     ' -----------------------------------------------------------------
-    ' SALVA FORMATACAO DE CADA CARACTERE
+    ' 4. RECALCULA lenOld COM O RANGE AJUSTADO
+    ' -----------------------------------------------------------------
+    lenOld = rng.End - rng.Start
+    If lenOld <= 0 Then
+        ' Range so tinha a marca de paragrafo — restaura e sai
+        If temMarcaParagrafo Then
+            rng.MoveEnd wdCharacter, 1
+        End If
+        Exit Sub
+    End If
+
+    ' -----------------------------------------------------------------
+    ' 5. SALVA FORMATACAO DE CADA CARACTERE (apenas do range ajustado,
+    '    SEM as marcas de paragrafo)
     ' -----------------------------------------------------------------
     ReDim arrFontName(1 To lenOld)
     ReDim arrFontSize(1 To lenOld)
@@ -824,7 +937,8 @@ Private Sub SubstituirTextoPreservandoFormatacao( _
     On Error GoTo ErrorHandler
 
     ' -----------------------------------------------------------------
-    ' CONSTRUI RUNS DE FORMATACAO
+    ' 6. CONSTRUI RUNS DE FORMATACAO (agrupa caracteres consecutivos
+    '    com formatacao identica)
     ' -----------------------------------------------------------------
     runCount = 1
     ReDim runEndPos(1 To lenOld)
@@ -852,14 +966,22 @@ Private Sub SubstituirTextoPreservandoFormatacao( _
 
 
     ' -----------------------------------------------------------------
-    ' SUBSTITUI O TEXTO
+    ' 7. SUBSTITUI O TEXTO (a marca de paragrafo NAO e alterada
+    '    porque o range foi ajustado no passo 3)
     ' -----------------------------------------------------------------
     rng.text = novoTexto
     lenNew = rng.End - rng.Start
-    If lenNew <= 0 Then Exit Sub
+    If lenNew <= 0 Then
+        If temMarcaParagrafo Then
+            rng.MoveEnd wdCharacter, 1
+        End If
+        Exit Sub
+    End If
 
     ' -----------------------------------------------------------------
-    ' RESTAURA FORMATACAO POR RUN (mapeamento proporcional)
+    ' 8. RESTAURA FORMATACAO DE CARACTERE POR RUN
+    '    (mapeamento proporcional exato porque lenOld e lenNew
+    '    referem-se ambos ao range sem marcas de paragrafo)
     ' -----------------------------------------------------------------
     On Error Resume Next
     For i = 1 To runCount
@@ -898,27 +1020,89 @@ Private Sub SubstituirTextoPreservandoFormatacao( _
     On Error GoTo ErrorHandler
 
     ' -----------------------------------------------------------------
-    ' RESTAURA FORMATACAO DO PARAGRAFO
+    ' 9. RESTAURA FORMATACAO COMPLETA DO PARAGRAFO
+    '    Reexpande o range para incluir a marca de paragrafo e
+    '    reaplica todas as propriedades salvas no passo 2.
     ' -----------------------------------------------------------------
+    If temMarcaParagrafo Then
+        rng.MoveEnd wdCharacter, 1
+    End If
+
     On Error Resume Next
+
     rng.ParagraphFormat.alignment = alinhamento
     rng.ParagraphFormat.SpaceBefore = espAntes
     rng.ParagraphFormat.SpaceAfter = espDepois
+    rng.ParagraphFormat.SpaceBeforeAuto = espAntesAuto
+    rng.ParagraphFormat.SpaceAfterAuto = espDepoisAuto
     rng.ParagraphFormat.LineSpacing = espLinha
+    rng.ParagraphFormat.LineSpacingRule = espLinhaRegra
     rng.ParagraphFormat.leftIndent = recuoEsquerdo
     rng.ParagraphFormat.RightIndent = recuoDireito
     rng.ParagraphFormat.firstLineIndent = primeiraLinha
+    rng.ParagraphFormat.KeepWithNext = keepWithNext
+    rng.ParagraphFormat.KeepTogether = keepTogether
+    rng.ParagraphFormat.PageBreakBefore = pageBreakBefore
+    rng.ParagraphFormat.WidowControl = widowControl
+    rng.ParagraphFormat.OutlineLevel = outlineLevel
+
     If Not IsEmpty(estilo) Then
         rng.Style = estilo
+        rng.ParagraphFormat.alignment = alinhamento
+        rng.ParagraphFormat.SpaceBefore = espAntes
+        rng.ParagraphFormat.SpaceAfter = espDepois
+        rng.ParagraphFormat.SpaceBeforeAuto = espAntesAuto
+        rng.ParagraphFormat.SpaceAfterAuto = espDepoisAuto
+        rng.ParagraphFormat.LineSpacing = espLinha
+        rng.ParagraphFormat.LineSpacingRule = espLinhaRegra
+        rng.ParagraphFormat.leftIndent = recuoEsquerdo
+        rng.ParagraphFormat.RightIndent = recuoDireito
+        rng.ParagraphFormat.firstLineIndent = primeiraLinha
+        rng.ParagraphFormat.KeepWithNext = keepWithNext
+        rng.ParagraphFormat.KeepTogether = keepTogether
+        rng.ParagraphFormat.PageBreakBefore = pageBreakBefore
+        rng.ParagraphFormat.WidowControl = widowControl
+        rng.ParagraphFormat.OutlineLevel = outlineLevel
     End If
+
+    If bordaEsqEstilo <> 0 Then
+        rng.ParagraphFormat.Borders(wdBorderLeft).LineStyle = bordaEsqEstilo
+        rng.ParagraphFormat.Borders(wdBorderLeft).Color = bordaEsqCor
+        rng.ParagraphFormat.Borders(wdBorderLeft).LineWidth = bordaEsqLargura
+    End If
+    If bordaDirEstilo <> 0 Then
+        rng.ParagraphFormat.Borders(wdBorderRight).LineStyle = bordaDirEstilo
+        rng.ParagraphFormat.Borders(wdBorderRight).Color = bordaDirCor
+        rng.ParagraphFormat.Borders(wdBorderRight).LineWidth = bordaDirLargura
+    End If
+    If bordaTopEstilo <> 0 Then
+        rng.ParagraphFormat.Borders(wdBorderTop).LineStyle = bordaTopEstilo
+        rng.ParagraphFormat.Borders(wdBorderTop).Color = bordaTopCor
+        rng.ParagraphFormat.Borders(wdBorderTop).LineWidth = bordaTopLargura
+    End If
+    If bordaBotEstilo <> 0 Then
+        rng.ParagraphFormat.Borders(wdBorderBottom).LineStyle = bordaBotEstilo
+        rng.ParagraphFormat.Borders(wdBorderBottom).Color = bordaBotCor
+        rng.ParagraphFormat.Borders(wdBorderBottom).LineWidth = bordaBotLargura
+    End If
+
+    If shadingTexture <> 0 Then
+        rng.ParagraphFormat.Shading.BackgroundPatternColor = shadingBgColor
+        rng.ParagraphFormat.Shading.ForegroundPatternColor = shadingFgColor
+        rng.ParagraphFormat.Shading.Texture = shadingTexture
+    End If
+
     On Error GoTo 0
+
+    LogMessage LOG_PREFIX & ": Formatacao do paragrafo restaurada com " & _
+        "sucesso", LOG_LEVEL_INFO
 
     Exit Sub
 
 ErrorHandler:
-    ' NAO INTERROMPE A REVISAO POR CAUSA DE FORMATACAO
     LogMessage LOG_PREFIX & ": Aviso - falha ao preservar formatacao: " & _
-        Err.Description, LOG_LEVEL_WARNING
+        Err.Number & " - " & Err.Description, LOG_LEVEL_WARNING
+    Resume Next
 End Sub
 
 

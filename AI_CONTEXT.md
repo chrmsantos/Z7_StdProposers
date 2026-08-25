@@ -2,7 +2,7 @@
 
 > Note to AI Agents: read this document before modifying the VBA pipeline or Python integration.
 >
-> Last updated: 2026-08-21 (v8.9.0 — AI-based document structure identification, Proposicao→Corpo rename).
+> Last updated: 2026-08-25 (v8.10.1 — robust format preservation in text revision, side-by-side prompt editor, CLSID ROT fix).
 
 ## 1. Project Overview
 
@@ -23,15 +23,15 @@ The active VBA architecture is consolidated into 12 modules:
 - `Mod_02_Engine.bas`: structure detection (AI-first with heuristic fallback), cache system, image/list handling and restoration helpers.
 - `Mod_03_Pipeline.bas`: core formatting pipeline (double-pass), normalization/cleanup routines (including blank paragraph numbering removal), logging primitives.
 - `Mod_04_Main.bas`: macro entrypoints (`PadronizarDocumentoMain`, public API helpers, Gemini integration bridge calling the blank paragraph cleanup).
-- `Mod_11_RevisionText.bas`: AI text revision via OpenRouter API. Public entrypoints: `TestarRevisaoTextoSelecionado` (selected text), `CorrigirProposituraComIA` (selected text with detailed metrics/status), `DiagnosticarOpenRouter` (connectivity test). Uses DPAPI-encrypted API key and configurable model via `config_prompt.py`. Revision prompt is now configurable via `revision_prompt.txt` (loaded by `CarregarPromptRevisao()`, falls back to hardcoded `MontarPromptRevisao()`). Integrates with project logging (`LogMessage`) and progress system (`InitializeProgress`/`IncrementProgress`).
+- `Mod_11_RevisionText.bas`: AI text revision via OpenRouter API. Public entrypoints: `TestarRevisaoTextoSelecionado` (selected text), `CorrigirProposituraComIA` (selected text with detailed metrics/status), `DiagnosticarOpenRouter` (connectivity test). Uses DPAPI-encrypted API key and configurable model via `config_prompt.py`. Revision prompt is now configurable via `revision_prompt.txt` (loaded by `CarregarPromptRevisao()`, falls back to hardcoded `MontarPromptRevisao()`). Integrates with project logging (`LogMessage`) and progress system (`InitializeProgress`/`IncrementProgress`). As of v8.10.1, `SubstituirTextoPreservandoFormatacao` now saves/restores full paragraph formatting including Borders, Shading, KeepWithNext, and protects paragraph marks (¶) from being destroyed during text replacement.
 - `Mod_12_AIStructure.bas`: AI-based document structure identification via OpenRouter API. Public entrypoint: `IdentifyDocumentStructureWithAI`. Sends document text with paragraph markers to AI, parses JSON response with paragraph ranges for each structural element (Titulo, Ementa, Vocativo, Corpo, Justificativa, Data, Assinatura, Anexo). Used as primary identification method by `IdentifyDocumentStructure` in `Mod_02_Engine.bas`.
 
 ### 2.2 Python (Gemini integration)
 
 Main files in `ai/`:
 
-- `chat_ia.py`: chat UI with Word document context. `_context_pending` flag: if the initial Gemini call fails (e.g. 503), the full document text is prepended to the user's first message instead. Heavy imports deferred via lazy loading (opens UI instantly, ~2.5 s savings). Now includes grammar correction and consistency verification directly in the UI, including dynamic validation of question consistency and coherence in relation to the document context.
-- `config_prompt.py`: UI for prompt editing. Hosts `DEFAULT_PROMPT` (grammar and general consistency prompt, including question checking rules), `DEFAULT_CONSISTENCY_PROMPT` (controls consistency check output classification rules), `DEFAULT_CHAT_SYSTEM_PROMPT` (Chat LÉIA system prompt), and `DEFAULT_REVISION_PROMPT` (text revision prompt used by `CorrigirProposituraComIA`). Both chat and revision prompts are editable in the same window.
+- `chat_ia.py`: chat UI with Word document context. `_context_pending` flag: if the initial Gemini call fails (e.g. 503), the full document text is prepended to the user's first message instead. Heavy imports deferred via lazy loading (opens UI instantly, ~2.5 s savings). Now includes grammar correction and consistency verification directly in the UI, including dynamic validation of question consistency and coherence in relation to the document context. As of v8.10.1, `_find_word_with_documents` also detects Word instances registered in the ROT by class moniker (CLSID `{000209FF-…}`) in addition to the legacy `!Word.Application.N` item moniker, fixing cases where modern Word registered via class moniker was missed.
+- `config_prompt.py`: UI for prompt editing. Hosts `DEFAULT_PROMPT` (grammar and general consistency prompt, including question checking rules), `DEFAULT_CONSISTENCY_PROMPT` (controls consistency check output classification rules), `DEFAULT_CHAT_SYSTEM_PROMPT` (Chat IA system prompt), and `DEFAULT_REVISION_PROMPT` (text revision prompt used by `CorrigirProposituraComIA`). Both chat and revision prompts are editable in the same window. As of v8.10.1, UI layout changed to side-by-side columns: Corretor de Propositura (left) and Chat IA (right), with renaming from "Chat LÉIA" to "Chat IA" and "Revisão de Textos" to "Corretor de Propositura".
 - `z7_logging.py`: shared structured logger; uses `RotatingFileHandler` (2 MB / 3 backups).
 - `build_exe.ps1`: PyInstaller build workflow for `.exe` artifacts.
 

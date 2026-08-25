@@ -809,7 +809,7 @@ def main() -> None:
     screen_width = root.winfo_screenwidth()
     screen_height = root.winfo_screenheight()
 
-    win_width = int(screen_width * 2 / 3 * 1.15 * 1.10 * 0.70 * 1.10)
+    win_width = int(screen_width * 2 / 3 * 1.15 * 1.10 * 0.85 * 1.10)
     win_height = int(screen_height * 0.92 * 0.90 * 1.05)
     win_left = 0
     win_top = int(screen_height * 0.02)
@@ -849,7 +849,7 @@ def main() -> None:
     theme.widgets['toggle_btn'] = toggle_btn
 
     info_lbl = tk.Label(header_frame,
-                        text="Defina os prompts enviados à IA para o Chat LÉIA e para a Revisão de Textos.",
+                        text="Defina os prompts enviados à IA para o Corretor de Propositura e para o Chat IA.",
                         font=("Segoe UI", 10), bg=_c["bg"], fg=_c["fg_muted"])
     info_lbl.pack(anchor="w", pady=(4, 0))
     theme.widgets['info_lbl'] = info_lbl
@@ -859,46 +859,20 @@ def main() -> None:
     separator.pack(fill=tk.X, pady=(12, 0))
     theme.widgets['separator'] = separator
 
-    # ── Container para as duas áreas de texto ────────────────────────────
+    # ── Container para as duas colunas de texto ──────────────────────────
     text_container = tk.Frame(root)
     text_container.pack(side=tk.TOP, expand=True, fill=tk.BOTH, padx=25, pady=(4, 10))
 
-    # ── Área 1: Prompt do Chat LÉIA ──────────────────────────────────────
-    chat_frame = tk.Frame(text_container, bg=_c["border"])
-    chat_frame.pack(side=tk.TOP, expand=True, fill=tk.BOTH, pady=(0, 6))
-    theme.widgets['border_frame'] = chat_frame
-
-    prompt_label = tk.Label(chat_frame, text="PROMPT DO CHAT LÉIA",
-                            font=("Segoe UI", 10, "bold"), anchor="w",
-                            bg=_c["bg"], fg=_c["fg_muted"])
-    prompt_label.pack(fill=tk.X, padx=2, pady=(4, 2))
-    theme.widgets['prompt_label'] = prompt_label
-
-    text_inner = tk.Frame(chat_frame, bg=_c["border"])
-    text_inner.pack(expand=True, fill=tk.BOTH)
-    theme.widgets['text_inner'] = text_inner
-
     _select_bg = "#8b5cf6" if theme.mode == "dark" else "#7c3aed"
     _select_fg = "#ffffff"
-    text_area = tk.Text(text_inner, wrap=tk.WORD, font=("Consolas", 11),
-                        relief=tk.FLAT, padx=12, pady=12,
-                        bg=_c["text_bg"], fg=_c["fg"], insertbackground=_c["fg"],
-                        selectbackground=_select_bg, selectforeground=_select_fg,
-                        inactiveselectbackground=_select_bg)
-    text_area.pack(side=tk.LEFT, expand=True, fill=tk.BOTH, padx=1, pady=1)
-    scrollbar = tk.Scrollbar(text_inner, command=text_area.yview)
-    scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
-    text_area.config(yscrollcommand=scrollbar.set)
-    text_area.insert(tk.END, load_chat_system_prompt())
-    theme.widgets['text_area'] = text_area
 
-    # ── Área 2: Prompt de Revisão de Textos (Corrigir com IA) ────────────
+    # ── Coluna Esquerda: Prompt do Corretor de Propositura ───────────────
     revision_frame = tk.Frame(text_container, bg=_c["border"])
-    revision_frame.pack(side=tk.TOP, expand=True, fill=tk.BOTH, pady=(6, 0))
+    revision_frame.pack(side=tk.LEFT, expand=True, fill=tk.BOTH, padx=(0, 3))
     theme.widgets['revision_border_frame'] = revision_frame
 
     revision_prompt_label = tk.Label(revision_frame,
-                                     text="PROMPT DE REVISÃO DE TEXTOS (Corrigir com IA)",
+                                     text="PROMPT DO CORRETOR DE PROPOSITURA",
                                      font=("Segoe UI", 10, "bold"), anchor="w",
                                      bg=_c["bg"], fg=_c["fg_muted"])
     revision_prompt_label.pack(fill=tk.X, padx=2, pady=(4, 2))
@@ -920,6 +894,33 @@ def main() -> None:
     revision_text_area.insert(tk.END, load_revision_prompt())
     theme.widgets['revision_text_area'] = revision_text_area
 
+    # ── Coluna Direita: Prompt do Chat IA ────────────────────────────────
+    chat_frame = tk.Frame(text_container, bg=_c["border"])
+    chat_frame.pack(side=tk.LEFT, expand=True, fill=tk.BOTH, padx=(3, 0))
+    theme.widgets['border_frame'] = chat_frame
+
+    prompt_label = tk.Label(chat_frame, text="PROMPT DO CHAT IA",
+                            font=("Segoe UI", 10, "bold"), anchor="w",
+                            bg=_c["bg"], fg=_c["fg_muted"])
+    prompt_label.pack(fill=tk.X, padx=2, pady=(4, 2))
+    theme.widgets['prompt_label'] = prompt_label
+
+    text_inner = tk.Frame(chat_frame, bg=_c["border"])
+    text_inner.pack(expand=True, fill=tk.BOTH)
+    theme.widgets['text_inner'] = text_inner
+
+    text_area = tk.Text(text_inner, wrap=tk.WORD, font=("Consolas", 11),
+                        relief=tk.FLAT, padx=12, pady=12,
+                        bg=_c["text_bg"], fg=_c["fg"], insertbackground=_c["fg"],
+                        selectbackground=_select_bg, selectforeground=_select_fg,
+                        inactiveselectbackground=_select_bg)
+    text_area.pack(side=tk.LEFT, expand=True, fill=tk.BOTH, padx=1, pady=1)
+    scrollbar = tk.Scrollbar(text_inner, command=text_area.yview)
+    scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+    text_area.config(yscrollcommand=scrollbar.set)
+    text_area.insert(tk.END, load_chat_system_prompt())
+    theme.widgets['text_area'] = text_area
+
     # ── Botões de ação ────────────────────────────────────────────────────
     btn_frame = tk.Frame(root)
     theme.widgets['btn_frame'] = btn_frame
@@ -931,11 +932,11 @@ def main() -> None:
         revision_prompt_text = revision_text_area.get("1.0", tk.END).strip()
         if not chat_prompt_text:
             z7_theme.show_warning("Aviso",
-                                 "O prompt do Chat LÉIA não pode estar vazio.", parent=root)
+                                 "O prompt do Chat IA não pode estar vazio.", parent=root)
             return
         if not revision_prompt_text:
             z7_theme.show_warning("Aviso",
-                                 "O prompt de Revisão de Textos não pode estar vazio.", parent=root)
+                                 "O prompt do Corretor de Propositura não pode estar vazio.", parent=root)
             return
         save_chat_system_prompt(chat_prompt_text)
         save_revision_prompt(revision_prompt_text)
@@ -965,21 +966,21 @@ def main() -> None:
         revision_text_area.delete("1.0", tk.END)
         revision_text_area.insert(tk.END, DEFAULT_REVISION_PROMPT)
 
-    restore_chat_btn = tk.Button(btn_frame, text="Restaurar Chat", width=16,
-                                 font=btn_font, relief=tk.FLAT, cursor="hand2",
-                                 bg=_c["btn_sec_bg"], fg=_c["btn_sec_fg"],
-                                 activebackground=_c["btn_sec_hover"],
-                                 activeforeground=_c["fg"],
-                                 command=do_restore_chat)
-    restore_chat_btn.pack(side=tk.LEFT, padx=(25, 5))
-
-    restore_revision_btn = tk.Button(btn_frame, text="Restaurar Revisão", width=16,
+    restore_revision_btn = tk.Button(btn_frame, text="Restaurar Corretor", width=18,
                                      font=btn_font, relief=tk.FLAT, cursor="hand2",
                                      bg=_c["btn_sec_bg"], fg=_c["btn_sec_fg"],
                                      activebackground=_c["btn_sec_hover"],
                                      activeforeground=_c["fg"],
                                      command=do_restore_revision)
-    restore_revision_btn.pack(side=tk.LEFT, padx=5)
+    restore_revision_btn.pack(side=tk.LEFT, padx=(25, 5))
+
+    restore_chat_btn = tk.Button(btn_frame, text="Restaurar Chat IA", width=18,
+                                 font=btn_font, relief=tk.FLAT, cursor="hand2",
+                                 bg=_c["btn_sec_bg"], fg=_c["btn_sec_fg"],
+                                 activebackground=_c["btn_sec_hover"],
+                                 activeforeground=_c["fg"],
+                                 command=do_restore_chat)
+    restore_chat_btn.pack(side=tk.LEFT, padx=5)
 
     api_btn = tk.Button(btn_frame, text="🔑 API de IA", font=("Segoe UI", 10, "bold"),
                         relief=tk.FLAT, cursor="hand2", padx=12, pady=4,

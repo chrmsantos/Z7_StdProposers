@@ -690,7 +690,15 @@ class ChatApp:
                     name = mk.GetDisplayName(ctx, None)
                 except Exception:
                     continue
-                if "word.application" not in name.lower():
+                # O Word registra o Application na ROT de duas formas, dependendo
+                # da versão e da forma de inicialização:
+                #   - item moniker legado:   '!Word.Application' / '!Word.Application.N'
+                #   - class moniker moderno: '!{000209FF-0000-0000-C000-000000000046}'
+                # Sem cobrir o CLSID, instâncias registradas por class moniker eram
+                # ignoradas e o fallback GetActiveObject devolvia a primeira instância
+                # (frequentemente vazia/tela inicial), impedindo o acesso ao documento.
+                name_lower = name.lower()
+                if "word.application" not in name_lower and "000209ff" not in name_lower:
                     continue
                 try:
                     unk = rot.GetObject(mk)

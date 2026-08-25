@@ -175,8 +175,13 @@ def _new_app():
     return app
 
 
-def _make_rot_stubs(word_instances):
-    """Cria stubs de pythoncom/win32com simulando a ROT com as instâncias dadas."""
+def _make_rot_stubs(word_instances, display_names=None):
+    """Cria stubs de pythoncom/win32com simulando a ROT com as instâncias dadas.
+
+    ``display_names`` permite simular os dois formatos de registro do Word na ROT:
+    o item moniker legado (``!Word.Application.N``) e o class moniker moderno
+    (``!{000209FF-0000-0000-C000-000000000046}``).
+    """
     pythoncom_stub = mock.MagicMock()
     win32com_client_stub = mock.MagicMock()
 
@@ -184,7 +189,8 @@ def _make_rot_stubs(word_instances):
     unks = []
     for i, _w in enumerate(word_instances):
         mk = mock.MagicMock()
-        mk.GetDisplayName.return_value = f"!Word.Application.{i}"
+        name = display_names[i] if display_names else f"!Word.Application.{i}"
+        mk.GetDisplayName.return_value = name
         monikers.append(mk)
         unk = mock.MagicMock()
         unk.QueryInterface.return_value = f"disp-{i}"
@@ -433,6 +439,17 @@ class TestFindWordWithDocuments(unittest.TestCase):
         empty_word = FakeWordApp()
         normal_word = FakeWordApp(normal_texts=["doc normal"])
         stubs = _make_rot_stubs([empty_word, normal_word])
+        with mock.patch.dict(sys.modules, stubs):
+            result = self.app._find_word_with_documents()
+        self.assertIs(result, normal_word)
+
+    def test_finds_instance_registered_by_clsid(self):
+        """Word moderno registra o Application na ROT por class moniker (CLSID)."""
+        normal_word = FakeWordApp(normal_texts=["doc via CLSID"])
+        stubs = _make_rot_stubs(
+            [normal_word],
+            display_names=["!{000209FF-0000-0000-C000-000000000046}"],
+        )
         with mock.patch.dict(sys.modules, stubs):
             result = self.app._find_word_with_documents()
         self.assertIs(result, normal_word)
