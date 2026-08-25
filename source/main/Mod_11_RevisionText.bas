@@ -808,6 +808,7 @@ Private Sub SubstituirTextoPreservandoFormatacao( _
     Dim oldEnd As Long
     Dim newStart As Long
     Dim newEnd As Long
+    Dim posInicioNovoTexto As Long   ' Salva posicao apos substituicao (p/ step 10)
     Dim temMarcaParagrafo As Boolean
     Dim testRng As Range
 
@@ -971,6 +972,7 @@ Private Sub SubstituirTextoPreservandoFormatacao( _
     ' -----------------------------------------------------------------
     rng.text = novoTexto
     lenNew = rng.End - rng.Start
+    posInicioNovoTexto = rng.Start   ' Salva posicao para reaplicar font apos Style
     If lenNew <= 0 Then
         If temMarcaParagrafo Then
             rng.MoveEnd wdCharacter, 1
@@ -1092,6 +1094,58 @@ Private Sub SubstituirTextoPreservandoFormatacao( _
         rng.ParagraphFormat.Shading.Texture = shadingTexture
     End If
 
+    On Error GoTo 0
+
+    ' -----------------------------------------------------------------
+    ' 10. REAPLICAR FORMATACAO DE CARACTERE (FONT, BOLD, ITALIC, ETC.)
+    '     A restauracao do Style no passo 9 pode sobrescrever a
+    '     formatacao de caractere (Font.Name, Font.Size, etc.)
+    '     aplicada no passo 8, pois ao aplicar o estilo em um range
+    '     que inclui a marca de paragrafo (¶), o Word propaga as
+    '     definicoes de fonte do estilo para todo o texto do paragrafo.
+    '     Reaplicamos aqui apos a restauracao do paragrafo para
+    '     garantir que tipo/tamanho da fonte e demais atributos de
+    '     caractere sejam efetivamente preservados.
+    ' -----------------------------------------------------------------
+    Dim posInicioChar As Long
+    Dim posFimChar As Long
+    Dim rngChar As Range
+
+    On Error Resume Next
+    For i = 1 To runCount
+        If i = 1 Then
+            oldStart = 1
+        Else
+            oldStart = runEndPos(i - 1) + 1
+        End If
+        oldEnd = runEndPos(i)
+
+        posInicioChar = posInicioNovoTexto + _
+            CLng((oldStart - 1) * lenNew / lenOld)
+        posFimChar = posInicioNovoTexto + _
+            CLng(oldEnd * lenNew / lenOld) - 1
+        If posFimChar < posInicioChar Then
+            posFimChar = posInicioChar
+        End If
+
+        Set rngChar = ActiveDocument.Range( _
+            posInicioChar, posFimChar + 1)
+
+        rngChar.Font.Name = arrFontName(oldStart)
+        rngChar.Font.size = arrFontSize(oldStart)
+        rngChar.Font.Bold = arrBold(oldStart)
+        rngChar.Font.Italic = arrItalic(oldStart)
+        rngChar.Font.Underline = arrUnderline(oldStart)
+        rngChar.Font.Color = arrColor(oldStart)
+        rngChar.HighlightColorIndex = arrHighlight(oldStart)
+        rngChar.Font.StrikeThrough = arrStrikeThrough(oldStart)
+        rngChar.Font.SmallCaps = arrSmallCaps(oldStart)
+        rngChar.Font.AllCaps = arrAllCaps(oldStart)
+        rngChar.Font.Superscript = arrSuperscript(oldStart)
+        rngChar.Font.Subscript = arrSubscript(oldStart)
+        rngChar.Font.Spacing = arrSpacing(oldStart)
+        rngChar.Font.Position = arrPosition(oldStart)
+    Next i
     On Error GoTo 0
 
     LogMessage LOG_PREFIX & ": Formatacao do paragrafo restaurada com " & _

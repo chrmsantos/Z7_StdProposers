@@ -136,7 +136,7 @@ Public Sub PadronizarDocumentoMain()
         End If
 
         documentDirty = False  ' Reset flag antes de cada passagem
-        LogMessage "=== PASSAGEM " & pipelinePass & " DE 2 ===", LOG_LEVEL_INFO
+        LogMessage "=== PASSAGEM " & pipelinePass & " DE 2 === ", LOG_LEVEL_INFO
 
         ' Reconstroi cache a partir da segunda passagem para evitar indices obsoletos
         ' (paragrafos podem ter sido removidos na passagem anterior)
@@ -146,9 +146,18 @@ Public Sub PadronizarDocumentoMain()
         End If
 
         ' Formata documento
+        ' Passagem 1: pipeline completo. Passagem 2: apenas etapas index-dependent
+        ' (otimizacao: reduz ~60-70% do tempo da segunda passagem)
         IncrementProgress "Formatando documento (" & pipelinePass & " passagem)"
-        If Not PreviousFormatting(doc) Then
-            GoTo CleanUp
+        If pipelinePass = 1 Then
+            If Not PreviousFormatting(doc) Then
+                GoTo CleanUp
+            End If
+        Else
+            LogMessage "=== PASSAGEM 2: FORMATACAO SELETIVA (ETAPAS INDEX-DEPENDENT) ===", LOG_LEVEL_INFO
+            If Not PreviousFormattingPass2(doc) Then
+                GoTo CleanUp
+            End If
         End If
 
         ' Restaura imagens apos formatacoes

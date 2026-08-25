@@ -261,6 +261,7 @@ Public Function ApplyStdParagraphs(doc As Document) As Boolean
     Dim i As Long
     Dim formattedCount As Long
     Dim skippedCount As Long
+    Dim textChangedCount As Long  ' Contador de alteracoes reais de texto
     Dim paraText As String
     Dim prevPara As Paragraph
 
@@ -354,6 +355,7 @@ Public Function ApplyStdParagraphs(doc As Document) As Boolean
         ' Aplica o texto limpo APENAS se nao ha imagens E nao e paragrafo especial
         If cleanText <> para.Range.text And Not hasInlineImage And Not isSpecialFormatParagraph Then
             SafeReplaceText para.Range, cleanText
+            textChangedCount = textChangedCount + 1
         End If
 
         ' Formatacao de paragrafo - SEMPRE aplicada (exceto para paragrafos especiais)
@@ -388,12 +390,13 @@ Public Function ApplyStdParagraphs(doc As Document) As Boolean
         formattedCount = formattedCount + 1
     Next i
 
-    ' Marca documento como modificado se houve formatacao
-    If formattedCount > 0 Then documentDirty = True
+    ' Marca documento como modificado APENAS se houve alteracao real de texto
+    ' (nao apenas reaplicacao de formatacao ja existente)
+    If textChangedCount > 0 Then documentDirty = True
 
     ' Log atualizado para refletir que todos os paragrafos sao formatados
-    If skippedCount > 0 Then
-        LogMessage "Paragrafos formatados: " & formattedCount & " (incluindo " & skippedCount & " com protecao de imagens)"
+    If skippedCount > 0 Or textChangedCount > 0 Then
+        LogMessage "Paragrafos formatados: " & formattedCount & " (incluindo " & skippedCount & " com protecao de imagens, " & textChangedCount & " com texto alterado)"
     End If
 
     ApplyStdParagraphs = True

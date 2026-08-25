@@ -194,6 +194,37 @@ if (Test-Path $importBasScript) {
     }
 }
 
+# ── Compile import_ui_to_word ──────────────────────────────────────────
+$importUIScript = Join-Path $scriptsDir "import_ui_to_word.py"
+if (Test-Path $importUIScript) {
+    Write-Host "Compilando import_ui_to_word.py..."
+    $baseName = "import_ui_to_word"
+    New-Item -ItemType Directory -Force -Path (Join-Path $scriptsDir "build\$baseName") | Out-Null
+    $pyiArgs = @("--onefile", "--console", "--noconfirm",
+                 "--hidden-import=unicodedata",
+                 "--hidden-import=pythoncom",
+                 "--hidden-import=win32com.client",
+                 "--hidden-import=win32com",
+                 $importUIScript)
+    $process = Start-Process -FilePath $pyinstallerPath -ArgumentList $pyiArgs `
+        -WorkingDirectory $scriptsDir -NoNewWindow -Wait -PassThru
+    if ($process.ExitCode -ne 0) {
+        Write-Warning "Falha ao compilar import_ui_to_word.py (exit code: $($process.ExitCode))."
+    } else {
+        $exeSrc = Join-Path $scriptsDir "dist\$baseName.exe"
+        $exeDest = Join-Path $distDir "$baseName.exe"
+        New-Item -ItemType Directory -Force -Path $distDir | Out-Null
+        if (Test-Path $exeSrc) {
+            Copy-Item $exeSrc $exeDest -Force
+            Write-Host "[$baseName] copiado para dist\."
+        }
+        # Clean up scripts/ build artifacts
+        Remove-Item -Path (Join-Path $scriptsDir "dist") -Recurse -Force -ErrorAction SilentlyContinue
+        Remove-Item -Path (Join-Path $scriptsDir "build") -Recurse -Force -ErrorAction SilentlyContinue
+        Get-Item (Join-Path $scriptsDir "*.spec") -ErrorAction SilentlyContinue | Remove-Item -Force
+    }
+}
+
 Write-Host "Limpando arquivos temporarios..."
 # Nao remover build/ - o cache Analysis-00.toc evita bug Python 3.14 na proxima execucao
 Remove-Item -Path (Join-Path $scriptDir "dist") -Recurse -Force -ErrorAction SilentlyContinue

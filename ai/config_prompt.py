@@ -1,12 +1,31 @@
+# =============================================================================
+# Módulo: config_prompt.py
+# UI para edição de prompts de IA e configuração de modelo / chave API.
+# =============================================================================
+
 import json
+import re as _re
+import threading
 import tkinter as tk
-from tkinter import ttk
+import webbrowser
 from pathlib import Path
+from tkinter import ttk
+from typing import Callable
+
 import z7_theme
 from z7_logging import configure_component_logger, get_data_dir, log_exception
-import threading
+
+
+# ═════════════════════════════════════════════════════════════════════════════
+#  Logger
+# ═════════════════════════════════════════════════════════════════════════════
 
 LOGGER = configure_component_logger("config_prompt")
+
+
+# ═════════════════════════════════════════════════════════════════════════════
+#  Metadata
+# ═════════════════════════════════════════════════════════════════════════════
 
 _APP_VERSION = "8.7.2"
 _APP_AUTHOR  = "CMS"
@@ -14,6 +33,9 @@ _ORG         = "Câmara Municipal de Santa Bárbara d'Oeste"
 _LICENSE     = "GPL-3.0"
 _MOTTO       = "Dharma, virtude e gratidão."
 
+# ═════════════════════════════════════════════════════════════════════════════
+#  Default Prompts
+# ═════════════════════════════════════════════════════════════════════════════
 _DEFAULT_PREFIX = """As strings \"$NUMERO$/$ANO$\", \"$ANO$\" e \"$DATAATUALEXTENSO$\" são placeholders de template utilizados pelo sistema de padronização automática e estão CORRETAS no documento. Elas NÃO devem ser consideradas erros, inconsistências ou problemas de qualquer tipo. Ignore-as completamente na verificação de consistência de datas e não as compare com outras datas do documento. Também não as aponte como erros ortográficos, de formatação ou de conteúdo. Em particular, NÃO analise, NÃO critique e NÃO sugira alterações envolvendo a string \"$NUMERO$/$ANO$\" nem qualquer combinação numérica/ano que esteja nesse formato de placeholder.
 A verificação de consistência deve também verificar e apontar erros gramaticais graves.
 A verificação de consistência deverá verificar as referências normativas do documento sob os seguintes requisitos:
@@ -124,6 +146,9 @@ Não faça comentários.
 Não coloque aspas no início ou no final."""
 
 
+# ═════════════════════════════════════════════════════════════════════════════
+#  Persistência: Chat System Prompt
+# ═════════════════════════════════════════════════════════════════════════════
 def get_chat_system_prompt_file_path() -> Path:
     return get_data_dir() / "chat_system_prompt.txt"
 
@@ -149,6 +174,9 @@ def save_chat_system_prompt(prompt_text: str) -> None:
         log_exception(LOGGER, "Failed to save chat system prompt", e)
 
 
+# ═════════════════════════════════════════════════════════════════════════════
+#  Persistência: Revision Prompt
+# ═════════════════════════════════════════════════════════════════════════════
 def get_revision_prompt_file_path() -> Path:
     return get_data_dir() / "revision_prompt.txt"
 
@@ -174,14 +202,9 @@ def save_revision_prompt(prompt_text: str) -> None:
         log_exception(LOGGER, "Failed to save revision prompt", e)
 
 
-def get_prompt_file_path() -> Path:
-    return get_data_dir() / "gemini_prompt.txt"
-
-
-def get_consistency_prompt_file_path() -> Path:
-    return get_data_dir() / "consistency_prompt.txt"
-
-
+# ═════════════════════════════════════════════════════════════════════════════
+#  Persistência: API Key
+# ═════════════════════════════════════════════════════════════════════════════
 def load_api_key() -> str:
     from z7_api_key import read_stored_api_key
     return read_stored_api_key()
@@ -189,6 +212,17 @@ def load_api_key() -> str:
 def save_api_key(api_key: str) -> None:
     from z7_api_key import write_api_key
     write_api_key(api_key)
+
+
+# ═════════════════════════════════════════════════════════════════════════════
+#  Persistência: Legado (deprecated — mantido por compatibilidade)
+# ═════════════════════════════════════════════════════════════════════════════
+def get_prompt_file_path() -> Path:
+    return get_data_dir() / "gemini_prompt.txt"
+
+
+def get_consistency_prompt_file_path() -> Path:
+    return get_data_dir() / "consistency_prompt.txt"
 
 def load_prompt() -> str:
     prompt_file = get_prompt_file_path()
@@ -213,45 +247,6 @@ def load_consistency_prompt() -> str:
             log_exception(LOGGER, "Failed to load custom consistency prompt", e)
     return DEFAULT_CONSISTENCY_PROMPT
 
-def get_model_file_path() -> Path:
-    return get_data_dir() / "selected_model.txt"
-
-def load_ai_model() -> str:
-    model_file = get_model_file_path()
-    if model_file.exists():
-        try:
-            return model_file.read_text(encoding='utf-8').strip()
-        except Exception as e:
-            log_exception(LOGGER, "Failed to load custom model", e)
-    return "google/gemini-2.5-flash"
-
-def save_ai_model(model_name: str) -> None:
-    model_file = get_model_file_path()
-    try:
-        model_file.write_text(model_name, encoding='utf-8')
-        LOGGER.info("Model saved successfully: %s", model_name)
-    except Exception as e:
-        log_exception(LOGGER, "Failed to save model", e)
-
-def get_fallback_model_file_path() -> Path:
-    return get_data_dir() / "selected_fallback_model.txt"
-
-def load_fallback_model() -> str:
-    fallback_file = get_fallback_model_file_path()
-    if fallback_file.exists():
-        try:
-            return fallback_file.read_text(encoding='utf-8').strip()
-        except Exception as e:
-            log_exception(LOGGER, "Failed to load fallback model", e)
-    return "openai/gpt-oss-20b"
-
-def save_fallback_model(model_name: str) -> None:
-    fallback_file = get_fallback_model_file_path()
-    try:
-        fallback_file.write_text(model_name, encoding='utf-8')
-        LOGGER.info("Fallback model saved successfully: %s", model_name)
-    except Exception as e:
-        log_exception(LOGGER, "Failed to save fallback model", e)
 
 def save_prompt(consistency_text: str, root: tk.Tk) -> None:
     if not consistency_text.strip():
@@ -275,6 +270,57 @@ def restore_default_consistency(text_widget: tk.Text) -> None:
     text_widget.delete("1.0", tk.END)
     text_widget.insert(tk.END, DEFAULT_CONSISTENCY_PROMPT)
 
+
+# ═════════════════════════════════════════════════════════════════════════════
+#  Persistência: AI Model
+# ═════════════════════════════════════════════════════════════════════════════
+def get_model_file_path() -> Path:
+    return get_data_dir() / "selected_model.txt"
+
+def load_ai_model() -> str:
+    model_file = get_model_file_path()
+    if model_file.exists():
+        try:
+            return model_file.read_text(encoding='utf-8').strip()
+        except Exception as e:
+            log_exception(LOGGER, "Failed to load custom model", e)
+    return "google/gemini-2.5-flash"
+
+def save_ai_model(model_name: str) -> None:
+    model_file = get_model_file_path()
+    try:
+        model_file.write_text(model_name, encoding='utf-8')
+        LOGGER.info("Model saved successfully: %s", model_name)
+    except Exception as e:
+        log_exception(LOGGER, "Failed to save model", e)
+
+# ═════════════════════════════════════════════════════════════════════════════
+#  Persistência: Fallback Model
+# ═════════════════════════════════════════════════════════════════════════════
+def get_fallback_model_file_path() -> Path:
+    return get_data_dir() / "selected_fallback_model.txt"
+
+def load_fallback_model() -> str:
+    fallback_file = get_fallback_model_file_path()
+    if fallback_file.exists():
+        try:
+            return fallback_file.read_text(encoding='utf-8').strip()
+        except Exception as e:
+            log_exception(LOGGER, "Failed to load fallback model", e)
+    return "openai/gpt-oss-20b"
+
+def save_fallback_model(model_name: str) -> None:
+    fallback_file = get_fallback_model_file_path()
+    try:
+        fallback_file.write_text(model_name, encoding='utf-8')
+        LOGGER.info("Fallback model saved successfully: %s", model_name)
+    except Exception as e:
+        log_exception(LOGGER, "Failed to save fallback model", e)
+
+
+# ═════════════════════════════════════════════════════════════════════════════
+#  UI: AppTheme
+# ═════════════════════════════════════════════════════════════════════════════
 class AppTheme:
     def __init__(self, root: tk.Tk) -> None:
         self.root = root
@@ -380,6 +426,9 @@ class AppTheme:
             self.widgets['footer_lbl'].configure(bg=bg, fg=fg_muted)
 
 
+# ═════════════════════════════════════════════════════════════════════════════
+#  UI: Diálogo de API de IA (OpenRouter)
+# ═════════════════════════════════════════════════════════════════════════════
 def open_ai_api_dialog(
     parent: tk.Tk,
     theme_mode: str,
@@ -496,7 +545,12 @@ def open_ai_api_dialog(
         relief=tk.FLAT, bd=2, bg=text_bg, fg=fg, insertbackground=fg,
         selectbackground=select_bg, selectforeground=select_fg,
     )
-    model_entry.pack(fill=tk.X, padx=22)
+    model_entry.pack(fill=tk.X, padx=22, ipady=2)
+
+    tk.Label(
+        dialog, text="Ex: google/gemini-2.5-flash, openai/gpt-4o",
+        font=("Segoe UI", 8), fg=fg_muted, bg=bg, anchor="w",
+    ).pack(fill=tk.X, padx=22, pady=(2, 0))
 
     # ── Section: Fallback Model ────────────────────────────────────────────────
     tk.Label(
@@ -511,7 +565,12 @@ def open_ai_api_dialog(
         relief=tk.FLAT, bd=2, bg=text_bg, fg=fg, insertbackground=fg,
         selectbackground=select_bg, selectforeground=select_fg,
     )
-    fallback_entry.pack(fill=tk.X, padx=22)
+    fallback_entry.pack(fill=tk.X, padx=22, ipady=2)
+
+    tk.Label(
+        dialog, text="Ex: openai/gpt-oss-20b, google/gemini-2.5-flash-lite",
+        font=("Segoe UI", 8), fg=fg_muted, bg=bg, anchor="w",
+    ).pack(fill=tk.X, padx=22, pady=(2, 0))
 
     # ── Output area ───────────────────────────────────────────────────────────
     tk.Label(
@@ -552,21 +611,33 @@ def open_ai_api_dialog(
         output_box.config(state=tk.DISABLED)
 
     # ── Buttons ───────────────────────────────────────────────────────────────
-    save_btn = tk.Button(
-        dialog, text="💾  Salvar", font=("Segoe UI", 12, "bold"),
-        relief=tk.FLAT, cursor="hand2", pady=8,
-        bg=btn_primary, fg="white",
-        activebackground=btn_primary_hover, activeforeground="white",
+    btn_row = tk.Frame(dialog, bg=bg)
+    btn_row.pack(fill=tk.X, padx=22, pady=(14, 0))
+
+    clear_btn = tk.Button(
+        btn_row, text="🗑  Limpar", font=("Segoe UI", 9),
+        relief=tk.FLAT, cursor="hand2", padx=10, pady=4,
+        bg=btn_sec_bg, fg=btn_sec_fg,
+        activebackground=btn_sec_hover, activeforeground=fg,
+        command=_clear_output,
     )
-    save_btn.pack(fill=tk.X, padx=22, pady=(14, 4))
+    clear_btn.pack(side=tk.LEFT)
+
+    save_btn = tk.Button(
+        btn_row, text="💾  Salvar", font=("Segoe UI", 11, "bold"),
+        relief=tk.FLAT, cursor="hand2", padx=16, pady=6,
+        bg=btn_primary, fg=btn_primary_fg,
+        activebackground=btn_primary_hover, activeforeground=btn_primary_fg,
+    )
+    save_btn.pack(side=tk.RIGHT, padx=(8, 0))
 
     test_btn = tk.Button(
-        dialog, text="🧪  Testar Modelo", font=("Segoe UI", 10),
-        relief=tk.FLAT, cursor="hand2", pady=6,
+        btn_row, text="🧪  Testar", font=("Segoe UI", 11),
+        relief=tk.FLAT, cursor="hand2", padx=16, pady=6,
         bg=btn_sec_bg, fg=btn_sec_fg,
         activebackground=btn_sec_hover, activeforeground=fg,
     )
-    test_btn.pack(fill=tk.X, padx=22, pady=(0, 4))
+    test_btn.pack(side=tk.RIGHT, padx=(0, 8))
 
     web_btn = tk.Button(
         dialog, text="🌐  OpenRouter Keys", font=("Segoe UI", 10),
@@ -741,6 +812,9 @@ def open_api_key_dialog(parent: tk.Tk, theme_mode: str) -> None:
     open_ai_api_dialog(parent, theme_mode)
 
 
+# ═════════════════════════════════════════════════════════════════════════════
+#  Gerenciamento de Janelas
+# ═════════════════════════════════════════════════════════════════════════════
 def _activate_existing_window(title_prefix: str) -> bool:
     """Check if a window with *title_prefix* already exists.
 
@@ -785,6 +859,9 @@ def _activate_existing_window(title_prefix: str) -> bool:
     return False
 
 
+# ═════════════════════════════════════════════════════════════════════════════
+#  UI: Janela Principal
+# ═════════════════════════════════════════════════════════════════════════════
 def main() -> None:
     # Prevent duplicate instances: if a config window is already open, just
     # bring it to front and exit.
@@ -942,21 +1019,33 @@ def main() -> None:
         save_revision_prompt(revision_prompt_text)
         root.destroy()
 
-    save_btn = tk.Button(btn_frame, text="💾  Salvar", width=18,
+    # ── Grupo Direito: Cancelar + Salvar ──
+    right_group = tk.Frame(btn_frame, bg=_c["bg"])
+    right_group.pack(side=tk.RIGHT, padx=(15, 25))
+
+    save_btn = tk.Button(right_group, text="💾  Salvar", width=16,
                          bg=_c["btn_primary_bg"], fg=_c["btn_primary_fg"],
                          font=btn_font, relief=tk.FLAT,
                          activebackground=_c["btn_primary_hover"],
                          activeforeground=_c["btn_primary_fg"],
                          cursor="hand2", command=do_save)
-    save_btn.pack(side=tk.RIGHT, padx=25)
+    save_btn.pack(side=tk.RIGHT, padx=(8, 0))
 
-    cancel_btn = tk.Button(btn_frame, text="Cancelar", width=12,
+    cancel_btn = tk.Button(right_group, text="Cancelar", width=12,
                            font=btn_font, relief=tk.FLAT, cursor="hand2",
                            bg=_c["btn_sec_bg"], fg=_c["btn_sec_fg"],
                            activebackground=_c["btn_sec_hover"],
                            activeforeground=_c["fg"],
                            command=root.destroy)
-    cancel_btn.pack(side=tk.RIGHT, padx=5)
+    cancel_btn.pack(side=tk.RIGHT)
+
+    # ── Separador vertical ──
+    sep = tk.Frame(btn_frame, width=1, bg=_c["border"])
+    sep.pack(side=tk.RIGHT, fill=tk.Y, padx=(5, 5))
+
+    # ── Grupo Esquerdo: Restaurar + API ──
+    left_group = tk.Frame(btn_frame, bg=_c["bg"])
+    left_group.pack(side=tk.LEFT, padx=(25, 0))
 
     def do_restore_chat() -> None:
         text_area.delete("1.0", tk.END)
@@ -966,29 +1055,29 @@ def main() -> None:
         revision_text_area.delete("1.0", tk.END)
         revision_text_area.insert(tk.END, DEFAULT_REVISION_PROMPT)
 
-    restore_revision_btn = tk.Button(btn_frame, text="Restaurar Corretor", width=18,
+    restore_revision_btn = tk.Button(left_group, text="🔄  Restaurar Corretor", width=20,
                                      font=btn_font, relief=tk.FLAT, cursor="hand2",
                                      bg=_c["btn_sec_bg"], fg=_c["btn_sec_fg"],
                                      activebackground=_c["btn_sec_hover"],
                                      activeforeground=_c["fg"],
                                      command=do_restore_revision)
-    restore_revision_btn.pack(side=tk.LEFT, padx=(25, 5))
+    restore_revision_btn.pack(side=tk.LEFT, padx=(0, 4))
 
-    restore_chat_btn = tk.Button(btn_frame, text="Restaurar Chat IA", width=18,
+    restore_chat_btn = tk.Button(left_group, text="🔄  Restaurar Chat IA", width=20,
                                  font=btn_font, relief=tk.FLAT, cursor="hand2",
                                  bg=_c["btn_sec_bg"], fg=_c["btn_sec_fg"],
                                  activebackground=_c["btn_sec_hover"],
                                  activeforeground=_c["fg"],
                                  command=do_restore_chat)
-    restore_chat_btn.pack(side=tk.LEFT, padx=5)
+    restore_chat_btn.pack(side=tk.LEFT, padx=4)
 
-    api_btn = tk.Button(btn_frame, text="🔑 API de IA", font=("Segoe UI", 10, "bold"),
+    api_btn = tk.Button(left_group, text="🔑  API de IA", font=("Segoe UI", 10, "bold"),
                         relief=tk.FLAT, cursor="hand2", padx=12, pady=4,
                         bg=_c["btn_primary_bg"], fg=_c["btn_primary_fg"],
                         activebackground=_c["btn_primary_hover"],
                         activeforeground=_c["btn_primary_fg"],
                         command=lambda: open_ai_api_dialog(root, theme.mode))
-    api_btn.pack(side=tk.LEFT, padx=(0, 5))
+    api_btn.pack(side=tk.LEFT, padx=(4, 0))
     theme.widgets['api_btn'] = api_btn
 
     theme.widgets['sec_btns'] = [cancel_btn, restore_chat_btn, restore_revision_btn]
@@ -1011,6 +1100,11 @@ def main() -> None:
     root.focus_force()
 
     root.mainloop()
+
+
+# ═════════════════════════════════════════════════════════════════════════════
+#  Entry Point
+# ═════════════════════════════════════════════════════════════════════════════
 
 if __name__ == "__main__":
     main()
