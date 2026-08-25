@@ -169,7 +169,7 @@ if (Test-Path $importBasScript) {
     Write-Host "Compilando import_bas_to_normal.py..."
     $baseName = "import_bas_to_normal"
     New-Item -ItemType Directory -Force -Path (Join-Path $scriptsDir "build\$baseName") | Out-Null
-    $pyiArgs = @("--onefile", "--noconsole", "--noconfirm",
+    $pyiArgs = @("--onefile", "--console", "--noconfirm",
                  "--hidden-import=unicodedata",
                  "--hidden-import=pythoncom",
                  "--hidden-import=win32com.client",

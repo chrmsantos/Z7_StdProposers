@@ -424,4 +424,12 @@ def main(argv=None):
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    _exit_code = main()
+    print()
+    print("Pressione qualquer tecla para sair...")
+    try:
+        import msvcrt
+        msvcrt.getch()
+    except ImportError:
+        input()
+    sys.exit(_exit_code)

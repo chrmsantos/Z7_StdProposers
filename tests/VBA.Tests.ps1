@@ -91,7 +91,7 @@ Describe 'Z7_STDPROPOSERS - VBA Modular Architecture' {
             $script:moduleContent['Mod_11_RevisionText.bas'] | Should Match '(?m)^Public Sub TestarRevisaoTextoSelecionado\('
         }
 
-        It 'Revisao IA de documento inteiro esta em Mod_11_RevisionText' {
+        It 'CorrigirProposituraComIA esta em Mod_11_RevisionText' {
             $script:moduleContent['Mod_11_RevisionText.bas'] | Should Match '(?m)^Public Sub CorrigirProposituraComIA\('
         }
 

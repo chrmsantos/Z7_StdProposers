@@ -15,7 +15,7 @@ Option Explicit
 '
 ' Entradas publicas:
 '   - TestarRevisaoTextoSelecionado: revisa texto selecionado
-'   - CorrigirProposituraComIA:     revisa documento inteiro
+'   - CorrigirProposituraComIA:     revisa texto selecionado (substitui no documento)
 '   - DiagnosticarOpenRouter:       diagnostico de conectividade com a API
 '
 ' Arquivos externos esperados (via config_prompt.py / z7_api_key.py):
@@ -327,20 +327,23 @@ End Sub
 
 
 ' =============================================================================
-' 2 - REVISAR DOCUMENTO INTEIRO
+' 2 - CORRIGIR TEXTO SELECIONADO COM IA
+' =============================================================================
+'
+' Selecione qualquer texto no Word e execute esta macro.
+' A IA revisa e corrige o texto selecionado.
+' A formatacao original e preservada apos a substituicao.
+'
+' Diferente de TestarRevisaoTextoSelecionado, esta macro exibe metricas
+' detalhadas e mensagens de status mais informativas ao usuario.
+'
 ' =============================================================================
 Public Sub CorrigirProposituraComIA()
     On Error GoTo ErrorHandler
 
-    Dim doc As Document
-    Dim totalParas As Long
-    Dim i As Long
     Dim rng As Range
     Dim textoOriginal As String
     Dim textoCorrigido As String
-    Dim alterados As Long
-    Dim analisados As Long
-    Dim ignorados As Long
     Dim startTime As Double
     Dim chaveAPI As String
 
@@ -349,122 +352,86 @@ Public Sub CorrigirProposituraComIA()
     ' -----------------------------------------------------------------
     ' VALIDACOES INICIAIS
     ' -----------------------------------------------------------------
-    On Error Resume Next
-    Set doc = ActiveDocument
-    On Error GoTo ErrorHandler
-
-    If doc Is Nothing Then
-        Application.StatusBar = "Erro: Nenhum documento aberto"
-        LogMessage LOG_PREFIX & ": Nenhum documento aberto", LOG_LEVEL_ERROR
-        MsgBox "Nenhum documento esta aberto para revisao.", _
-            vbCritical, "Erro"
+    If Selection Is Nothing Then
+        LogMessage LOG_PREFIX & ": Nenhuma selecao ativa", LOG_LEVEL_WARNING
+        MsgBox "Selecione o texto a ser corrigido antes de executar " & _
+            "esta macro.", vbExclamation, "Corrigir com IA"
         Exit Sub
     End If
 
-    totalParas = doc.Paragraphs.count
-    If totalParas = 0 Then
-        LogMessage LOG_PREFIX & ": Documento vazio", LOG_LEVEL_WARNING
+    Set rng = Selection.Range.Duplicate
+    textoOriginal = ExtrairTextoLimpo(rng)
+
+    If Len(Trim(textoOriginal)) = 0 Then
+        LogMessage LOG_PREFIX & ": Selecao vazia", LOG_LEVEL_WARNING
+        MsgBox "Nenhum texto selecionado para correcao.", _
+            vbExclamation, "Corrigir com IA"
         Exit Sub
     End If
 
     ' -----------------------------------------------------------------
-    ' VALIDA CHAVE ANTES DE INICIAR (EVITA TRAVAMENTO NO LOOP)
+    ' VALIDA CHAVE ANTES DE ENVIAR
     ' -----------------------------------------------------------------
     chaveAPI = CarregarChaveAPI()
     If Not ValidarChaveAPI(chaveAPI) Then Exit Sub
 
     ' -----------------------------------------------------------------
-    ' INICIALIZA LOGGING E PROGRESSO
+    ' INICIALIZA LOGGING
     ' -----------------------------------------------------------------
-    LogSection "REVISAO IA - DOCUMENTO INTEIRO"
-    LogStepStart "Revisao do documento com IA"
-    LogMetric "Total de paragrafos", totalParas
+    LogSection "CORRECAO IA - TEXTO SELECIONADO"
+    LogStepStart "Correcao de texto selecionado com IA"
+    LogMetric "Caracteres selecionados", Len(textoOriginal)
     LogMetric "Modelo IA", CarregarModeloIA()
 
-    InitializeProgress totalParas + 1
-
-    Application.ScreenUpdating = False
+    ' -----------------------------------------------------------------
+    ' ENVIA O TEXTO SELECIONADO PARA A IA
+    ' -----------------------------------------------------------------
     Application.StatusBar = _
-        LOG_PREFIX & ": Iniciando revisao com IA..."
+        LOG_PREFIX & ": Enviando texto para a IA..."
     DoEvents
 
+    textoCorrigido = ProcessarTextoComIA(textoOriginal)
+
+    If Len(Trim(textoCorrigido)) = 0 Then
+        Application.StatusBar = False
+        LogStepSkipped "Correcao de texto selecionado", _
+            "IA retornou resposta vazia"
+        MsgBox "A IA nao retornou texto corrigido." & vbCrLf & vbCrLf & _
+            "Verifique a conexao e a chave de API.", _
+            vbExclamation, "Corrigir com IA"
+        Exit Sub
+    End If
+
     ' -----------------------------------------------------------------
-    ' PERCORRE OS PARAGRAFOS
+    ' SUBSTITUI SE HOUVE ALTERACAO (PRESERVANDO FORMATAcao)
     ' -----------------------------------------------------------------
-    For i = 1 To totalParas
-
-        ' Verifica cancelamento pelo usuario
-        If formattingCancelled Then
-            LogMessage LOG_PREFIX & ": Revisao cancelada no paragrafo " & i, LOG_LEVEL_WARNING
-            GoTo CleanUp
-        End If
-
-        IncrementProgress "Revisando paragrafo " & i & " de " & totalParas & _
-            " | Alterados: " & alterados
-
-        Set rng = doc.Paragraphs(i).Range.Duplicate
-
-        ' --------------------------------------------------------
-        ' NAO INCLUI A MARCA DE PARAGRAFO
-        ' --------------------------------------------------------
-        If rng.End > rng.Start Then
-            rng.End = rng.End - 1
-        End If
-
-        textoOriginal = ExtrairTextoLimpo(rng)
-
-        ' --------------------------------------------------------
-        ' IGNORA PARAGRAFOS VAZIOS OU MUITO CURTOS
-        ' --------------------------------------------------------
-        If Len(Trim(textoOriginal)) <= PARAGRAPH_MIN_LENGTH Then
-            ignorados = ignorados + 1
-        Else
-            analisados = analisados + 1
-
-            ' ----------------------------------------------------
-            ' ENVIA O TEXTO REAL PARA A IA
-            ' ----------------------------------------------------
-            textoCorrigido = _
-                ProcessarTextoComIA(textoOriginal)
-
-            ' ----------------------------------------------------
-            ' SE HOUVE ALTERACAO
-            ' ----------------------------------------------------
-            If Len(Trim(textoCorrigido)) > 0 Then
-                If NormalizarComparacao(textoCorrigido) <> _
-                   NormalizarComparacao(textoOriginal) Then
-                    SubstituirTextoPreservandoFormatacao _
-                        rng, _
-                        textoCorrigido
-                    alterados = alterados + 1
-                End If
-            End If
-        End If
-    Next i
-
-CleanUp:
-    ' -----------------------------------------------------------------
-    ' FINALIZACAO
-    ' -----------------------------------------------------------------
-    Application.StatusBar = False
-    Application.ScreenUpdating = True
-
-    LogMetric "Paragrafos analisados", analisados
-    LogMetric "Paragrafos ignorados", ignorados
-    LogMetric "Paragrafos alterados", alterados
-    LogStepComplete "Revisao do documento com IA", _
-        alterados & " de " & analisados & " alterados | " & _
-        Format(Timer - startTime, "0.0") & "s"
+    If NormalizarComparacao(textoCorrigido) <> _
+       NormalizarComparacao(textoOriginal) Then
+        SubstituirTextoPreservandoFormatacao _
+            rng, _
+            textoCorrigido
+        Application.StatusBar = _
+            LOG_PREFIX & ": Texto corrigido com sucesso! | " & _
+            Format(Timer - startTime, "0.0") & "s"
+        LogStepComplete "Correcao de texto selecionado", _
+            "Texto corrigido e substituido | " & _
+            Format(Timer - startTime, "0.0") & "s"
+    Else
+        Application.StatusBar = _
+            LOG_PREFIX & ": Nenhuma alteracao necessaria."
+        LogStepComplete "Correcao de texto selecionado", _
+            "Nenhuma alteracao necessaria | " & _
+            Format(Timer - startTime, "0.0") & "s"
+    End If
 
     Exit Sub
 
 ErrorHandler:
     Application.StatusBar = False
-    Application.ScreenUpdating = True
-    LogMessage LOG_PREFIX & ": Erro na revisao do documento: " & _
+    LogMessage LOG_PREFIX & ": Erro na correcao: " & _
         Err.Number & " - " & Err.Description, LOG_LEVEL_ERROR
     MsgBox _
-        "Ocorreu um erro durante a revisao." & vbCrLf & vbCrLf & _
+        "Erro durante a correcao:" & vbCrLf & vbCrLf & _
         "Numero: " & Err.Number & vbCrLf & _
         "Descricao: " & Err.Description, _
         vbCritical, _
