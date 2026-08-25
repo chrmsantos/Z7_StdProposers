@@ -16,17 +16,36 @@ Z7_StdProposers is an advanced, robust VBA macro project designed exclusively fo
 
 ## 🏗️ Architecture
 
-The VBA codebase is organized into 10 modules in `source/main/`:
+The VBA codebase is organized into 12 modules in `source/main/`:
 
 - `Mod_01_Infrastructure.bas`: Constants, global state, cross-cutting helpers, paths, backup/system integrations.
 - `Mod_02_Engine.bas`: Structural detection heuristics, paragraph cache, image/list preservation routines.
 - `Mod_03_Pipeline.bas`: Core formatting pipeline (double-pass), normalization, cleanup, and logging primitives.
 - `Mod_04_Main.bas`: Public entrypoints/macros, orchestration, and structural range identification.
+- `Mod_05_Logging.bas`: Centralized logging infrastructure, log rotation, and diagnostic output.
 - `Mod_06_WordMacro.bas`: Asynchronous Word-to-Python integration bridge (launches AI chat and prompt configurations).
+- `Mod_07_Formatting.bas`: Low-level paragraph formatting, font/style application, and layout helpers.
+- `Mod_08_Ementa.bas`: Ementa (summary) section detection and specialized formatting.
+- `Mod_09_SpecialParagraphs.bas`: Special legal paragraph types (clauses, signatures, dates) detection and formatting.
+- `Mod_10_Validation.bas`: Document structure validation and integrity checks.
+- `Mod_11_RevisionText.bas`: Revision text processing, track-changes integration, and text comparison.
+- `Mod_12_AIStructure.bas`: AI-powered document structure analysis and intelligent formatting suggestions.
 
 The repository also contains a Python integration package in `ai/` for OpenRouter-based AI grammar correction and chat utilities.
 
 ## 🚀 Installation & Usage
+
+### Quick Install (Recommended)
+
+Run the compiled importer directly — no Python required:
+
+```
+dist\import_bas_to_normal.exe
+```
+
+This will automatically locate `Normal.dotm`, create a backup, and import all VBA modules from `source/main/`.
+
+### Manual Install
 
 1. Open Microsoft Word.
 2. Launch the **Visual Basic for Applications (VBA) Editor** (`ALT` + `F11`).
@@ -34,6 +53,15 @@ The repository also contains a Python integration package in `ai/` for OpenRoute
 4. Go to `Debug -> Compile Project` to ensure your Word environment resolves the inter-module Public references.
 5. Create a Ribbon Button or Quick Access Toolbar shortcut pointing to the `PadronizarDocumentoMain` macro.
 6. Click the macro while editing a document to execute the Z7_StdProposers standardized pipeline!
+
+### Automated Import (Python)
+
+If you have Python 3.10+ and `pywin32` installed:
+
+```bash
+pip install pywin32
+python scripts/import_bas_to_normal.py [--dry-run] [--no-backup] [--verbose]
+```
 
 ## ✅ Automated Tests
 

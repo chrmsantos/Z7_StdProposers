@@ -162,6 +162,38 @@ Invoke-PyInstaller -ScriptName "chat_ia.py"
 Install-Executable -Name "chat_ia"
 Package-Artifact   -Name "chat_ia"
 
+# ── Compile scripts/ utilities ───────────────────────────────────────────
+$scriptsDir = Join-Path $projectRoot "scripts"
+$importBasScript = Join-Path $scriptsDir "import_bas_to_normal.py"
+if (Test-Path $importBasScript) {
+    Write-Host "Compilando import_bas_to_normal.py..."
+    $baseName = "import_bas_to_normal"
+    New-Item -ItemType Directory -Force -Path (Join-Path $scriptsDir "build\$baseName") | Out-Null
+    $pyiArgs = @("--onefile", "--noconsole", "--noconfirm",
+                 "--hidden-import=unicodedata",
+                 "--hidden-import=pythoncom",
+                 "--hidden-import=win32com.client",
+                 "--hidden-import=win32com",
+                 $importBasScript)
+    $process = Start-Process -FilePath $pyinstallerPath -ArgumentList $pyiArgs `
+        -WorkingDirectory $scriptsDir -NoNewWindow -Wait -PassThru
+    if ($process.ExitCode -ne 0) {
+        Write-Warning "Falha ao compilar import_bas_to_normal.py (exit code: $($process.ExitCode))."
+    } else {
+        $exeSrc = Join-Path $scriptsDir "dist\$baseName.exe"
+        $exeDest = Join-Path $distDir "$baseName.exe"
+        New-Item -ItemType Directory -Force -Path $distDir | Out-Null
+        if (Test-Path $exeSrc) {
+            Copy-Item $exeSrc $exeDest -Force
+            Write-Host "[$baseName] copiado para dist\."
+        }
+        # Clean up scripts/ build artifacts
+        Remove-Item -Path (Join-Path $scriptsDir "dist") -Recurse -Force -ErrorAction SilentlyContinue
+        Remove-Item -Path (Join-Path $scriptsDir "build") -Recurse -Force -ErrorAction SilentlyContinue
+        Get-Item (Join-Path $scriptsDir "*.spec") -ErrorAction SilentlyContinue | Remove-Item -Force
+    }
+}
+
 Write-Host "Limpando arquivos temporarios..."
 # Nao remover build/ - o cache Analysis-00.toc evita bug Python 3.14 na proxima execucao
 Remove-Item -Path (Join-Path $scriptDir "dist") -Recurse -Force -ErrorAction SilentlyContinue

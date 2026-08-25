@@ -156,7 +156,12 @@ def import_modules_to_normal(
     logger: logging.Logger,
     dry_run: bool = False,
 ) -> dict:
-    """Import all .bas files into Normal.dotm's VBProject."""
+    """Import all .bas files into Normal.dotm's VBProject.
+
+    Always creates a new isolated Word instance (DispatchEx) and works on a
+    temporary copy of Normal.dotm to avoid conflicts with any running Word
+    process that may have the file locked or be in a modal state.
+    """
     try:
         import win32com.client
     except ImportError:
@@ -172,15 +177,23 @@ def import_modules_to_normal(
 
     word = None
     doc = None
+    tmp_copy = None
 
     try:
-        logger.info("Iniciando Microsoft Word...")
-        word = win32com.client.Dispatch("Word.Application")
+        # Work on a temporary copy so we never conflict with a running Word.
+        fd, tmp_str = tempfile.mkstemp(suffix=".dotm")
+        os.close(fd)
+        tmp_copy = Path(tmp_str)
+        shutil.copy2(str(normal_dotm), str(tmp_copy))
+        logger.info("Copia temporaria criada: %s", tmp_copy)
+
+        logger.info("Iniciando Microsoft Word (instancia isolada)...")
+        word = win32com.client.DispatchEx("Word.Application")
         word.Visible = False
         word.DisplayAlerts = 0
 
-        logger.info("Abrindo Normal.dotm: %s", normal_dotm)
-        doc = word.Documents.Open(str(normal_dotm))
+        logger.info("Abrindo copia temporaria de Normal.dotm...")
+        doc = word.Documents.Open(str(tmp_copy))
         vb_project = doc.VBProject
         logger.info("VBProject: %s | Modulos existentes: %d",
                      vb_project.Name, vb_project.VBComponents.Count)
@@ -198,7 +211,7 @@ def import_modules_to_normal(
         logger.info("Salvando Normal.dotm...")
         # Use SaveAs2 with correct format for .dotm (macro-enabled template)
         # wdFormatXMLTemplateMacroEnabled = 15
-        doc.SaveAs2(str(normal_dotm), FileFormat=15)
+        doc.SaveAs2(str(tmp_copy), FileFormat=15)
         logger.info("Normal.dotm salvo com sucesso!")
 
     except Exception as e:
@@ -219,7 +232,30 @@ def import_modules_to_normal(
                 pass
             time.sleep(0.5)
 
+    # Copy the updated temp file back over Normal.dotm.
+    if tmp_copy is not None and tmp_copy.exists():
+        _copy_back_to_normal(tmp_copy, normal_dotm, logger)
+
     return stats
+
+
+def _copy_back_to_normal(tmp_copy: Path, normal_dotm: Path,
+                         logger: logging.Logger):
+    """Replace Normal.dotm with the updated temporary copy."""
+    try:
+        shutil.copy2(str(tmp_copy), str(normal_dotm))
+        logger.info("Normal.dotm atualizado a partir da copia temporaria.")
+        # Clean up temp file on success.
+        try:
+            tmp_copy.unlink(missing_ok=True)
+        except OSError:
+            pass
+    except PermissionError:
+        logger.warning(
+            "Nao foi possivel substituir Normal.dotm (arquivo bloqueado). "
+            "Feche o Word e execute novamente, ou copie manualmente:\n"
+            "  de: %s\n  para: %s", tmp_copy, normal_dotm
+        )
 
 # PLACEHOLDER_PART5
 
