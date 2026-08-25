@@ -543,24 +543,39 @@ End Function
 '--------------------------------------------------------------------------------
 ' IdentifyDocumentStructure - Identifica todos os elementos estruturais
 '--------------------------------------------------------------------------------
-' Tenta identificacao via IA primeiro; em caso de falha, usa heuristica.
+' Tenta identificacao via IA primeiro; em caso de falha ou timeout (>10s),
+' usa heuristica como fallback.
 '--------------------------------------------------------------------------------
 Public Sub IdentifyDocumentStructure(doc As Document)
     On Error GoTo ErrorHandler
+
+    Const IA_TIMEOUT_SEC As Long = 10
 
     LogMessage "Identificando estrutura do documento...", LOG_LEVEL_INFO
 
     ' Tenta identificacao via IA (Mod12AIStructure)
     Dim aiSuccess As Boolean
+    Dim iaStartTime As Double
+    iaStartTime = Timer
     aiSuccess = IdentifyDocumentStructureWithAI(doc)
+    Dim iaElapsed As Double
+    iaElapsed = Timer - iaStartTime
 
     If aiSuccess Then
-        LogMessage "Estrutura identificada com sucesso via IA.", LOG_LEVEL_INFO
+        LogMessage "Estrutura identificada com sucesso via IA em " & _
+            Format(iaElapsed, "0.00") & "s.", LOG_LEVEL_INFO
         Exit Sub
     End If
 
-    ' Fallback: usa heuristica (implementacao original)
-    LogMessage "IA nao disponivel ou falhou - usando heuristica como fallback.", LOG_LEVEL_WARNING
+    ' Falha ou timeout da IA — fallback para heuristica
+    If iaElapsed > IA_TIMEOUT_SEC Then
+        LogMessage "Timeout: IA excedeu " & Format(iaElapsed, "0.00") & _
+            "s (limite: " & IA_TIMEOUT_SEC & "s) - usando heuristica como fallback.", LOG_LEVEL_WARNING
+    Else
+        LogMessage "IA nao disponivel ou falhou (" & Format(iaElapsed, "0.00") & _
+            "s) - usando heuristica como fallback.", LOG_LEVEL_WARNING
+    End If
+
     IdentifyDocumentStructureHeuristics doc
     Exit Sub
 

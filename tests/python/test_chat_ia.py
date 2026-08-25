@@ -537,6 +537,34 @@ class TestFindWordWithDocuments(unittest.TestCase):
 # ---------------------------------------------------------------------------
 # _get_word_app (fallback chain com verificação de documentos)
 # ---------------------------------------------------------------------------
+def _make_get_word_client(gao_result=None, gao_error=None,
+                          go_result=None, go_error=None):
+    """Cria um stub de win32com.client para _get_word_app.
+
+    Evita importar o win32com.client real (que carrega pywintypes e crasha
+    quando pythoncom esta mockado em sys.modules), fornecendo
+    GetActiveObject/GetObject controlados diretamente.
+    """
+    client_stub = mock.MagicMock()
+    if gao_error is not None:
+        client_stub.GetActiveObject.side_effect = gao_error
+    elif gao_result is not None:
+        client_stub.GetActiveObject.return_value = gao_result
+    if go_error is not None:
+        client_stub.GetObject.side_effect = go_error
+    elif go_result is not None:
+        client_stub.GetObject.return_value = go_result
+
+    win32com_stub = mock.MagicMock()
+    win32com_stub.client = client_stub
+
+    return {
+        "pythoncom": mock.MagicMock(),
+        "win32com": win32com_stub,
+        "win32com.client": client_stub,
+    }, client_stub
+
+
 class TestGetWordApp(unittest.TestCase):
     """Valida que _get_word_app verifica documentos em cada fallback."""
 
@@ -548,43 +576,44 @@ class TestGetWordApp(unittest.TestCase):
         empty_word = FakeWordApp()
         good_word = FakeWordApp(normal_texts=["Documento via GetObject."])
 
-        with mock.patch.dict(sys.modules, {"pythoncom": mock.MagicMock()}), \
-             mock.patch.object(chat_ia.ChatApp, "_find_word_with_documents", return_value=None), \
-             mock.patch("win32com.client.GetActiveObject", return_value=empty_word) as gao, \
-             mock.patch("win32com.client.GetObject", return_value=good_word) as go:
+        stubs, client_stub = _make_get_word_client(
+            gao_result=empty_word, go_result=good_word)
+        with mock.patch.dict(sys.modules, stubs), \
+             mock.patch.object(chat_ia.ChatApp, "_find_word_with_documents", return_value=None):
             result = self.app._get_word_app()
         self.assertIs(result, good_word)
-        gao.assert_called_once()
-        go.assert_called_once()
+        client_stub.GetActiveObject.assert_called_once()
+        client_stub.GetObject.assert_called_once()
 
     def test_rot_returns_empty_then_get_active_object_with_docs(self):
         """ROT encontra instância vazia → GetActiveObject com docs é usada."""
         empty_rot = FakeWordApp()
         good_gao = FakeWordApp(normal_texts=["Doc via fallback."])
 
-        with mock.patch.dict(sys.modules, {"pythoncom": mock.MagicMock()}), \
-             mock.patch.object(chat_ia.ChatApp, "_find_word_with_documents", return_value=empty_rot), \
-             mock.patch("win32com.client.GetActiveObject", return_value=good_gao):
+        stubs, _client_stub = _make_get_word_client(gao_result=good_gao)
+        with mock.patch.dict(sys.modules, stubs), \
+             mock.patch.object(chat_ia.ChatApp, "_find_word_with_documents", return_value=empty_rot):
             result = self.app._get_word_app()
         self.assertIs(result, good_gao)
 
     def test_all_fallbacks_empty_returns_last_resort(self):
         """Todos os fallbacks retornam instância vazia → último recurso retorna instância."""
         empty = FakeWordApp()
-        with mock.patch.dict(sys.modules, {"pythoncom": mock.MagicMock()}), \
-             mock.patch.object(chat_ia.ChatApp, "_find_word_with_documents", return_value=None), \
-             mock.patch("win32com.client.GetActiveObject", return_value=empty), \
-             mock.patch("win32com.client.GetObject", return_value=empty):
+        stubs, _client_stub = _make_get_word_client(
+            gao_result=empty, go_result=empty)
+        with mock.patch.dict(sys.modules, stubs), \
+             mock.patch.object(chat_ia.ChatApp, "_find_word_with_documents", return_value=None):
             result = self.app._get_word_app()
         # Último recurso: GetActiveObject retorna a instância (vazia, mas existente)
         self.assertIsNotNone(result)
 
     def test_word_not_running_raises(self):
         """Word não está instalado/rodando → lança exceção."""
-        with mock.patch.dict(sys.modules, {"pythoncom": mock.MagicMock()}), \
-             mock.patch.object(chat_ia.ChatApp, "_find_word_with_documents", return_value=None), \
-             mock.patch("win32com.client.GetActiveObject", side_effect=Exception("not running")), \
-             mock.patch("win32com.client.GetObject", side_effect=Exception("not running")):
+        not_running = Exception("not running")
+        stubs, _client_stub = _make_get_word_client(
+            gao_error=not_running, go_error=not_running)
+        with mock.patch.dict(sys.modules, stubs), \
+             mock.patch.object(chat_ia.ChatApp, "_find_word_with_documents", return_value=None):
             with self.assertRaises(Exception) as ctx:
                 self.app._get_word_app()
         self.assertIn("Não foi possível", str(ctx.exception))

@@ -29,10 +29,14 @@ Private Const AI_STRUCT_DEFAULT_MODEL As String = _
     "deepseek/deepseek-v4-pro"
 
 ' Timeouts em milissegundos (resolve, connect, send, receive)
-Private Const AI_STRUCT_RESOLVE_TIMEOUT As Long = 5000
-Private Const AI_STRUCT_CONNECT_TIMEOUT As Long = 10000
-Private Const AI_STRUCT_SEND_TIMEOUT As Long = 30000
-Private Const AI_STRUCT_RECEIVE_TIMEOUT As Long = 60000
+' Maximo total: ~10s para garantir timeout e fallback em tempo habil
+Private Const AI_STRUCT_RESOLVE_TIMEOUT As Long = 2000
+Private Const AI_STRUCT_CONNECT_TIMEOUT As Long = 3000
+Private Const AI_STRUCT_SEND_TIMEOUT As Long = 2000
+Private Const AI_STRUCT_RECEIVE_TIMEOUT As Long = 3000
+
+' Limite de tempo total para a funcao (segundos)
+Private Const AI_STRUCT_TOTAL_TIMEOUT_SEC As Long = 10
 
 ' Maximo de paragrafos para enviar a IA (protecao de contexto)
 Private Const MAX_PARAGRAPHS_FOR_AI As Long = 400
@@ -129,6 +133,14 @@ Public Function IdentifyDocumentStructureWithAI(doc As Document) As Boolean
     LogMetric "Tamanho do texto montado", Len(docText), "chars"
     LogStepComplete "Montagem do texto para IA"
 
+    ' Verifica timeout apos montagem do texto
+    If Timer - startTime > AI_STRUCT_TOTAL_TIMEOUT_SEC Then
+        LogMessage AI_STRUCT_PREFIX & ": Timeout apos montagem do texto (" & _
+            Format(Timer - startTime, "0.00") & "s)", LOG_LEVEL_WARNING
+        LogStepSkipped "Identificacao de estrutura", "Timeout - excedeu " & AI_STRUCT_TOTAL_TIMEOUT_SEC & "s"
+        Exit Function
+    End If
+
     ' -----------------------------------------------------------------
     ' 2. CARREGA CHAVE API
     ' -----------------------------------------------------------------
@@ -182,6 +194,14 @@ Public Function IdentifyDocumentStructureWithAI(doc As Document) As Boolean
 
     LogMetric "Tamanho da resposta", Len(resposta), "chars"
     LogStepComplete "Chamada HTTP a API OpenRouter"
+
+    ' Verifica timeout apos chamada HTTP
+    If Timer - startTime > AI_STRUCT_TOTAL_TIMEOUT_SEC Then
+        LogMessage AI_STRUCT_PREFIX & ": Timeout apos chamada HTTP (" & _
+            Format(Timer - startTime, "0.00") & "s)", LOG_LEVEL_WARNING
+        LogStepSkipped "Identificacao de estrutura", "Timeout - excedeu " & AI_STRUCT_TOTAL_TIMEOUT_SEC & "s"
+        Exit Function
+    End If
 
     ' -----------------------------------------------------------------
     ' 6. PARSEIA RESPOSTA

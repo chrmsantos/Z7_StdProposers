@@ -84,7 +84,7 @@ Describe 'Z7_STDPROPOSERS - Python Logging and Test Harness' {
     Context 'Suites de testes unitarios Python executam com sucesso' {
         It 'Todos os testes Python passam via unittest discover' {
             $repoRoot = Get-RepoRoot
-            $cmd = "Set-Location '$repoRoot'; py -3 -m unittest discover -s tests/python -p 'test_*.py' -v"
+            $cmd = "Set-Location '$repoRoot'; py -3.14 -m unittest discover -s tests/python -p 'test_*.py' -v"
             $output = powershell -NoProfile -NonInteractive -ExecutionPolicy Bypass -Command $cmd 2>&1 | Out-String
             $LASTEXITCODE | Should Be 0
             $output | Should Match 'OK'
@@ -95,7 +95,7 @@ Describe 'Z7_STDPROPOSERS - Python Logging and Test Harness' {
             It "Testes de $testFile passam" {
                 $repoRoot = Get-RepoRoot
                 $module = $testFile -replace '\.py$', '' -replace '/', '.'
-                $cmd = "Set-Location '$repoRoot'; py -3 -m unittest tests.python.$module -v"
+                $cmd = "Set-Location '$repoRoot'; py -3.14 -m unittest tests.python.$module -v"
                 $output = powershell -NoProfile -NonInteractive -ExecutionPolicy Bypass -Command $cmd 2>&1 | Out-String
                 $LASTEXITCODE | Should Be 0
                 $output | Should Match 'OK'

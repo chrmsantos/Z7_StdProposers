@@ -308,15 +308,27 @@ def _import_single_module(vb_project, bas_path: str, bas_name: str, logger: logg
     """
     raw = Path(bas_path).read_bytes()
 
-    # Write temp file preserving exact bytes — no decode/encode round-trip.
-    # Source .bas files are already CP1252 (verified by fix_bas_encoding.py).
-    # VBComponents.Import() reads using the system ANSI codepage (CP1252),
-    # so the bytes can be written directly.
+    # Decodifica o conteudo do .bas tentando UTF-8 primeiro e CP1252 como
+    # fallback. Isso garante que modulos salvos acidentalmente em UTF-8 (sem
+    # BOM) sejam lidos corretamente, preservando o legado CP1252 dos modulos
+    # gerados por fix_bas_encoding.py.
+    try:
+        content = raw.decode("utf-8")
+    except UnicodeDecodeError:
+        content = raw.decode("cp1252")
+
+    # Arquivos .bas podem conter U+FFFD (caracter de substituicao) fruto de
+    # conversao de encoding anterior mal-sucedida. Esse codepoint nao existe em
+    # CP1252, entao trocamos por '?' antes de gravar o temporario.
+    content = content.replace("\ufffd", "?")
+
+    # Write temp file in CP1252 so VBComponents.Import() (which reads using the
+    # system ANSI codepage) sees the exact bytes expected.
     tmp_path = None
     try:
         fd, tmp_path = tempfile.mkstemp(suffix=".bas")
         os.close(fd)
-        Path(tmp_path).write_bytes(raw)
+        Path(tmp_path).write_text(content, encoding="cp1252")
         vb_project.VBComponents.Import(tmp_path)
     finally:
         if tmp_path and os.path.exists(tmp_path):

@@ -395,6 +395,7 @@ Public Sub CorrigirProposituraComIA()
     Dim chaveAPI As String
 
     startTime = Timer
+    undoGroupEnabled = False ' Reset inicial
 
     ' -----------------------------------------------------------------
     ' VALIDACOES INICIAIS
@@ -452,6 +453,23 @@ Public Sub CorrigirProposituraComIA()
     ' -----------------------------------------------------------------
     ' SUBSTITUI SE HOUVE ALTERACAO (PRESERVANDO FORMATAcao)
     ' -----------------------------------------------------------------
+
+    ' -----------------------------------------------------------------
+    ' INICIO DO GRUPO DE DESFAZER (UndoRecord) - melhor esforco
+    ' Agrupa todas as edicoes da substituicao em uma unica acao Ctrl+Z
+    ' -----------------------------------------------------------------
+    On Error Resume Next
+    Application.UndoRecord.StartCustomRecord "Z7_STDPROPOSERS - Correcao IA"
+    If Err.Number = 0 Then
+        undoGroupEnabled = True
+        LogMessage LOG_PREFIX & ": UndoRecord iniciado", LOG_LEVEL_INFO
+    Else
+        undoGroupEnabled = False
+        Err.Clear
+    End If
+    On Error GoTo ErrorHandler
+    ' -----------------------------------------------------------------
+
     If NormalizarComparacao(textoCorrigido) <> _
        NormalizarComparacao(textoOriginal) Then
         SubstituirTextoPreservandoFormatacao _
@@ -471,16 +489,43 @@ Public Sub CorrigirProposituraComIA()
             Format(Timer - startTime, "0.0") & "s"
     End If
 
+    ' -----------------------------------------------------------------
+    ' FIM DO GRUPO DE DESFAZER - SEMPRE fecha o UndoRecord
+    ' -----------------------------------------------------------------
+    On Error Resume Next
+    If undoGroupEnabled Then
+        Application.UndoRecord.EndCustomRecord
+        undoGroupEnabled = False
+        LogMessage LOG_PREFIX & ": UndoRecord finalizado com sucesso", LOG_LEVEL_INFO
+    End If
+    Err.Clear
+    On Error GoTo 0
+    ' -----------------------------------------------------------------
+
     Exit Sub
 
 ErrorHandler:
+    ' Captura os dados do erro antes de qualquer manipulacao do UndoRecord
+    Dim errNum As Long
+    Dim errDesc As String
+    errNum = Err.Number
+    errDesc = Err.Description
+
+    ' CRITICO: Garante fechamento do UndoRecord mesmo em erro
+    If undoGroupEnabled Then
+        On Error Resume Next
+        Application.UndoRecord.EndCustomRecord
+        undoGroupEnabled = False
+        On Error GoTo 0
+    End If
+
     Application.StatusBar = False
     LogMessage LOG_PREFIX & ": Erro na correcao: " & _
-        Err.Number & " - " & Err.Description, LOG_LEVEL_ERROR
+        errNum & " - " & errDesc, LOG_LEVEL_ERROR
     MsgBox _
         "Erro durante a correcao:" & vbCrLf & vbCrLf & _
-        "Numero: " & Err.Number & vbCrLf & _
-        "Descricao: " & Err.Description, _
+        "Numero: " & errNum & vbCrLf & _
+        "Descricao: " & errDesc, _
         vbCritical, _
         "Erro"
 End Sub
