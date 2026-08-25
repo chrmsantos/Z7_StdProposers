@@ -32,7 +32,10 @@ _FALLBACK_MODEL = 'openai/gpt-oss-20b'
 _OPENROUTER_BASE_URL = 'https://openrouter.ai/api/v1'
 _MAX_CONTEXT_CHARS = 150_000
 
-_APP_VERSION = "8.7.2"
+_RPC_BUSY_RETRIES = 3
+_RPC_BUSY_RETRY_DELAY = 0.3
+
+_APP_VERSION = "8.10.2"
 _APP_AUTHOR  = "CMS"
 _ORG         = "Câmara Municipal de Santa Bárbara d'Oeste"
 _LICENSE     = "GPL-3.0"
@@ -419,6 +422,63 @@ class ChatApp:
     # Leitura robusta do documento do Word
     # ------------------------------------------------------------------
     @staticmethod
+    def _read_with_rpc_retry(fn, label: str, retries: int = _RPC_BUSY_RETRIES):
+        """Executa ``fn()`` e, em caso de erro RPC de "Word ocupado/modal", aguarda
+        e tenta novamente até ``retries`` vezes.
+
+        O Word frequentemente rejeita chamadas COM com RPC_E_CALL_REJECTED logo
+        após a abertura do chat (macro ainda em execução, documento carregando ou
+        diálogo modal). Sem retry, a leitura de ``Documents.Count`` falha e a
+        instância válida é confundida com uma instância vazia — causa raiz do
+        bug recorrente "nenhum documento". Retorna o valor de ``fn()`` ou
+        re-levanta a última exceção após esgotar as tentativas.
+        """
+        import time
+        last_err = None
+        for attempt in range(1, retries + 1):
+            try:
+                return fn()
+            except Exception as e:
+                last_err = e
+                if not ChatApp._is_rpc_busy_error(e):
+                    raise
+                LOGGER.info(
+                    "RPC busy on %s (attempt %d/%d); retrying in %.1fs",
+                    label, attempt, retries, _RPC_BUSY_RETRY_DELAY,
+                )
+                time.sleep(_RPC_BUSY_RETRY_DELAY)
+        raise last_err
+
+    @staticmethod
+    def _word_doc_counts_with_status(word) -> tuple:
+        """Retorna (docs_normais, docs_protected_view, readable).
+
+        ``readable=False`` indica que ao menos uma contagem não pôde ser lida
+        mesmo após retry de RPC — o estado da instância é DESCONHECIDO (pode ter
+        documentos, mas o Word está ocupado ou o COM quebrou). Isso distingue
+        "instância confirmada vazia" de "instância cujo estado não pôde ser
+        determinado", permitindo priorizar a última na ROT.
+        """
+        normal = 0
+        protected = 0
+        readable = True
+        try:
+            normal = int(ChatApp._read_with_rpc_retry(
+                lambda: word.Documents.Count, "Documents.Count"))
+        except Exception as e:
+            readable = False
+            LOGGER.warning("Could not read Documents.Count (hresult=%s): %s",
+                           getattr(e, "hresult", None), e)
+        try:
+            protected = int(ChatApp._read_with_rpc_retry(
+                lambda: word.ProtectedViewWindows.Count, "ProtectedViewWindows.Count"))
+        except Exception as e:
+            readable = False
+            LOGGER.warning("Could not read ProtectedViewWindows.Count (hresult=%s): %s",
+                           getattr(e, "hresult", None), e)
+        return normal, protected, readable
+
+    @staticmethod
     def _word_doc_counts(word) -> tuple:
         """Retorna (docs_normais, docs_protected_view) de forma defensiva.
 
@@ -475,7 +535,8 @@ class ChatApp:
             ("windows", lambda: int(word.Windows.Count)),
         ):
             try:
-                snapshot[key]["value"] = getter()
+                snapshot[key]["value"] = ChatApp._read_with_rpc_retry(
+                    getter, f"{key}.Count")
                 snapshot[key]["status"] = "ok"
             except Exception as e:
                 snapshot[key]["status"] = "error"
@@ -704,11 +765,12 @@ class ChatApp:
                     unk = rot.GetObject(mk)
                     disp = unk.QueryInterface(pythoncom.IID_IDispatch)
                     word = win32com.client.Dispatch(disp)
-                    normal, protected = self._word_doc_counts(word)
+                    normal, protected, readable = self._word_doc_counts_with_status(word)
                     score = normal + protected
-                    LOGGER.info("ROT Word instance '%s': Documents=%d, ProtectedView=%d",
-                                name, normal, protected)
-                    candidates.append((score, word))
+                    LOGGER.info(
+                        "ROT Word instance '%s': Documents=%d, ProtectedView=%d, readable=%s",
+                        name, normal, protected, readable)
+                    candidates.append((score, readable, word))
                 except Exception as e_cand:
                     LOGGER.warning("Failed to inspect ROT Word instance '%s': %s", name, e_cand)
         except Exception as e_rot:
@@ -716,14 +778,22 @@ class ChatApp:
 
         # Prefere instância com documentos acessíveis (normais ou Protected View)
         candidates.sort(key=lambda c: c[0], reverse=True)
-        for score, word in candidates:
+        for score, _readable, word in candidates:
             if score > 0:
                 LOGGER.info("Selected Word instance with %d accessible document(s)", score)
                 return word
-        # Se nenhuma tem documento, retorna a primeira (se houver) para erro coerente
+        # Sem documentos confirmados: prioriza instância cujo estado é DESCONHECIDO
+        # (contagem não pôde ser lida mesmo com retry — pode ter documentos em Word
+        # ocupado/carregando) sobre instância confirmada vazia.
+        for _score, readable, word in candidates:
+            if not readable:
+                LOGGER.warning(
+                    "Selecting Word instance with unreadable doc counts (may be busy/loading)")
+                return word
+        # Nenhuma tem documento legível → primeira instância confirmada vazia
         if candidates:
             LOGGER.warning("No Word instance reports accessible documents; using first ROT instance")
-            return candidates[0][1]
+            return candidates[0][2]
         return None
 
     def _get_word_app(self):

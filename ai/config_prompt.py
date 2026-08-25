@@ -27,7 +27,7 @@ LOGGER = configure_component_logger("config_prompt")
 #  Metadata
 # ═════════════════════════════════════════════════════════════════════════════
 
-_APP_VERSION = "8.7.2"
+_APP_VERSION = "8.10.2"
 _APP_AUTHOR  = "CMS"
 _ORG         = "Câmara Municipal de Santa Bárbara d'Oeste"
 _LICENSE     = "GPL-3.0"
@@ -945,7 +945,7 @@ def main() -> None:
 
     # ── Coluna Esquerda: Prompt do Corretor de Propositura ───────────────
     revision_frame = tk.Frame(text_container, bg=_c["border"])
-    revision_frame.pack(side=tk.LEFT, expand=True, fill=tk.BOTH, padx=(0, 3))
+    revision_frame.grid(row=0, column=0, sticky="nsew", padx=(0, 3))
     theme.widgets['revision_border_frame'] = revision_frame
 
     revision_prompt_label = tk.Label(revision_frame,
@@ -973,7 +973,7 @@ def main() -> None:
 
     # ── Coluna Direita: Prompt do Chat IA ────────────────────────────────
     chat_frame = tk.Frame(text_container, bg=_c["border"])
-    chat_frame.pack(side=tk.LEFT, expand=True, fill=tk.BOTH, padx=(3, 0))
+    chat_frame.grid(row=0, column=1, sticky="nsew", padx=(3, 0))
     theme.widgets['border_frame'] = chat_frame
 
     prompt_label = tk.Label(chat_frame, text="PROMPT DO CHAT IA",
@@ -997,6 +997,11 @@ def main() -> None:
     text_area.config(yscrollcommand=scrollbar.set)
     text_area.insert(tk.END, load_chat_system_prompt())
     theme.widgets['text_area'] = text_area
+
+    # ── Configurar larguras iguais para as duas colunas ─────────────────
+    text_container.grid_columnconfigure(0, weight=1, uniform="prompt_col")
+    text_container.grid_columnconfigure(1, weight=1, uniform="prompt_col")
+    text_container.grid_rowconfigure(0, weight=1)
 
     # ── Botões de ação ────────────────────────────────────────────────────
     btn_frame = tk.Frame(root)

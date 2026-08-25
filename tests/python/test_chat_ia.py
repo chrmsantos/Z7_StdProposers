@@ -244,6 +244,59 @@ class TestWordDocCounts(unittest.TestCase):
         self.assertIn("hresult=-2147418111", joined)
 
 
+class TestWordDocCountsWithStatus(unittest.TestCase):
+    """Cobre _word_doc_counts_with_status — distinção entre vazio e ilegível."""
+
+    def test_readable_true_when_counts_ok(self):
+        word = FakeWordApp(normal_texts=["doc"])
+        normal, protected, readable = chat_ia.ChatApp._word_doc_counts_with_status(word)
+        self.assertEqual((normal, protected), (1, 0))
+        self.assertTrue(readable)
+
+    def test_readable_false_when_count_read_fails(self):
+        word = ExplodingWord(FakeComError("rejected", hresult=RPC_E_CALL_REJECTED))
+        with mock.patch("time.sleep"):
+            normal, protected, readable = chat_ia.ChatApp._word_doc_counts_with_status(word)
+        self.assertEqual((normal, protected), (0, 0))
+        self.assertFalse(readable)
+
+
+class TestReadWithRpcRetry(unittest.TestCase):
+    """Cobre _read_with_rpc_retry — retry apenas em RPC 'Word ocupado'."""
+
+    def test_retries_on_rpc_busy_then_succeeds(self):
+        calls = {"n": 0}
+
+        def flaky():
+            calls["n"] += 1
+            if calls["n"] < 3:
+                raise FakeComError("Call was rejected by callee.", hresult=RPC_E_CALL_REJECTED)
+            return "ok"
+
+        with mock.patch("time.sleep") as sleep:
+            result = chat_ia.ChatApp._read_with_rpc_retry(flaky, "Test.Count")
+        self.assertEqual(result, "ok")
+        self.assertEqual(calls["n"], 3)
+        self.assertEqual(sleep.call_count, 2)
+
+    def test_raises_immediately_on_non_busy_error(self):
+        def boom():
+            raise FakeComError("COM dead", hresult=-1)
+
+        with mock.patch("time.sleep") as sleep:
+            with self.assertRaises(FakeComError):
+                chat_ia.ChatApp._read_with_rpc_retry(boom, "Test.Count")
+        sleep.assert_not_called()
+
+    def test_raises_last_error_after_retries_exhausted(self):
+        def always_busy():
+            raise FakeComError("rejected", hresult=RPC_E_CALL_REJECTED)
+
+        with mock.patch("time.sleep"):
+            with self.assertRaises(FakeComError):
+                chat_ia.ChatApp._read_with_rpc_retry(always_busy, "Test.Count")
+
+
 class TestWordDocSnapshot(unittest.TestCase):
     """Cobre _word_doc_snapshot/_fmt_count/_log_word_snapshot — diagnóstico do Word."""
 
@@ -467,6 +520,17 @@ class TestFindWordWithDocuments(unittest.TestCase):
         with mock.patch.dict(sys.modules, stubs):
             result = self.app._find_word_with_documents()
         self.assertIs(result, word_a)
+
+    def test_prefers_unreadable_instance_over_confirmed_empty(self):
+        """Instância cuja contagem não pôde ser lida (Word ocupado) é priorizada
+        sobre instância confirmada vazia — evita escolher a tela inicial quando
+        o documento está em outro processo WINWORD.EXE ainda ocupado."""
+        empty_word = FakeWordApp()
+        busy_word = ExplodingWord(FakeComError("rejected", hresult=RPC_E_CALL_REJECTED))
+        stubs = _make_rot_stubs([empty_word, busy_word])
+        with mock.patch.dict(sys.modules, stubs), mock.patch("time.sleep"):
+            result = self.app._find_word_with_documents()
+        self.assertIs(result, busy_word)
 
 
 
