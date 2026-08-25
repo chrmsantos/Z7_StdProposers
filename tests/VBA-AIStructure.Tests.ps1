@@ -112,6 +112,10 @@ Describe 'Z7_STDPROPOSERS - Mod_12_AIStructure' {
             $script:mod12Content | Should Match '(?m)^Private Function AI_BytesParaStringUTF8\('
         }
 
+        It 'AI_BytesParaStringUTF8 aceita Variant (compativel com ResponseBody)' {
+            $script:mod12Content | Should Match '(?m)^Private Function AI_BytesParaStringUTF8\(.+As Variant'
+        }
+
         It 'Declara AI_CarregarChaveAPI' {
             $script:mod12Content | Should Match '(?m)^Private Function AI_CarregarChaveAPI\(\) As String'
         }

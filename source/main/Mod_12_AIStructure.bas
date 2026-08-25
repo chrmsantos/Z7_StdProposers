@@ -671,7 +671,7 @@ ErrorHandler:
     Set stream = Nothing
 End Function
 
-Private Function AI_BytesParaStringUTF8(ByRef bytes() As Byte) As String
+Private Function AI_BytesParaStringUTF8(ByVal bytes As Variant) As String
     On Error GoTo ErrorHandler
     Dim stream As Object
     Set stream = CreateObject("ADODB.Stream")
