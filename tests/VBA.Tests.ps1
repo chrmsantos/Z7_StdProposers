@@ -109,6 +109,24 @@ Describe 'Z7_STDPROPOSERS - VBA Modular Architecture' {
             $script:moduleContent['Mod_11_RevisionText.bas'] | Should Match 'LOG_LEVEL_ERROR'
         }
 
+        It 'Diagnostico de Estrutura IA esta em Mod_12_AIStructure' {
+            $script:moduleContent['Mod_12_AIStructure.bas'] | Should Match '(?m)^Public Sub DiagnosticarEstruturaIA\(\)'
+        }
+
+        It 'Teste de Estrutura IA esta em Mod_12_AIStructure' {
+            $script:moduleContent['Mod_12_AIStructure.bas'] | Should Match '(?m)^Public Sub TestarEstruturaIADocumentoAtual\(\)'
+        }
+
+        It 'Mod_12_AIStructure usa logging do projeto' {
+            $script:moduleContent['Mod_12_AIStructure.bas'] | Should Match 'LogMessage'
+            $script:moduleContent['Mod_12_AIStructure.bas'] | Should Match 'LOG_LEVEL_INFO'
+            $script:moduleContent['Mod_12_AIStructure.bas'] | Should Match 'LOG_LEVEL_ERROR'
+        }
+
+        It 'Mod_12_AIStructure usa caminhos centralizados de Mod_01_Infrastructure' {
+            $script:moduleContent['Mod_12_AIStructure.bas'] | Should Match 'GetZ7StdProposersDataPath'
+        }
+
     }
 
     Context 'Qualidade basica de implementacao' {

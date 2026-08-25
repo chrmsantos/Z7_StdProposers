@@ -40,6 +40,9 @@ Private Const MAX_PARAGRAPHS_FOR_AI As Long = 400
 ' Comprimento maximo de cada paragrafo enviado (evita tokens excessivos)
 Private Const MAX_PARAGRAPH_TEXT_LENGTH As Long = 500
 
+' Nivel de log para depuracao detalhada
+Private Const LOG_LEVEL_DEBUG As Long = 0
+
 ' =============================================================================
 ' DECLARACOES DA API WINDOWS (DPAPI) - mesma infraestrutura de Mod11
 ' =============================================================================
@@ -105,51 +108,121 @@ Public Function IdentifyDocumentStructureWithAI(doc As Document) As Boolean
 
     Dim startTime As Double
     startTime = Timer
-    LogMessage AI_STRUCT_PREFIX & ": Iniciando identificacao via IA...", LOG_LEVEL_INFO
+
+    LogSection "IDENTIFICACAO DE ESTRUTURA VIA IA"
+    LogStepStart "Identificacao de estrutura do documento"
+    LogMetric "Paragrafos no documento", doc.Paragraphs.count
+
+    ' -----------------------------------------------------------------
+    ' 1. MONTA TEXTO DO DOCUMENTO
+    ' -----------------------------------------------------------------
+    LogStepStart "Montagem do texto para IA"
 
     Dim docText As String
     docText = MontarTextoDocumentoParaIA(doc)
     If Len(docText) = 0 Then
-        LogMessage AI_STRUCT_PREFIX & ": Texto vazio", LOG_LEVEL_WARNING
+        LogMessage AI_STRUCT_PREFIX & ": Texto do documento vazio apos montagem", LOG_LEVEL_WARNING
+        LogStepSkipped "Identificacao de estrutura", "Texto vazio"
         Exit Function
     End If
+
+    LogMetric "Tamanho do texto montado", Len(docText), "chars"
+    LogStepComplete "Montagem do texto para IA"
+
+    ' -----------------------------------------------------------------
+    ' 2. CARREGA CHAVE API
+    ' -----------------------------------------------------------------
+    LogStepStart "Carregamento da chave API"
 
     Dim apiKey As String
     apiKey = AI_CarregarChaveAPI()
     If Len(apiKey) = 0 Then
         LogMessage AI_STRUCT_PREFIX & ": Chave API nao disponivel", LOG_LEVEL_WARNING
+        LogStepSkipped "Identificacao de estrutura", "Chave API ausente"
         Exit Function
     End If
 
+    LogStepComplete "Carregamento da chave API", "Chave carregada (" & Len(apiKey) & " chars)"
+
+    ' -----------------------------------------------------------------
+    ' 3. CARREGA MODELO
+    ' -----------------------------------------------------------------
     Dim modelo As String
     modelo = AI_CarregarModelo()
-    LogMessage AI_STRUCT_PREFIX & ": Modelo: " & modelo, LOG_LEVEL_INFO
+    LogMetric "Modelo IA", modelo
+
+    ' -----------------------------------------------------------------
+    ' 4. MONTA PAYLOAD JSON
+    ' -----------------------------------------------------------------
+    LogStepStart "Montagem do payload JSON"
+
+    Dim prompt As String
+    prompt = MontarPromptEstrutura()
+    LogMetric "Tamanho do prompt", Len(prompt), "chars"
 
     Dim jsonPayload As String
     jsonPayload = MontarJSONPayload(modelo, _
-        EscaparJSONAI(MontarPromptEstrutura()), EscaparJSONAI(docText))
+        EscaparJSONAI(prompt), EscaparJSONAI(docText))
+
+    LogMetric "Tamanho do payload", Len(jsonPayload), "chars"
+    LogStepComplete "Montagem do payload JSON"
+
+    ' -----------------------------------------------------------------
+    ' 5. CHAMADA HTTP A API
+    ' -----------------------------------------------------------------
+    LogStepStart "Chamada HTTP a API OpenRouter"
 
     Dim resposta As String
     resposta = AI_ChamarAPI(apiKey, jsonPayload)
     If Len(resposta) = 0 Then
-        LogMessage AI_STRUCT_PREFIX & ": Resposta IA vazia", LOG_LEVEL_WARNING
+        LogMessage AI_STRUCT_PREFIX & ": Resposta da IA vazia", LOG_LEVEL_WARNING
+        LogStepSkipped "Identificacao de estrutura", "Resposta vazia da API"
         Exit Function
     End If
+
+    LogMetric "Tamanho da resposta", Len(resposta), "chars"
+    LogStepComplete "Chamada HTTP a API OpenRouter"
+
+    ' -----------------------------------------------------------------
+    ' 6. PARSEIA RESPOSTA
+    ' -----------------------------------------------------------------
+    LogStepStart "Parse da resposta JSON da IA"
 
     If Not ParsearRespostaEstruturaIA(resposta, doc) Then
-        LogMessage AI_STRUCT_PREFIX & ": Falha ao parsear resposta", LOG_LEVEL_WARNING
+        LogMessage AI_STRUCT_PREFIX & ": Falha ao parsear resposta da IA", LOG_LEVEL_WARNING
+        LogStepSkipped "Identificacao de estrutura", "Falha no parse"
         Exit Function
     End If
+
+    LogStepComplete "Parse da resposta JSON da IA"
+
+    ' -----------------------------------------------------------------
+    ' 7. VALIDA INDICES
+    ' -----------------------------------------------------------------
+    LogStepStart "Validacao dos indices de estrutura"
 
     If Not ValidarIndicesEstrutura(doc) Then
-        LogMessage AI_STRUCT_PREFIX & ": Indices invalidos - fallback", LOG_LEVEL_WARNING
+        LogMessage AI_STRUCT_PREFIX & ": Indices invalidos - fallback para heuristica", LOG_LEVEL_WARNING
+        LogStepSkipped "Identificacao de estrutura", "Indices invalidos"
         Exit Function
     End If
 
+    LogStepComplete "Validacao dos indices de estrutura"
+
+    ' -----------------------------------------------------------------
+    ' 8. MARCA FLAGS NO CACHE
+    ' -----------------------------------------------------------------
     MarcarFlagsEstrutura doc
 
-    LogMessage AI_STRUCT_PREFIX & ": Estrutura IA em " & _
-               Format(Timer - startTime, "0.00") & "s", LOG_LEVEL_INFO
+    ' -----------------------------------------------------------------
+    ' 9. LOG DE RESULTADO
+    ' -----------------------------------------------------------------
+    Dim elapsed As Double
+    elapsed = Timer - startTime
+
+    LogStepComplete "Identificacao de estrutura do documento", _
+        "Tempo: " & Format(elapsed, "0.00") & "s"
+
     LogMessage "=== ESTRUTURA(IA): T=" & tituloParaIndex & " E=" & ementaParaIndex & _
                " V=" & vocativoStartIndex & "-" & vocativoEndIndex & _
                " C=" & corpoStartIndex & "-" & corpoEndIndex & _
@@ -163,7 +236,7 @@ Public Function IdentifyDocumentStructureWithAI(doc As Document) As Boolean
     Exit Function
 
 ErrorHandler:
-    LogMessage AI_STRUCT_PREFIX & ": Erro IA: " & Err.Description, LOG_LEVEL_ERROR
+    LogMessage AI_STRUCT_PREFIX & ": Erro inesperado: " & Err.Number & " - " & Err.Description, LOG_LEVEL_ERROR
     IdentifyDocumentStructureWithAI = False
 End Function
 
@@ -171,6 +244,36 @@ End Function
 ' MONTA TEXTO DO DOCUMENTO COM INDICES DE PARAGRAFOS
 ' =============================================================================
 Private Function MontarTextoDocumentoParaIA(doc As Document) As String
+    On Error GoTo ErrorHandler
+
+    Dim sb As String
+    Dim i As Long
+    Dim paraText As String
+    Dim paraCount As Long
+
+    paraCount = doc.Paragraphs.count
+    If paraCount > MAX_PARAGRAPHS_FOR_AI Then paraCount = MAX_PARAGRAPHS_FOR_AI
+
+    For i = 1 To paraCount
+        On Error Resume Next
+        paraText = doc.Paragraphs(i).Range.text
+        On Error GoTo ErrorHandler
+        paraText = Replace(Replace(paraText, vbCr, ""), vbLf, "")
+        If Len(paraText) > MAX_PARAGRAPH_TEXT_LENGTH Then
+            paraText = Left(paraText, MAX_PARAGRAPH_TEXT_LENGTH) & "..."
+        End If
+        sb = sb & "[P" & i & "] " & paraText & vbCrLf
+    Next i
+
+    MontarTextoDocumentoParaIA = sb
+
+    LogMessage AI_STRUCT_PREFIX & ": Texto montado: " & paraCount & " paragrafos, " & _
+        Len(sb) & " chars", LOG_LEVEL_DEBUG
+
+    Exit Function
+ErrorHandler:
+    MontarTextoDocumentoParaIA = ""
+End Function
 
 ' =============================================================================
 ' PROMPT DE SISTEMA
@@ -183,7 +286,7 @@ Private Function MontarPromptEstrutura() As String
         "Retorne APENAS o JSON abaixo, sem explicacoes:" & vbCrLf & vbCrLf & _
         "{""titulo"":[primeiro,ultimo],""ementa"":[primeiro,ultimo]," & _
         """vocativo"":[primeiro,ultimo],""corpo"":[primeiro,ultimo]," & _
-        """titulo_da_justificativa":[unico],""justificativa"":[primeiro,ultimo]," & _
+        """titulo_da_justificativa"":[unico],""justificativa"":[primeiro,ultimo]," & _
         """data"":[unico],""assinatura"":[primeiro,ultimo]," & _
         """titulo_do_anexo"":[unico ou null],""anexo"":[primeiro,ultimo ou null]}" & vbCrLf & vbCrLf & _
         "REGRAS:" & vbCrLf & _
@@ -193,6 +296,9 @@ Private Function MontarPromptEstrutura() As String
         "4. Assinatura: 3 paragrafos centralizados no final." & vbCrLf & _
         "5. Data: contem nome do plenario e data de emissao."
 
+    LogMessage AI_STRUCT_PREFIX & ": Prompt de estrutura montado: " & Len(MontarPromptEstrutura) & " chars", LOG_LEVEL_DEBUG
+End Function
+
 ' =============================================================================
 ' MONTA JSON DO PAYLOAD
 ' =============================================================================
@@ -201,6 +307,8 @@ Private Function MontarJSONPayload(ByVal modelo As String, _
     MontarJSONPayload = "{""model"":""" & modelo & """,""temperature"":0.1," & _
         """messages"":[{""role"":""system"",""content"":""" & systemJSON & _
         """},{""role"":""user"",""content"":""" & userJSON & """}]}"
+
+    LogMessage AI_STRUCT_PREFIX & ": Payload montado: " & Len(MontarJSONPayload) & " chars, modelo=" & modelo, LOG_LEVEL_DEBUG
 End Function
 
 ' =============================================================================
@@ -209,6 +317,9 @@ End Function
 Private Function AI_ChamarAPI(ByVal apiKey As String, _
     ByVal jsonPayload As String) As String
     On Error GoTo ErrorHandler
+
+    Dim httpStartTime As Double
+    httpStartTime = Timer
 
     Dim http As Object
     Set http = CreateObject("MSXML2.ServerXMLHTTP.6.0")
@@ -221,17 +332,28 @@ Private Function AI_ChamarAPI(ByVal apiKey As String, _
     http.setRequestHeader "X-Title", "Word - Estrutura Documento"
     http.send AI_StringParaUTF8(jsonPayload)
 
+    Dim httpElapsed As Double
+    httpElapsed = Timer - httpStartTime
+
     If http.Status = 200 Then
         AI_ChamarAPI = AI_BytesParaStringUTF8(http.ResponseBody)
+        LogMessage AI_STRUCT_PREFIX & ": HTTP 200 OK em " & _
+            Format(httpElapsed, "0.00") & "s (" & _
+            Len(AI_ChamarAPI) & " chars)", LOG_LEVEL_INFO
     Else
         Dim errResp As String
         errResp = AI_BytesParaStringUTF8(http.ResponseBody)
-        LogMessage AI_STRUCT_PREFIX & ": HTTP " & http.Status & " - " & Left(errResp, 200), LOG_LEVEL_ERROR
+        LogMessage AI_STRUCT_PREFIX & ": HTTP " & http.Status & " em " & _
+            Format(httpElapsed, "0.00") & "s - " & Left(errResp, 200), LOG_LEVEL_ERROR
         AI_ChamarAPI = ""
     End If
     Set http = Nothing
     Exit Function
 ErrorHandler:
+    Set http = Nothing
+    LogMessage AI_STRUCT_PREFIX & ": Erro HTTP: " & Err.Number & " - " & Err.Description, LOG_LEVEL_ERROR
+    AI_ChamarAPI = ""
+End Function
 
 ' =============================================================================
 ' PARSEIA RESPOSTA JSON DA IA
@@ -278,6 +400,23 @@ Private Function ParsearRespostaEstruturaIA(ByVal resposta As String, _
     anexoStartIndex = AI_ExtrairArrayPrimeiro(content, "anexo")
     anexoEndIndex = AI_ExtrairArrayUltimo(content, "anexo")
 
+    LogMessage AI_STRUCT_PREFIX & ": Indices extraidos - " & _
+        "T=" & tituloParaIndex & " E=" & ementaParaIndex & _
+        " V=" & vocativoStartIndex & "-" & vocativoEndIndex & _
+        " C=" & corpoStartIndex & "-" & corpoEndIndex & _
+        " TJ=" & tituloJustificativaIndex & _
+        " J=" & justificativaStartIndex & "-" & justificativaEndIndex & _
+        " D=" & dataParaIndex & _
+        " A=" & assinaturaStartIndex & "-" & assinaturaEndIndex & _
+        " AN=" & anexoStartIndex & "-" & anexoEndIndex, LOG_LEVEL_DEBUG
+
+    ParsearRespostaEstruturaIA = True
+    Exit Function
+ErrorHandler:
+    LogMessage AI_STRUCT_PREFIX & ": Erro ao parsear: " & Err.Description, LOG_LEVEL_ERROR
+    ParsearRespostaEstruturaIA = False
+End Function
+
 ' =============================================================================
 ' VALIDA INDICES DE ESTRUTURA
 ' =============================================================================
@@ -289,8 +428,14 @@ Private Function ValidarIndicesEstrutura(doc As Document) As Boolean
     maxPara = doc.Paragraphs.count
 
     ' Pelo menos titulo deve ter sido identificado
-    If tituloParaIndex <= 0 Or tituloParaIndex > maxPara Then Exit Function
-    If ementaParaIndex > maxPara Then Exit Function
+    If tituloParaIndex <= 0 Or tituloParaIndex > maxPara Then
+        LogMessage AI_STRUCT_PREFIX & ": Validacao falhou - titulo invalido (" & tituloParaIndex & ")", LOG_LEVEL_DEBUG
+        Exit Function
+    End If
+    If ementaParaIndex > maxPara Then
+        LogMessage AI_STRUCT_PREFIX & ": Validacao falhou - ementa fora do range (" & ementaParaIndex & " > " & maxPara & ")", LOG_LEVEL_DEBUG
+        Exit Function
+    End If
     If vocativoStartIndex > maxPara Or vocativoEndIndex > maxPara Then Exit Function
     If vocativoStartIndex > 0 And vocativoEndIndex > 0 Then
         If vocativoStartIndex > vocativoEndIndex Then Exit Function
@@ -316,6 +461,10 @@ Private Function ValidarIndicesEstrutura(doc As Document) As Boolean
     End If
 
     ValidarIndicesEstrutura = True
+    Exit Function
+ErrorHandler:
+    ValidarIndicesEstrutura = False
+End Function
 
 ' =============================================================================
 ' MARCA FLAGS DE ESTRUTURA NO CACHE
@@ -355,6 +504,13 @@ Private Sub MarcarFlagsEstrutura(doc As Document)
             If anexoStartIndex > 0 And i >= anexoStartIndex Then .isAnexoContent = True
         End With
     Next i
+
+    LogMessage AI_STRUCT_PREFIX & ": Flags marcados em " & i - 1 & " paragrafos", LOG_LEVEL_DEBUG
+
+    Exit Sub
+ErrorHandler:
+    LogMessage AI_STRUCT_PREFIX & ": Erro ao marcar flags: " & Err.Description, LOG_LEVEL_ERROR
+End Sub
 
 ' =============================================================================
 ' FUNCOES AUXILIARES DE PARSE JSON
@@ -397,6 +553,12 @@ Private Function AI_ExtrairArrayUltimo(ByVal json As String, ByVal chave As Stri
     regex.IgnoreCase = True: regex.Global = False
     regex.Pattern = """" & chave & """\s*:\s*\[\s*\d+\s*,\s*(\d+)\s*\]"
     If regex.Test(json) Then AI_ExtrairArrayUltimo = CLng(regex.Execute(json)(0).SubMatches(0)): Exit Function
+    regex.Pattern = """" & chave & """\s*:\s*\[\s*(\d+)\s*\]"
+    If regex.Test(json) Then AI_ExtrairArrayUltimo = CLng(regex.Execute(json)(0).SubMatches(0)): Exit Function
+    AI_ExtrairArrayUltimo = 0
+    Exit Function
+ErrorHandler: AI_ExtrairArrayUltimo = 0
+End Function
 
 ' =============================================================================
 ' CARREGAR CHAVE API (DPAPI) - mesma logica de Mod11RevisionText
@@ -441,6 +603,14 @@ Private Function AI_CarregarChaveAPI() As String
     AI_LocalFree blobOut.pbData
     AI_CarregarChaveAPI = AI_BytesParaStringUTF8(chaveDecrypt)
 
+    LogMessage AI_STRUCT_PREFIX & ": Chave API descriptografada (" & Len(AI_CarregarChaveAPI) & " chars)", LOG_LEVEL_DEBUG
+
+    Exit Function
+ErrorHandler:
+    LogMessage AI_STRUCT_PREFIX & ": Erro ao carregar chave: " & Err.Description, LOG_LEVEL_ERROR
+    AI_CarregarChaveAPI = ""
+End Function
+
 ' =============================================================================
 ' CARREGAR MODELO IA
 ' =============================================================================
@@ -454,9 +624,14 @@ Private Function AI_CarregarModelo() As String
         If Not EOF(ff) Then Line Input #ff, conteudo
         Close #ff
         conteudo = Trim(conteudo)
-        If Len(conteudo) > 0 Then AI_CarregarModelo = conteudo: Exit Function
+        If Len(conteudo) > 0 Then
+            LogMessage AI_STRUCT_PREFIX & ": Modelo carregado do arquivo: " & conteudo, LOG_LEVEL_DEBUG
+            AI_CarregarModelo = conteudo
+            Exit Function
+        End If
     End If
     AI_CarregarModelo = AI_STRUCT_DEFAULT_MODEL
+    LogMessage AI_STRUCT_PREFIX & ": Modelo padrao: " & AI_STRUCT_DEFAULT_MODEL, LOG_LEVEL_DEBUG
     Exit Function
 ErrorHandler: AI_CarregarModelo = AI_STRUCT_DEFAULT_MODEL
 End Function
@@ -474,11 +649,15 @@ Private Function EscaparJSONAI(ByVal texto As String) As String
         ch = AscW(Mid(resultado, i, 1))
         If ch >= 32 Or ch < 0 Then cleanResult = cleanResult & Mid(resultado, i, 1)
     Next i
+    EscaparJSONAI = cleanResult
+
+    LogMessage AI_STRUCT_PREFIX & ": JSON escapado: " & Len(texto) & " -> " & Len(cleanResult) & " chars", LOG_LEVEL_DEBUG
+End Function
 
 ' =============================================================================
 ' CONVERSAO UTF-8
 ' =============================================================================
-Private Function AI_StringParaUTF8(ByVal texto As String) As Byte()
+Private Function AI_StringParaUTF8(ByVal texto As String) As Variant
     On Error GoTo ErrorHandler
     Dim stream As Object
     Set stream = CreateObject("ADODB.Stream")
@@ -504,6 +683,8 @@ Private Function AI_BytesParaStringUTF8(ByRef bytes() As Byte) As String
     Exit Function
 ErrorHandler:
     Set stream = Nothing
+    AI_BytesParaStringUTF8 = ""
+End Function
 
 ' =============================================================================
 ' EXTRAI CONTENT DO JSON DE RESPOSTA (OPENROUTER)
@@ -516,8 +697,13 @@ Private Function AI_ExtrairContentJSON(ByVal json As String) As String
     regex.IgnoreCase = True: regex.Global = False
     Dim matches As Object
     Set matches = regex.Execute(json)
-    If matches.count = 0 Then AI_ExtrairContentJSON = "": Exit Function
+    If matches.count = 0 Then
+        LogMessage AI_STRUCT_PREFIX & ": Nenhum campo 'content' na resposta JSON", LOG_LEVEL_WARNING
+        AI_ExtrairContentJSON = "": Exit Function
+    End If
     AI_ExtrairContentJSON = Trim(AI_DesescaparJSON(matches(0).SubMatches(0)))
+
+    LogMessage AI_STRUCT_PREFIX & ": Content extraido: " & Len(AI_ExtrairContentJSON) & " chars", LOG_LEVEL_DEBUG
     Exit Function
 ErrorHandler: AI_ExtrairContentJSON = ""
 End Function
@@ -557,75 +743,165 @@ Private Function AI_DesescaparJSON(ByVal texto As String) As String
     AI_DesescaparJSON = resultado
 End Function
 
-    AI_BytesParaStringUTF8 = ""
-End Function
-
-    EscaparJSONAI = cleanResult
-End Function
-
-    Exit Function
-ErrorHandler:
-    LogMessage AI_STRUCT_PREFIX & ": Erro ao carregar chave: " & Err.Description, LOG_LEVEL_ERROR
-    AI_CarregarChaveAPI = ""
-End Function
-
-    regex.Pattern = """" & chave & """\s*:\s*\[\s*(\d+)\s*\]"
-    If regex.Test(json) Then AI_ExtrairArrayUltimo = CLng(regex.Execute(json)(0).SubMatches(0)): Exit Function
-    AI_ExtrairArrayUltimo = 0
-    Exit Function
-ErrorHandler: AI_ExtrairArrayUltimo = 0
-End Function
-
-    Exit Sub
-ErrorHandler:
-    LogMessage AI_STRUCT_PREFIX & ": Erro ao marcar flags: " & Err.Description, LOG_LEVEL_ERROR
-End Sub
-
-    Exit Function
-ErrorHandler:
-    ValidarIndicesEstrutura = False
-End Function
-
-
-    ParsearRespostaEstruturaIA = True
-    Exit Function
-ErrorHandler:
-    LogMessage AI_STRUCT_PREFIX & ": Erro ao parsear: " & Err.Description, LOG_LEVEL_ERROR
-    ParsearRespostaEstruturaIA = False
-End Function
-
-    Set http = Nothing
-    LogMessage AI_STRUCT_PREFIX & ": Erro HTTP: " & Err.Description, LOG_LEVEL_ERROR
-    AI_ChamarAPI = ""
-End Function
-
-End Function
-
+' =============================================================================
+' DIAGNOSTICO DE CONECTIVIDADE COM OPENROUTER (ESTRUTURA)
+' =============================================================================
+' Testa a conectividade com a API da OpenRouter, verificando se a chave
+' esta configurada e se a API responde. Similar a DiagnosticarOpenRouter
+' de Mod_11_RevisionText.bas.
+' =============================================================================
+Public Sub DiagnosticarEstruturaIA()
     On Error GoTo ErrorHandler
 
-    Dim sb As String
-    Dim i As Long
-    Dim paraText As String
-    Dim paraCount As Long
+    Dim http As Object
+    Dim resposta As String
+    Dim chaveAPI As String
 
-    paraCount = doc.Paragraphs.count
-    If paraCount > MAX_PARAGRAPHS_FOR_AI Then paraCount = MAX_PARAGRAPHS_FOR_AI
+    LogSection "DIAGNOSTICO ESTRUTURA IA"
+    LogStepStart "Diagnostico de conectividade para estrutura"
 
-    For i = 1 To paraCount
-        On Error Resume Next
-        paraText = doc.Paragraphs(i).Range.text
-        On Error GoTo ErrorHandler
-        paraText = Replace(Replace(paraText, vbCr, ""), vbLf, "")
-        If Len(paraText) > MAX_PARAGRAPH_TEXT_LENGTH Then
-            paraText = Left(paraText, MAX_PARAGRAPH_TEXT_LENGTH) & "..."
-        End If
-        sb = sb & "[P" & i & "] " & paraText & vbCrLf
-    Next i
+    ' -----------------------------------------------------------------
+    ' 1. VERIFICA CHAVE API
+    ' -----------------------------------------------------------------
+    chaveAPI = AI_CarregarChaveAPI()
+    If Len(Trim(chaveAPI)) = 0 Then
+        LogMessage AI_STRUCT_PREFIX & ": Chave API nao configurada", LOG_LEVEL_ERROR
+        MsgBox _
+            "A chave do OpenRouter nao foi configurada." & _
+            vbCrLf & vbCrLf & _
+            "Configure-a na interface config_prompt.", _
+            vbCritical, "Chave nao configurada"
+        Exit Sub
+    End If
 
-    MontarTextoDocumentoParaIA = sb
-    Exit Function
+    LogStepComplete "Verificacao da chave API", "Chave encontrada (" & Len(chaveAPI) & " chars)"
+
+    ' -----------------------------------------------------------------
+    ' 2. VERIFICA MODELO
+    ' -----------------------------------------------------------------
+    Dim modelo As String
+    modelo = AI_CarregarModelo()
+    LogMetric "Modelo configurado", modelo
+
+    ' -----------------------------------------------------------------
+    ' 3. TESTA CONEXAO HTTP
+    ' -----------------------------------------------------------------
+    Application.StatusBar = AI_STRUCT_PREFIX & ": Testando conectividade..."
+
+    Set http = CreateObject("MSXML2.ServerXMLHTTP.6.0")
+    http.setTimeouts _
+        AI_STRUCT_RESOLVE_TIMEOUT, _
+        AI_STRUCT_CONNECT_TIMEOUT, _
+        AI_STRUCT_SEND_TIMEOUT, _
+        AI_STRUCT_RECEIVE_TIMEOUT
+
+    http.Open "GET", "https://openrouter.ai/api/v1/models", False
+    http.setRequestHeader "Authorization", "Bearer " & chaveAPI
+    http.setRequestHeader "Content-Type", "application/json"
+    http.send
+
+    resposta = AI_BytesParaStringUTF8(http.ResponseBody)
+    Application.StatusBar = False
+
+    If http.Status = 200 Then
+        LogStepComplete "Diagnostico de conectividade", _
+            "Conexao OK | HTTP " & http.Status
+        MsgBox _
+            "Conexao com OpenRouter OK!" & vbCrLf & _
+            "Codigo HTTP: " & http.Status & vbCrLf & _
+            "Modelo: " & modelo, _
+            vbInformation, "Diagnostico Estrutura IA"
+    Else
+        LogMessage AI_STRUCT_PREFIX & ": Diagnostico HTTP " & http.Status, LOG_LEVEL_ERROR
+        MsgBox _
+            "Falha na conexao com OpenRouter." & vbCrLf & vbCrLf & _
+            "Codigo HTTP: " & http.Status & vbCrLf & _
+            "Resposta: " & Left(resposta, 300), _
+            vbCritical, "Diagnostico Estrutura IA"
+    End If
+
+    Set http = Nothing
+    Exit Sub
+
 ErrorHandler:
-    MontarTextoDocumentoParaIA = ""
-End Function
+    Application.StatusBar = False
+    Set http = Nothing
+    LogMessage AI_STRUCT_PREFIX & ": Erro no diagnostico: " & _
+        Err.Number & " - " & Err.Description, LOG_LEVEL_ERROR
+    MsgBox _
+        "Erro VBA:" & vbCrLf & vbCrLf & _
+        Err.Number & " - " & Err.Description, _
+        vbCritical, "Diagnostico Estrutura IA"
+End Sub
 
+' =============================================================================
+' TESTE DE IDENTIFICACAO DE ESTRUTURA NO DOCUMENTO ATUAL
+' =============================================================================
+' Executa a identificacao de estrutura via IA no documento ativo e exibe
+' os resultados em MsgBox. Util para validacao manual antes de usar em
+' producao.
+' =============================================================================
+Public Sub TestarEstruturaIADocumentoAtual()
+    On Error GoTo ErrorHandler
 
+    Dim doc As Document
+    Set doc = ActiveDocument
+
+    If doc Is Nothing Then
+        MsgBox "Nenhum documento aberto.", vbExclamation, "Teste Estrutura IA"
+        Exit Sub
+    End If
+
+    LogSection "TESTE DE ESTRUTURA IA"
+
+    ' Reseta indices antes do teste
+    tituloParaIndex = 0: ementaParaIndex = 0
+    vocativoStartIndex = 0: vocativoEndIndex = 0
+    corpoStartIndex = 0: corpoEndIndex = 0
+    tituloJustificativaIndex = 0
+    justificativaStartIndex = 0: justificativaEndIndex = 0
+    dataParaIndex = 0
+    assinaturaStartIndex = 0: assinaturaEndIndex = 0
+    tituloAnexoIndex = 0
+    anexoStartIndex = 0: anexoEndIndex = 0
+
+    Dim startTime As Double
+    startTime = Timer
+
+    Dim resultado As Boolean
+    resultado = IdentifyDocumentStructureWithAI(doc)
+
+    Dim elapsed As Double
+    elapsed = Timer - startTime
+
+    If resultado Then
+        MsgBox _
+            "Estrutura identificada com sucesso!" & vbCrLf & vbCrLf & _
+            "Titulo: paragrafo " & tituloParaIndex & vbCrLf & _
+            "Ementa: paragrafo " & ementaParaIndex & vbCrLf & _
+            "Vocativo: paragrafos " & vocativoStartIndex & " - " & vocativoEndIndex & vbCrLf & _
+            "Corpo: paragrafos " & corpoStartIndex & " - " & corpoEndIndex & vbCrLf & _
+            "Tit.Justificativa: paragrafo " & tituloJustificativaIndex & vbCrLf & _
+            "Justificativa: paragrafos " & justificativaStartIndex & " - " & justificativaEndIndex & vbCrLf & _
+            "Data: paragrafo " & dataParaIndex & vbCrLf & _
+            "Assinatura: paragrafos " & assinaturaStartIndex & " - " & assinaturaEndIndex & vbCrLf & _
+            "Tit.Anexo: paragrafo " & tituloAnexoIndex & vbCrLf & _
+            "Anexo: paragrafos " & anexoStartIndex & " - " & anexoEndIndex & vbCrLf & vbCrLf & _
+            "Tempo: " & Format(elapsed, "0.00") & "s", _
+            vbInformation, "Teste Estrutura IA"
+    Else
+        MsgBox _
+            "Falha na identificacao de estrutura." & vbCrLf & vbCrLf & _
+            "Verifique o log para detalhes." & vbCrLf & _
+            "Tempo: " & Format(elapsed, "0.00") & "s", _
+            vbExclamation, "Teste Estrutura IA"
+    End If
+
+    Exit Sub
+
+ErrorHandler:
+    MsgBox _
+        "Erro durante o teste:" & vbCrLf & vbCrLf & _
+        Err.Number & " - " & Err.Description, _
+        vbCritical, "Teste Estrutura IA"
+End Sub
