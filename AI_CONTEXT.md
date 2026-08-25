@@ -23,7 +23,7 @@ The active VBA architecture is consolidated into 12 modules:
 - `Mod_02_Engine.bas`: structure detection (AI-first with heuristic fallback), cache system, image/list handling and restoration helpers.
 - `Mod_03_Pipeline.bas`: core formatting pipeline (double-pass), normalization/cleanup routines (including blank paragraph numbering removal), logging primitives.
 - `Mod_04_Main.bas`: macro entrypoints (`PadronizarDocumentoMain`, public API helpers, Gemini integration bridge calling the blank paragraph cleanup).
-- `Mod_11_RevisionText.bas`: AI text revision via OpenRouter API. Public entrypoints: `TestarRevisaoTextoSelecionado` (selected text), `CorrigirProposituraComIA` (selected text with detailed metrics/status), `DiagnosticarOpenRouter` (connectivity test). Uses DPAPI-encrypted API key and configurable model via `config_prompt.py`. Integrates with project logging (`LogMessage`) and progress system (`InitializeProgress`/`IncrementProgress`).
+- `Mod_11_RevisionText.bas`: AI text revision via OpenRouter API. Public entrypoints: `TestarRevisaoTextoSelecionado` (selected text), `CorrigirProposituraComIA` (selected text with detailed metrics/status), `DiagnosticarOpenRouter` (connectivity test). Uses DPAPI-encrypted API key and configurable model via `config_prompt.py`. Revision prompt is now configurable via `revision_prompt.txt` (loaded by `CarregarPromptRevisao()`, falls back to hardcoded `MontarPromptRevisao()`). Integrates with project logging (`LogMessage`) and progress system (`InitializeProgress`/`IncrementProgress`).
 - `Mod_12_AIStructure.bas`: AI-based document structure identification via OpenRouter API. Public entrypoint: `IdentifyDocumentStructureWithAI`. Sends document text with paragraph markers to AI, parses JSON response with paragraph ranges for each structural element (Titulo, Ementa, Vocativo, Corpo, Justificativa, Data, Assinatura, Anexo). Used as primary identification method by `IdentifyDocumentStructure` in `Mod_02_Engine.bas`.
 
 ### 2.2 Python (Gemini integration)
@@ -31,7 +31,7 @@ The active VBA architecture is consolidated into 12 modules:
 Main files in `ai/`:
 
 - `chat_ia.py`: chat UI with Word document context. `_context_pending` flag: if the initial Gemini call fails (e.g. 503), the full document text is prepended to the user's first message instead. Heavy imports deferred via lazy loading (opens UI instantly, ~2.5 s savings). Now includes grammar correction and consistency verification directly in the UI, including dynamic validation of question consistency and coherence in relation to the document context.
-- `config_prompt.py`: UI for prompt editing. Hosts `DEFAULT_PROMPT` (grammar and general consistency prompt, including question checking rules) and `DEFAULT_CONSISTENCY_PROMPT` (controls consistency check output classification rules).
+- `config_prompt.py`: UI for prompt editing. Hosts `DEFAULT_PROMPT` (grammar and general consistency prompt, including question checking rules), `DEFAULT_CONSISTENCY_PROMPT` (controls consistency check output classification rules), `DEFAULT_CHAT_SYSTEM_PROMPT` (Chat LÉIA system prompt), and `DEFAULT_REVISION_PROMPT` (text revision prompt used by `CorrigirProposituraComIA`). Both chat and revision prompts are editable in the same window.
 - `z7_logging.py`: shared structured logger; uses `RotatingFileHandler` (2 MB / 3 backups).
 - `build_exe.ps1`: PyInstaller build workflow for `.exe` artifacts.
 

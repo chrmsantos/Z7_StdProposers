@@ -85,6 +85,44 @@ Saída JSON:
 
 DEFAULT_CHAT_SYSTEM_PROMPT = "Você é a LÉIA — Assistente Legislativa de IA. Sempre se apresente como LÉIA. Leia o documento ativo. Identifique erros. Auxilie o usuário alterando, revisando ou tirando dúvidas. Ao apontar problemas, apresente-os de forma sucinta, ordenados por severidade (Crítica → Alta → Média → Baixa), e priorize sempre as sugestões de correção em vez de explicações detalhadas dos erros. As strings `$NUMERO$/$ANO$`, `$ANO$` e `$DATAATUALEXTENSO$` são placeholders de template do sistema de padronização automática — estão corretas e NÃO devem ser apontadas como erros."
 
+DEFAULT_REVISION_PROMPT = """Você é um revisor especialista em língua portuguesa, redação oficial e técnica legislativa.
+
+O texto recebido pode tratar de QUALQUER ASSUNTO.
+
+Revise cuidadosamente o texto recebido.
+
+CORRIJA erros de ortografia, acentuação, digitação, concordância, regência e pontuação.
+Corrija palavras grudadas, palavras incompletas e erros claros de digitação.
+Identifique frases confusas, truncadas ou mal construídas.
+Quando uma frase estiver sem sentido ou mal construída, reescreva-a de forma clara, natural e coerente.
+
+A REESCRITA deve preservar o significado original.
+
+Use português correto, claro, natural e formal.
+Quando o texto for destinado a documento público ou legislativo, utilize linguagem adequada e redação oficial.
+
+NÃO invente informações.
+NÃO invente fatos.
+NÃO invente nomes, datas, locais ou números.
+NÃO acrescente argumentos que não estejam no texto.
+NÃO altere a intenção do autor.
+
+Preserve nomes próprios, órgãos públicos, cargos, números, datas, locais e referências legais.
+
+Se uma frase estiver correta, não altere desnecessariamente.
+Se houver erro, corrija.
+Se houver trecho confuso, reescreva.
+Se houver trecho sem sentido, reconstrua utilizando somente as informações existentes no próprio texto.
+
+IMPORTANTE: você está revisando SOMENTE O TEXTO.
+Não forneça instruções de formatação.
+Não adicione negrito, títulos, marcadores ou observações.
+
+RETORNE SOMENTE O TEXTO FINAL REVISADO.
+Não explique as alterações.
+Não faça comentários.
+Não coloque aspas no início ou no final."""
+
 
 def get_chat_system_prompt_file_path() -> Path:
     return get_data_dir() / "chat_system_prompt.txt"
@@ -109,6 +147,31 @@ def save_chat_system_prompt(prompt_text: str) -> None:
         LOGGER.info("Chat system prompt saved successfully")
     except Exception as e:
         log_exception(LOGGER, "Failed to save chat system prompt", e)
+
+
+def get_revision_prompt_file_path() -> Path:
+    return get_data_dir() / "revision_prompt.txt"
+
+
+def load_revision_prompt() -> str:
+    prompt_file = get_revision_prompt_file_path()
+    if prompt_file.exists():
+        try:
+            text = prompt_file.read_text(encoding='utf-8').strip()
+            LOGGER.info("Loaded custom revision prompt file")
+            return text
+        except Exception as e:
+            log_exception(LOGGER, "Failed to load custom revision prompt", e)
+    return DEFAULT_REVISION_PROMPT
+
+
+def save_revision_prompt(prompt_text: str) -> None:
+    prompt_file = get_revision_prompt_file_path()
+    try:
+        prompt_file.write_text(prompt_text.strip(), encoding='utf-8')
+        LOGGER.info("Revision prompt saved successfully")
+    except Exception as e:
+        log_exception(LOGGER, "Failed to save revision prompt", e)
 
 
 def get_prompt_file_path() -> Path:
@@ -160,7 +223,7 @@ def load_ai_model() -> str:
             return model_file.read_text(encoding='utf-8').strip()
         except Exception as e:
             log_exception(LOGGER, "Failed to load custom model", e)
-    return "deepseek/deepseek-v4-pro"
+    return "google/gemini-2.5-flash"
 
 def save_ai_model(model_name: str) -> None:
     model_file = get_model_file_path()
@@ -180,7 +243,7 @@ def load_fallback_model() -> str:
             return fallback_file.read_text(encoding='utf-8').strip()
         except Exception as e:
             log_exception(LOGGER, "Failed to load fallback model", e)
-    return "deepseek/deepseek-v4-flash"
+    return "openai/gpt-oss-20b"
 
 def save_fallback_model(model_name: str) -> None:
     fallback_file = get_fallback_model_file_path()
@@ -271,6 +334,17 @@ class AppTheme:
             self.widgets['text_inner'].configure(bg=border)
         if 'text_area' in self.widgets:
             self.widgets['text_area'].configure(
+                bg=text_bg, fg=fg, insertbackground=fg,
+                selectbackground=select_bg, selectforeground=select_fg,
+                inactiveselectbackground=select_bg)
+        if 'revision_border_frame' in self.widgets:
+            self.widgets['revision_border_frame'].configure(bg=border)
+        if 'revision_prompt_label' in self.widgets:
+            self.widgets['revision_prompt_label'].configure(bg=bg, fg=fg_muted)
+        if 'revision_text_inner' in self.widgets:
+            self.widgets['revision_text_inner'].configure(bg=border)
+        if 'revision_text_area' in self.widgets:
+            self.widgets['revision_text_area'].configure(
                 bg=text_bg, fg=fg, insertbackground=fg,
                 selectbackground=select_bg, selectforeground=select_fg,
                 inactiveselectbackground=select_bg)
@@ -775,7 +849,7 @@ def main() -> None:
     theme.widgets['toggle_btn'] = toggle_btn
 
     info_lbl = tk.Label(header_frame,
-                        text="Defina o prompt inicial enviado à IA ao analisar o documento.",
+                        text="Defina os prompts enviados à IA para o Chat LÉIA e para a Revisão de Textos.",
                         font=("Segoe UI", 10), bg=_c["bg"], fg=_c["fg_muted"])
     info_lbl.pack(anchor="w", pady=(4, 0))
     theme.widgets['info_lbl'] = info_lbl
@@ -785,18 +859,22 @@ def main() -> None:
     separator.pack(fill=tk.X, pady=(12, 0))
     theme.widgets['separator'] = separator
 
-    # ── Área de texto única ───────────────────────────────────────────────
-    frame = tk.Frame(root, bg=_c["border"])
-    theme.widgets['border_frame'] = frame
+    # ── Container para as duas áreas de texto ────────────────────────────
+    text_container = tk.Frame(root)
+    text_container.pack(side=tk.TOP, expand=True, fill=tk.BOTH, padx=25, pady=(4, 10))
 
-    # Label da área de texto
-    prompt_label = tk.Label(frame, text="PROMPT INICIAL COMPLEMENTAR PARA A LÉIA",
+    # ── Área 1: Prompt do Chat LÉIA ──────────────────────────────────────
+    chat_frame = tk.Frame(text_container, bg=_c["border"])
+    chat_frame.pack(side=tk.TOP, expand=True, fill=tk.BOTH, pady=(0, 6))
+    theme.widgets['border_frame'] = chat_frame
+
+    prompt_label = tk.Label(chat_frame, text="PROMPT DO CHAT LÉIA",
                             font=("Segoe UI", 10, "bold"), anchor="w",
                             bg=_c["bg"], fg=_c["fg_muted"])
     prompt_label.pack(fill=tk.X, padx=2, pady=(4, 2))
     theme.widgets['prompt_label'] = prompt_label
 
-    text_inner = tk.Frame(frame, bg=_c["border"])
+    text_inner = tk.Frame(chat_frame, bg=_c["border"])
     text_inner.pack(expand=True, fill=tk.BOTH)
     theme.widgets['text_inner'] = text_inner
 
@@ -814,6 +892,34 @@ def main() -> None:
     text_area.insert(tk.END, load_chat_system_prompt())
     theme.widgets['text_area'] = text_area
 
+    # ── Área 2: Prompt de Revisão de Textos (Corrigir com IA) ────────────
+    revision_frame = tk.Frame(text_container, bg=_c["border"])
+    revision_frame.pack(side=tk.TOP, expand=True, fill=tk.BOTH, pady=(6, 0))
+    theme.widgets['revision_border_frame'] = revision_frame
+
+    revision_prompt_label = tk.Label(revision_frame,
+                                     text="PROMPT DE REVISÃO DE TEXTOS (Corrigir com IA)",
+                                     font=("Segoe UI", 10, "bold"), anchor="w",
+                                     bg=_c["bg"], fg=_c["fg_muted"])
+    revision_prompt_label.pack(fill=tk.X, padx=2, pady=(4, 2))
+    theme.widgets['revision_prompt_label'] = revision_prompt_label
+
+    revision_text_inner = tk.Frame(revision_frame, bg=_c["border"])
+    revision_text_inner.pack(expand=True, fill=tk.BOTH)
+    theme.widgets['revision_text_inner'] = revision_text_inner
+
+    revision_text_area = tk.Text(revision_text_inner, wrap=tk.WORD, font=("Consolas", 11),
+                                 relief=tk.FLAT, padx=12, pady=12,
+                                 bg=_c["text_bg"], fg=_c["fg"], insertbackground=_c["fg"],
+                                 selectbackground=_select_bg, selectforeground=_select_fg,
+                                 inactiveselectbackground=_select_bg)
+    revision_text_area.pack(side=tk.LEFT, expand=True, fill=tk.BOTH, padx=1, pady=1)
+    revision_scrollbar = tk.Scrollbar(revision_text_inner, command=revision_text_area.yview)
+    revision_scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+    revision_text_area.config(yscrollcommand=revision_scrollbar.set)
+    revision_text_area.insert(tk.END, load_revision_prompt())
+    theme.widgets['revision_text_area'] = revision_text_area
+
     # ── Botões de ação ────────────────────────────────────────────────────
     btn_frame = tk.Frame(root)
     theme.widgets['btn_frame'] = btn_frame
@@ -821,12 +927,18 @@ def main() -> None:
     btn_font = ("Segoe UI", 10, "bold")
 
     def do_save() -> None:
-        prompt_text = text_area.get("1.0", tk.END).strip()
-        if not prompt_text:
+        chat_prompt_text = text_area.get("1.0", tk.END).strip()
+        revision_prompt_text = revision_text_area.get("1.0", tk.END).strip()
+        if not chat_prompt_text:
             z7_theme.show_warning("Aviso",
-                                 "O prompt não pode estar vazio.", parent=root)
+                                 "O prompt do Chat LÉIA não pode estar vazio.", parent=root)
             return
-        save_chat_system_prompt(prompt_text)
+        if not revision_prompt_text:
+            z7_theme.show_warning("Aviso",
+                                 "O prompt de Revisão de Textos não pode estar vazio.", parent=root)
+            return
+        save_chat_system_prompt(chat_prompt_text)
+        save_revision_prompt(revision_prompt_text)
         root.destroy()
 
     save_btn = tk.Button(btn_frame, text="💾  Salvar", width=18,
@@ -845,17 +957,29 @@ def main() -> None:
                            command=root.destroy)
     cancel_btn.pack(side=tk.RIGHT, padx=5)
 
-    def do_restore() -> None:
+    def do_restore_chat() -> None:
         text_area.delete("1.0", tk.END)
         text_area.insert(tk.END, DEFAULT_CHAT_SYSTEM_PROMPT)
 
-    restore_btn = tk.Button(btn_frame, text="Restaurar Padrão", width=16,
-                            font=btn_font, relief=tk.FLAT, cursor="hand2",
-                            bg=_c["btn_sec_bg"], fg=_c["btn_sec_fg"],
-                            activebackground=_c["btn_sec_hover"],
-                            activeforeground=_c["fg"],
-                            command=do_restore)
-    restore_btn.pack(side=tk.LEFT, padx=25)
+    def do_restore_revision() -> None:
+        revision_text_area.delete("1.0", tk.END)
+        revision_text_area.insert(tk.END, DEFAULT_REVISION_PROMPT)
+
+    restore_chat_btn = tk.Button(btn_frame, text="Restaurar Chat", width=16,
+                                 font=btn_font, relief=tk.FLAT, cursor="hand2",
+                                 bg=_c["btn_sec_bg"], fg=_c["btn_sec_fg"],
+                                 activebackground=_c["btn_sec_hover"],
+                                 activeforeground=_c["fg"],
+                                 command=do_restore_chat)
+    restore_chat_btn.pack(side=tk.LEFT, padx=(25, 5))
+
+    restore_revision_btn = tk.Button(btn_frame, text="Restaurar Revisão", width=16,
+                                     font=btn_font, relief=tk.FLAT, cursor="hand2",
+                                     bg=_c["btn_sec_bg"], fg=_c["btn_sec_fg"],
+                                     activebackground=_c["btn_sec_hover"],
+                                     activeforeground=_c["fg"],
+                                     command=do_restore_revision)
+    restore_revision_btn.pack(side=tk.LEFT, padx=5)
 
     api_btn = tk.Button(btn_frame, text="🔑 API de IA", font=("Segoe UI", 10, "bold"),
                         relief=tk.FLAT, cursor="hand2", padx=12, pady=4,
@@ -866,7 +990,7 @@ def main() -> None:
     api_btn.pack(side=tk.LEFT, padx=(0, 5))
     theme.widgets['api_btn'] = api_btn
 
-    theme.widgets['sec_btns'] = [cancel_btn, restore_btn]
+    theme.widgets['sec_btns'] = [cancel_btn, restore_chat_btn, restore_revision_btn]
 
     # ── Rodapé ────────────────────────────────────────────────────────────
     _footer_text = f"{_ORG}  ·  {_APP_AUTHOR}  ·  {_LICENSE}  ·  {_MOTTO}"
@@ -880,7 +1004,6 @@ def main() -> None:
     # Pack order: footer and buttons fixed at bottom, text area fills rest
     footer_lbl.pack(side=tk.BOTTOM, fill=tk.X, pady=(0, 5))
     btn_frame.pack(side=tk.BOTTOM, fill=tk.X, pady=(15, 5))
-    frame.pack(side=tk.TOP, expand=True, fill=tk.BOTH, padx=25, pady=(4, 10))
 
     # Bring window to front on startup without staying always-on-top
     root.lift()

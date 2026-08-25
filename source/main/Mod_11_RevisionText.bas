@@ -138,6 +138,53 @@ ErrorHandler:
 End Function
 
 ' =============================================================================
+' CARREGAR PROMPT DE REVISAO DO CONFIG_PROMPT
+' =============================================================================
+' Le revision_prompt.txt gravado pelo config_prompt.py.
+' Retorna MontarPromptRevisao() se o arquivo nao existir.
+' =============================================================================
+Private Function CarregarPromptRevisao() As String
+    On Error GoTo ErrorHandler
+
+    Dim caminhoArquivo As String
+    Dim ff As Integer
+    Dim conteudo As String
+    Dim linha As String
+
+    caminhoArquivo = GetZ7StdProposersDataPath() & _
+        "\revision_prompt.txt"
+
+    If Dir(caminhoArquivo) <> "" Then
+        ff = FreeFile
+        Open caminhoArquivo For Input As #ff
+        conteudo = ""
+        Do While Not EOF(ff)
+            Line Input #ff, linha
+            If Len(conteudo) > 0 Then
+                conteudo = conteudo & vbLf & linha
+            Else
+                conteudo = linha
+            End If
+        Loop
+        Close #ff
+        conteudo = Trim(conteudo)
+        If Len(conteudo) > 0 Then
+            CarregarPromptRevisao = conteudo
+            LogMessage LOG_PREFIX & ": Prompt de revisao carregado do arquivo", LOG_LEVEL_INFO
+            Exit Function
+        End If
+    End If
+
+    CarregarPromptRevisao = MontarPromptRevisao()
+    LogMessage LOG_PREFIX & ": Prompt de revisao padrao (embutido)", LOG_LEVEL_INFO
+    Exit Function
+
+ErrorHandler:
+    LogMessage LOG_PREFIX & ": Erro ao carregar prompt de revisao: " & Err.Description, LOG_LEVEL_WARNING
+    CarregarPromptRevisao = MontarPromptRevisao()
+End Function
+
+' =============================================================================
 ' CARREGAR CHAVE API DO CONFIG_PROMPT (DPAPI)
 ' =============================================================================
 ' Le e descriptografa openrouter.key gravado pelo z7_api_key.py.
@@ -469,7 +516,7 @@ Private Function ProcessarTextoComIA( _
     ' -----------------------------------------------------------------
     ' PROMPT E JSON
     ' -----------------------------------------------------------------
-    promptSystem = MontarPromptRevisao()
+    promptSystem = CarregarPromptRevisao()
     textoJSON = EscaparJSON(textoInput)
     systemJSON = EscaparJSON(promptSystem)
     jsonPayload = MontarJSONRequest(modeloIA, systemJSON, textoJSON)
@@ -765,7 +812,7 @@ Private Sub SubstituirTextoPreservandoFormatacao( _
         arrItalic(i) = charRng.Font.Italic
         arrUnderline(i) = charRng.Font.Underline
         arrColor(i) = charRng.Font.Color
-        arrHighlight(i) = charRng.Font.HighlightColorIndex
+        arrHighlight(i) = charRng.HighlightColorIndex
         arrStrikeThrough(i) = charRng.Font.StrikeThrough
         arrSmallCaps(i) = charRng.Font.SmallCaps
         arrAllCaps(i) = charRng.Font.AllCaps
@@ -839,7 +886,7 @@ Private Sub SubstituirTextoPreservandoFormatacao( _
         runRng.Font.Italic = arrItalic(oldStart)
         runRng.Font.Underline = arrUnderline(oldStart)
         runRng.Font.Color = arrColor(oldStart)
-        runRng.Font.HighlightColorIndex = arrHighlight(oldStart)
+        runRng.HighlightColorIndex = arrHighlight(oldStart)
         runRng.Font.StrikeThrough = arrStrikeThrough(oldStart)
         runRng.Font.SmallCaps = arrSmallCaps(oldStart)
         runRng.Font.AllCaps = arrAllCaps(oldStart)
