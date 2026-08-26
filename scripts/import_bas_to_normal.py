@@ -251,7 +251,9 @@ def _copy_back_to_normal(tmp_copy: Path, normal_dotm: Path,
     """Replace Normal.dotm with the updated temporary copy.
 
     Retries a few times with a short delay because Word may not have fully
-    released the file lock yet after quitting.
+    released the file lock yet after quitting.  If all retries are exhausted
+    and the file is still locked, asks the user for permission to forcefully
+    terminate all Word processes, then retries one final time.
     """
     max_retries = 5
     for attempt in range(1, max_retries + 1):
@@ -270,11 +272,107 @@ def _copy_back_to_normal(tmp_copy: Path, normal_dotm: Path,
                              attempt, max_retries)
                 time.sleep(1)
             else:
-                logger.warning(
-                    "Nao foi possivel substituir Normal.dotm (arquivo bloqueado). "
-                    "Feche o Word e execute novamente, ou copie manualmente:\n"
-                    "  de: %s\n  para: %s", tmp_copy, normal_dotm
-                )
+                _handle_word_lock(tmp_copy, normal_dotm, logger)
+
+
+def _handle_word_lock(tmp_copy: Path, normal_dotm: Path,
+                      logger: logging.Logger):
+    """Handle the case where Normal.dotm is locked by a running Word process.
+
+    Asks the user for permission to forcefully terminate all Word processes
+    and, if granted, retries the copy of the updated template.
+    """
+    logger.warning(
+        "Normal.dotm esta bloqueado por um processo do Word em execucao."
+    )
+
+    print()
+    print("-" * 60)
+    answer = input(
+        "Deseja fechar TODOS os processos do Word forcadamente? (S/N)\n"
+        "ATENCAO: Documentos nao salvos serao PERDIDOS.\n"
+        "> "
+    ).strip().upper()
+    print("-" * 60)
+
+    if answer not in ("S", "SIM", "Y", "YES"):
+        logger.info("Usuario optou por nao forcar o fechamento do Word.")
+        _report_manual_copy(tmp_copy, normal_dotm, logger)
+        return
+
+    logger.info("Encerrando processos do Word...")
+    killed = _force_kill_word_processes(logger)
+
+    if killed:
+        logger.info("Word encerrado. Tentando copiar Normal.dotm novamente...")
+        time.sleep(1)
+        try:
+            shutil.copy2(str(tmp_copy), str(normal_dotm))
+            logger.info("Normal.dotm atualizado com sucesso!")
+            try:
+                tmp_copy.unlink(missing_ok=True)
+            except OSError:
+                pass
+            return
+        except PermissionError:
+            logger.warning(
+                "Ainda nao foi possivel substituir Normal.dotm "
+                "mesmo apos encerrar o Word."
+            )
+
+    _report_manual_copy(tmp_copy, normal_dotm, logger)
+
+
+def _force_kill_word_processes(logger: logging.Logger) -> bool:
+    """Kill all WINWORD.EXE processes using taskkill /F.
+
+    Returns True if at least one process was terminated, False otherwise.
+    Handles the case where no Word process is running gracefully.
+    """
+    import subprocess
+
+    try:
+        result = subprocess.run(
+            ["taskkill", "/F", "/IM", "WINWORD.EXE"],
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+        logger.debug("taskkill stdout: %s", result.stdout.strip())
+        if result.returncode == 0:
+            logger.info("Processos do Word encerrados com sucesso.")
+            return True
+
+        # Exit code 128 = "process not found" — no Word running.
+        stderr_lower = result.stderr.lower()
+        if "nao encontrado" in stderr_lower or \
+           "not found" in stderr_lower or \
+           "no running" in stderr_lower:
+            logger.info("Nenhum processo do Word em execucao.")
+            return False
+
+        logger.warning("taskkill retornou codigo %d: %s",
+                       result.returncode, result.stderr.strip())
+        return False
+    except subprocess.TimeoutExpired:
+        logger.error("Timeout ao tentar encerrar processos do Word.")
+        return False
+    except FileNotFoundError:
+        logger.error("Comando 'taskkill' nao encontrado no sistema.")
+        return False
+    except Exception as e:
+        logger.error("Erro ao encerrar processos do Word: %s", e)
+        return False
+
+
+def _report_manual_copy(tmp_copy: Path, normal_dotm: Path,
+                        logger: logging.Logger):
+    """Inform the user that manual copy is required."""
+    logger.warning(
+        "A copia temporaria esta disponivel. Feche o Word e execute "
+        "novamente, ou copie manualmente:\n"
+        "  de: %s\n  para: %s", tmp_copy, normal_dotm
+    )
 
 # PLACEHOLDER_PART5
 

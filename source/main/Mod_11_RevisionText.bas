@@ -516,7 +516,7 @@ Public Sub CorrigirProposituraComIA()
             End If
         End If
         Err.Clear
-        Application.OnRepeat "Z7_STDPROPOSERS - Correcao IA", "CorrigirProposituraComIA"
+        CallByName Application, "OnRepeat", VbMethod, "Z7_STDPROPOSERS - Correcao IA", "CorrigirProposituraComIA"
         undoGroupEnabled = False
         LogMessage LOG_PREFIX & ": UndoRecord finalizado com sucesso", LOG_LEVEL_INFO
     End If
