@@ -709,6 +709,9 @@ Private Function MontarPromptRevisao() As String
         "Quando uma frase estiver sem sentido ou mal construida, " & _
         "reescreva-a de forma clara, natural e coerente."
     p = p & vbLf & vbLf & _
+        "Reescreva o texto realizando o mínimo possível de alterações " & _
+        "em relação ao texto original."   
+    p = p & vbLf & vbLf & _
         "A REESCRITA deve preservar o significado original."
     p = p & vbLf & vbLf & _
         "Use portugues correto, claro, natural e formal."

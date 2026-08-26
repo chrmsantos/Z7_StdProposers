@@ -114,6 +114,8 @@ Corrija palavras grudadas, palavras incompletas e erros claros de digitação.
 Identifique frases confusas, truncadas ou mal construídas.
 Quando uma frase estiver sem sentido ou mal construída, reescreva-a de forma clara, natural e coerente.
 
+Reescreva o texto realizando o mínimo possível de alterações em relação ao texto original. 
+
 A REESCRITA deve preservar o significado original.
 
 Use português correto, claro, natural e formal.
