@@ -45,9 +45,9 @@ def get_data_dir() -> Path:
     """Retorna e cria o diretório de dados do usuário (configurações, chave, etc.)."""
     user_profile = os.environ.get("USERPROFILE", "")
     if user_profile:
-        data_dir = Path(user_profile) / "AppData" / "Local" / "Z7" / "Apps" / "StdProposers" / "LocalConfigs"
+        data_dir = Path(user_profile) / "AppData" / "Local" / "Z7" / "Apps" / "Z7_StdProposers" / "setup"
     else:
-        data_dir = get_runtime_dir() / "data"
+        data_dir = get_runtime_dir() / "setup"
     data_dir.mkdir(parents=True, exist_ok=True)
     return data_dir
 

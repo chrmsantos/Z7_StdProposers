@@ -351,6 +351,7 @@ End Sub
 
 Public Sub LogStepStart(stepName As String)
     On Error Resume Next
+    lastStepStartTime = Timer
     LogMessage "� Iniciando: " & stepName, LOG_LEVEL_INFO
 End Sub
 
@@ -358,8 +359,16 @@ End Sub
 Public Sub LogStepComplete(stepName As String, Optional details As String = "")
     On Error Resume Next
     Dim msg As String
+    Dim elapsed As Double
+    If lastStepStartTime > 0 Then
+        elapsed = Timer - lastStepStartTime
+        If elapsed < 0 Then elapsed = elapsed + 86400
+    Else
+        elapsed = 0
+    End If
     msg = "� Concluido: " & stepName
     If Len(details) > 0 Then msg = msg & " | " & details
+    msg = msg & " | " & Format(elapsed, "0.000") & "s"
     LogMessage msg, LOG_LEVEL_INFO
 End Sub
 

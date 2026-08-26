@@ -177,7 +177,7 @@ class TestGetLogsDir(unittest.TestCase):
     def test_uses_localappdata(self):
         with mock.patch.dict(os.environ, {"LOCALAPPDATA": "C:\\Local"}):
             result = _get_logs_dir()
-            self.assertEqual(str(result), "C:\\Local\\Z7\\Apps\\StdProposers\\LocalConfigs\\logs")
+            self.assertEqual(str(result), "C:\\Local\\Z7\\Apps\\Z7_StdProposers\\setup\\logs")
 
     def test_falls_back_to_userprofile(self):
         env = {"USERPROFILE": "C:\\Users\\test", "LOCALAPPDATA": ""}

@@ -69,10 +69,10 @@ def setup_logging(verbose: bool = False) -> logging.Logger:
 def _get_logs_dir() -> Path:
     local = os.environ.get("LOCALAPPDATA")
     if local:
-        return Path(local) / "Z7" / "Apps" / "StdProposers" / "LocalConfigs" / "logs"
+        return Path(local) / "Z7" / "Apps" / "Z7_StdProposers" / "setup" / "logs"
     profile = os.environ.get("USERPROFILE", "")
     if profile:
-        return Path(profile) / "AppData" / "Local" / "Z7" / "Apps" / "StdProposers" / "LocalConfigs" / "logs"
+        return Path(profile) / "AppData" / "Local" / "Z7" / "Apps" / "Z7_StdProposers" / "setup" / "logs"
     return Path.cwd() / "logs"
 
 # PLACEHOLDER_PART2

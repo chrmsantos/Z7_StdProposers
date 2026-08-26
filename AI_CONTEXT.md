@@ -130,7 +130,7 @@ Current snapshots are executed in `Mod_04_Main.bas` at:
 
 Python scripts share `z7_logging.py` and write UTF-8 logs to:
 
-- `%LOCALAPPDATA%\Z7\Apps\StdProposers\LocalConfigs\logs`
+- `%LOCALAPPDATA%\Z7\Apps\Z7_StdProposers\setup\logs`
 
 Key API: `configure_component_logger(component, level)`, `log_exception(logger, context, exc)`, `build_log_path(component)`, `get_logs_dir()`.
 

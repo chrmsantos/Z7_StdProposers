@@ -25,6 +25,13 @@ Describe 'Z7_STDPROPOSERS - Logging VBA' {
         $mod3 | Should Match 'Public Sub SafeFinalizeLogging\(\)'
     }
 
+    It 'Registra tempo decorrido por etapa de processamento' {
+        $mod1 | Should Match 'Public lastStepStartTime As Double'
+        $mod3 | Should Match 'lastStepStartTime = Timer'
+        $mod3 | Should Match 'Timer - lastStepStartTime'
+        $mod3 | Should Match 'Format\(elapsed, "0.000"\)'
+    }
+
     It 'Mantem identificador de sessao e operacao no log' {
         $mod1 | Should Match 'Public currentLogSessionId As String'
         $mod1 | Should Match 'Public currentOperationId As String'

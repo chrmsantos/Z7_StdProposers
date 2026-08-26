@@ -82,7 +82,7 @@ def _get_local_app_data() -> str:
 
 def _get_logs_dir() -> Path:
     """Return and create the logs directory."""
-    logs_dir = Path(_get_local_app_data()) / "Z7" / "Apps" / "StdProposers" / "LocalConfigs" / "logs"
+    logs_dir = Path(_get_local_app_data()) / "Z7" / "Apps" / "Z7_StdProposers" / "setup" / "logs"
     logs_dir.mkdir(parents=True, exist_ok=True)
     return logs_dir
 

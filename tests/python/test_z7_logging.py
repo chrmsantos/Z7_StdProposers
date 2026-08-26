@@ -88,6 +88,17 @@ class TestGetDataDir(unittest.TestCase):
                 data_dir = get_data_dir()
                 self.assertTrue(str(data_dir).startswith(str(fake_user)))
 
+    def test_get_data_dir_uses_setup_folder(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            fake_user = Path(tmp)
+            with mock.patch.dict(os.environ, {"USERPROFILE": str(fake_user)}, clear=False):
+                data_dir = get_data_dir()
+                self.assertTrue(
+                    str(data_dir).endswith(
+                        os.path.join("AppData", "Local", "Z7", "Apps", "Z7_StdProposers", "setup")
+                    )
+                )
+
 
 class TestIsFrozen(unittest.TestCase):
     def test_returns_false_when_not_compiled(self):

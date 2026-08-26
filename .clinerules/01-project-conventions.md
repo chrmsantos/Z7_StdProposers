@@ -57,7 +57,7 @@ Evite `Range.Characters(n)` em loops quentes. Prefira operar no `Range` diretame
 ## 6. Logging
 
 - **VBA**: `Mod_03_Pipeline.bas` (`InitializeLogging`, `LogMessage`, `SafeFinalizeLogging`). Snapshots em INICIO, FIM, ERRO_CRITICO.
-- **Python**: `z7_logging.py` com `RotatingFileHandler` (2MB / 3 backups). Logs em `%LOCALAPPDATA%\Z7\Apps\StdProposers\LocalConfigs\logs`.
+- **Python**: `z7_logging.py` com `RotatingFileHandler` (2MB / 3 backups). Logs em `%LOCALAPPDATA%\Z7\Apps\Z7_StdProposers\setup\logs`.
 
 ## 7. Testes
 

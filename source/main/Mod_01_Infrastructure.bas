@@ -76,7 +76,7 @@ Public Const CHAT_IA_SCRIPT_RELATIVE_PATH As String = "\AppData\Local\Z7\Apps\Z7
 ' CONSTANTES DE SISTEMA
 '================================================================================
 Public Const MIN_SUPPORTED_VERSION As Long = 14
-Public Const Z7_STDPROPOSERS_VERSION As String = "8.10.5"
+Public Const Z7_STDPROPOSERS_VERSION As String = "8.10.6"
 Public Const REQUIRED_STRING As String = "$NUMERO$/$ANO$"
 Public Const MAX_BACKUP_FILES As Long = 10
 Public Const DEBUG_MODE As Boolean = False
@@ -122,6 +122,7 @@ Public logBuffer As String
 Public lastFlushTime As Date
 Public currentLogSessionId As String
 Public currentOperationId As String
+Public lastStepStartTime As Double
 
 ' Cache de paragrafos para otimizacao
 Public Type paragraphCache
@@ -614,7 +615,7 @@ Public Function GetZ7StdProposersRecoveryPath() As String
 End Function
 
 Public Function GetZ7StdProposersLogsPath() As String
-    GetZ7StdProposersLogsPath = Environ("USERPROFILE") & "\AppData\Local\Z7\Apps\StdProposers\LocalConfigs\logs"
+    GetZ7StdProposersLogsPath = Environ("USERPROFILE") & "\AppData\Local\Z7\Apps\Z7_StdProposers\setup\logs"
 End Function
 
 ' Caminho para o diretorio de dados do usuario (config_prompt, chave API, modelo IA).
@@ -623,9 +624,9 @@ Public Function GetZ7StdProposersDataPath() As String
     Dim userProfile As String
     userProfile = Environ$("USERPROFILE")
     If Len(userProfile) > 0 Then
-        GetZ7StdProposersDataPath = userProfile & "\AppData\Local\Z7\Apps\StdProposers\LocalConfigs"
+        GetZ7StdProposersDataPath = userProfile & "\AppData\Local\Z7\Apps\Z7_StdProposers\setup"
     Else
-        GetZ7StdProposersDataPath = Environ$("LOCALAPPDATA") & "\Z7\Apps\Z7_StdProposers\data"
+        GetZ7StdProposersDataPath = Environ$("LOCALAPPDATA") & "\Z7\Apps\Z7_StdProposers\setup"
     End If
 End Function
 
