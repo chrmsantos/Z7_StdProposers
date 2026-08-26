@@ -1,15 +1,12 @@
 """test_import_ui_to_word.py
 Unit tests for scripts/import_ui_to_word.py
 """
-import datetime
 import logging
 import os
-import shutil
 import subprocess
 import sys
 import tempfile
 import unittest
-import xml.etree.ElementTree as ET
 from pathlib import Path
 from unittest import mock
 
@@ -18,12 +15,9 @@ SCRIPTS_DIR = ROOT / "scripts"
 if str(SCRIPTS_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPTS_DIR))
 
-import import_ui_to_word as import_ui_to_word_mod
-
 from import_ui_to_word import (  # noqa: E402
     BACKUP_SUFFIX,
     DEFAULT_SOURCE_NAME,
-    LOGGER_NAME,
     WORD_OFFICEUI_NAME,
     add_trusted_location,
     backup_existing_officeui,

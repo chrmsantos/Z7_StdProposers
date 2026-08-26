@@ -3,11 +3,7 @@
 # UI para edição de prompts de IA e configuração de modelo / chave API.
 # =============================================================================
 
-import json
-import re as _re
-import threading
 import tkinter as tk
-import webbrowser
 from pathlib import Path
 from tkinter import ttk
 from typing import Callable
@@ -461,6 +457,7 @@ def open_ai_api_dialog(
     btn_sec_hover = colors["btn_sec_hover"]
     btn_primary  = colors.get("btn_primary_bg", "#2563eb")
     btn_primary_hover = colors.get("btn_primary_hover", "#6d28d9")
+    btn_primary_fg = colors.get("btn_primary_fg", "#ffffff")
     select_bg = "#8b5cf6" if theme_mode == "dark" else "#7c3aed"
     select_fg = "#ffffff"
 
@@ -771,7 +768,8 @@ def open_ai_api_dialog(
                     else:
                         dialog.after(0, lambda: _append("⚠  Modelo fallback não retornou conteúdo.", "warn"))
                 except Exception as fb_exc:
-                    dialog.after(0, lambda: _append(f"⚠  Modelo fallback falhou: {fb_exc}", "warn"))
+                    fb_err_msg = str(fb_exc)
+                    dialog.after(0, lambda m=fb_err_msg: _append(f"⚠  Modelo fallback falhou: {m}", "warn"))
 
                 dialog.after(0, lambda: _status_lbl.configure(
                     text="✔  Chave configurada", fg="#10b981",

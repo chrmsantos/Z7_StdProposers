@@ -40,7 +40,7 @@ import time
 import xml.etree.ElementTree as ET
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
+from typing import List, Optional
 
 # ---------------------------------------------------------------------------
 # Constants
