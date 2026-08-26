@@ -30,7 +30,7 @@ paths:
 ### 2. Logging
 - Use `z7_logging.py` para todo logging de componentes Python.
 - API: `configure_component_logger(component, level)`, `log_exception(logger, context, exc)`, `build_log_path(component)`.
-- Logs vão para `%LOCALAPPDATA%\Z7\Tmp\StdProposers\logs`.
+- Logs vão para `%LOCALAPPDATA%\Z7\Apps\StdProposers\LocalConfigs\logs`.
 
 ### 3. Imports
 - `chat_ia.py` e `config_prompt.py` usam **lazy loading** para imports pesados (tkinter, PIL, openai).

@@ -150,7 +150,7 @@ Public Function InitializeLogging(doc As Document) As Boolean
     ' Garante que a estrutura de pastas do projeto existe
     EnsureZ7StdProposersFolders
 
-    ' Salva logs no mesmo diretorio dos logs de IA (%LOCALAPPDATA%\Z7\Tmp\StdProposers\logs)
+    ' Salva logs no mesmo diretorio dos logs de IA (%LOCALAPPDATA%\Z7\Apps\StdProposers\LocalConfigs\logs)
     logFolder = GetZ7StdProposersLogsPath() & "\"
 
     ' Garante que a pasta de logs existe antes de criar o arquivo

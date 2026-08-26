@@ -69,10 +69,10 @@ def setup_logging(verbose: bool = False) -> logging.Logger:
 def _get_logs_dir() -> Path:
     local = os.environ.get("LOCALAPPDATA")
     if local:
-        return Path(local) / "Z7" / "Tmp" / "StdProposers" / "logs"
+        return Path(local) / "Z7" / "Apps" / "StdProposers" / "LocalConfigs" / "logs"
     profile = os.environ.get("USERPROFILE", "")
     if profile:
-        return Path(profile) / "AppData" / "Local" / "Z7" / "Tmp" / "StdProposers" / "logs"
+        return Path(profile) / "AppData" / "Local" / "Z7" / "Apps" / "StdProposers" / "LocalConfigs" / "logs"
     return Path.cwd() / "logs"
 
 # PLACEHOLDER_PART2
@@ -322,13 +322,18 @@ def _import_single_module(vb_project, bas_path: str, bas_name: str, logger: logg
     # CP1252, entao trocamos por '?' antes de gravar o temporario.
     content = content.replace("\ufffd", "?")
 
-    # Write temp file in CP1252 so VBComponents.Import() (which reads using the
-    # system ANSI codepage) sees the exact bytes expected.
+    # Write temp file with encoding=cp1252 so VBComponents.Import() (which reads
+    # using the system ANSI codepage) sees the exact bytes expected.
+    # IMPORTANT: Use write_bytes() (binary mode) to avoid Python's text-mode
+    # newline translation on Windows.  The content string already contains \r\n
+    # (CRLF) line endings; write_text() would translate \n to \r\n, corrupting
+    # every \r\n into \r\r\n — which VBA renders as blank lines between every
+    # line of code.
     tmp_path = None
     try:
         fd, tmp_path = tempfile.mkstemp(suffix=".bas")
         os.close(fd)
-        Path(tmp_path).write_text(content, encoding="cp1252")
+        Path(tmp_path).write_bytes(content.encode("cp1252"))
         vb_project.VBComponents.Import(tmp_path)
     finally:
         if tmp_path and os.path.exists(tmp_path):

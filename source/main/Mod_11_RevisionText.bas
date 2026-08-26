@@ -19,8 +19,8 @@ Option Explicit
 '   - DiagnosticarOpenRouter:       diagnostico de conectividade com a API
 '
 ' Arquivos externos esperados (via config_prompt.py / z7_api_key.py):
-'   - %USERPROFILE%\AppData\Local\Z7\Tmp\StdProposers\openrouter.key
-'   - %USERPROFILE%\AppData\Local\Z7\Tmp\StdProposers\selected_model.txt
+'   - %USERPROFILE%\AppData\Local\Z7\Apps\StdProposers\LocalConfigs\openrouter.key
+'   - %USERPROFILE%\AppData\Local\Z7\Apps\StdProposers\LocalConfigs\selected_model.txt
 ' =============================================================================
 
 ' =============================================================================
