@@ -41,6 +41,10 @@ Private Const HTTP_RECEIVE_TIMEOUT_MS As Long = 120000
 ' Tamanho minimo de paragrafo para enviar a IA (evita chamadas desnecessarias)
 Private Const PARAGRAPH_MIN_LENGTH As Long = 5
 
+' Marcador de paragrafo enviado a IA (ChrW(182) = ¶, Pilcrow Sign)
+' Preservado no prompt e parseado no retorno para processamento paragrafo-a-paragrafo
+Private Const PARAGRAPH_MARKER As String = "¶"
+
 ' Prefixo do log para esta operacao
 Private Const LOG_PREFIX As String = "REVISAO_IA"
 
@@ -314,7 +318,7 @@ Public Sub TestarRevisaoTextoSelecionado()
     End If
 
     Set rng = Selection.Range.Duplicate
-    textoOriginal = ExtrairTextoLimpo(rng)
+    textoOriginal = ExtrairTextoParaIA(rng)
 
     If Len(Trim(textoOriginal)) = 0 Then
         LogMessage LOG_PREFIX & ": Selecao vazia", LOG_LEVEL_WARNING
@@ -344,7 +348,7 @@ Public Sub TestarRevisaoTextoSelecionado()
     ' -----------------------------------------------------------------
     If NormalizarComparacao(textoCorrigido) <> _
        NormalizarComparacao(textoOriginal) Then
-        SubstituirTextoPreservandoFormatacao _
+        SubstituirTextoPreservandoFormatacaoMultiParagrafo _
             rng, _
             textoCorrigido
         LogStepComplete "Revisao de texto selecionado", _
@@ -407,7 +411,7 @@ Public Sub CorrigirProposituraComIA()
     End If
 
     Set rng = Selection.Range.Duplicate
-    textoOriginal = ExtrairTextoLimpo(rng)
+    textoOriginal = ExtrairTextoParaIA(rng)
 
     If Len(Trim(textoOriginal)) = 0 Then
         LogMessage LOG_PREFIX & ": Selecao vazia", LOG_LEVEL_WARNING
@@ -449,28 +453,42 @@ Public Sub CorrigirProposituraComIA()
     End If
 
     ' -----------------------------------------------------------------
-    ' SUBSTITUI SE HOUVE ALTERACAO (PRESERVANDO FORMATAcao)
+    ' SUBSTITUI SE HOUVE ALTERACAO (PRESERVANDO FORMATACAO)
     ' -----------------------------------------------------------------
 
     ' -----------------------------------------------------------------
     ' INICIO DO GRUPO DE DESFAZER (UndoRecord) - melhor esforco
+    ' Late binding via CallByName: evita erro de compilacao em versoes
+    ' do Word onde UndoRecord nao resolve como early-bound.
     ' Agrupa todas as edicoes da substituicao em uma unica acao Ctrl+Z
     ' -----------------------------------------------------------------
     On Error Resume Next
-    Application.UndoRecord.StartCustomRecord "Z7_STDPROPOSERS - Correcao IA"
+    Dim objUndoStart As Object
+    Set objUndoStart = CallByName(Application, "UndoRecord", VbGet)
     If Err.Number = 0 Then
-        undoGroupEnabled = True
-        LogMessage LOG_PREFIX & ": UndoRecord iniciado", LOG_LEVEL_INFO
+        If Not objUndoStart Is Nothing Then
+            CallByName objUndoStart, "StartCustomRecord", VbMethod, "Z7_STDPROPOSERS - Correcao IA"
+            If Err.Number = 0 Then
+                undoGroupEnabled = True
+                LogMessage LOG_PREFIX & ": UndoRecord iniciado", LOG_LEVEL_INFO
+            Else
+                undoGroupEnabled = False
+                Err.Clear
+            End If
+        Else
+            undoGroupEnabled = False
+        End If
     Else
         undoGroupEnabled = False
         Err.Clear
     End If
+    Set objUndoStart = Nothing
     On Error GoTo ErrorHandler
     ' -----------------------------------------------------------------
 
     If NormalizarComparacao(textoCorrigido) <> _
        NormalizarComparacao(textoOriginal) Then
-        SubstituirTextoPreservandoFormatacao _
+        SubstituirTextoPreservandoFormatacaoMultiParagrafo _
             rng, _
             textoCorrigido
         Application.StatusBar = RenderProgressBar(100, "Texto corrigido com sucesso")
@@ -486,10 +504,18 @@ Public Sub CorrigirProposituraComIA()
 
     ' -----------------------------------------------------------------
     ' FIM DO GRUPO DE DESFAZER - SEMPRE fecha o UndoRecord
+    ' Late binding via CallByName: evita erro de compilacao
     ' -----------------------------------------------------------------
     On Error Resume Next
     If undoGroupEnabled Then
-        Application.UndoRecord.EndCustomRecord
+        Dim objUndoEnd As Object
+        Set objUndoEnd = CallByName(Application, "UndoRecord", VbGet)
+        If Err.Number = 0 Then
+            If Not objUndoEnd Is Nothing Then
+                CallByName objUndoEnd, "EndCustomRecord", VbMethod
+            End If
+        End If
+        Err.Clear
         Application.OnRepeat "Z7_STDPROPOSERS - Correcao IA", "CorrigirProposituraComIA"
         undoGroupEnabled = False
         LogMessage LOG_PREFIX & ": UndoRecord finalizado com sucesso", LOG_LEVEL_INFO
@@ -508,9 +534,17 @@ ErrorHandler:
     errDesc = Err.Description
 
     ' CRITICO: Garante fechamento do UndoRecord mesmo em erro
+    ' Late binding via CallByName: evita erro de compilacao
     If undoGroupEnabled Then
         On Error Resume Next
-        Application.UndoRecord.EndCustomRecord
+        Dim errUndo As Object
+        Set errUndo = CallByName(Application, "UndoRecord", VbGet)
+        If Err.Number = 0 Then
+            If Not errUndo Is Nothing Then
+                CallByName errUndo, "EndCustomRecord", VbMethod
+            End If
+        End If
+        Err.Clear
         undoGroupEnabled = False
         On Error GoTo 0
     End If
@@ -710,6 +744,21 @@ Private Function MontarPromptRevisao() As String
     p = p & vbLf & _
         "Nao adicione negrito, titulos, marcadores ou observacoes."
     p = p & vbLf & vbLf & _
+        "ESTRUTURA DE PARAGRAFOS: o carcater '" & PARAGRAPH_MARKER & "' " & _
+        "(pilcrow) separa paragrafos."
+    p = p & vbLf & _
+        "Cada '" & PARAGRAPH_MARKER & "' indica o fim de um paragrafo e o " & _
+        "inicio do proximo."
+    p = p & vbLf & _
+        "PRESERVE TODOS os marcadores '" & PARAGRAPH_MARKER & "' " & _
+        "EXATAMENTE nas mesmas posicoes."
+    p = p & vbLf & _
+        "Seu texto de saida DEVE conter o MESMO numero de '" & _
+        PARAGRAPH_MARKER & "' que o texto de entrada."
+    p = p & vbLf & _
+        "NAO remova, NAO adicione, NAO mova os marcadores '" & _
+        PARAGRAPH_MARKER & "'."
+    p = p & vbLf & vbLf & _
         "RETORNE SOMENTE O TEXTO FINAL REVISADO."
     p = p & vbLf & _
         "Nao explique as alteracoes."
@@ -722,20 +771,23 @@ Private Function MontarPromptRevisao() As String
 End Function
 
 ' =============================================================================
-' EXTRAI TEXTO DO RANGE
+' EXTRAI TEXTO DO RANGE PRESERVANDO PARAGRAFOS (via marcador ¶)
 ' =============================================================================
-Private Function ExtrairTextoLimpo( _
+' Substitui vbCr por PARAGRAPH_MARKER (¶) para que a IA receba as
+' fronteiras entre paragrafos. Caracteres de controle sao removidos.
+' =============================================================================
+Private Function ExtrairTextoParaIA( _
     ByVal rng As Range) As String
     On Error Resume Next
 
     Dim texto As String
     texto = rng.text
-    texto = Replace(texto, vbCr, "")
+    texto = Replace(texto, vbCr, PARAGRAPH_MARKER)
     texto = Replace(texto, vbLf, "")
     texto = Replace(texto, Chr(7), "")    ' BEL character (form fields)
     texto = Replace(texto, Chr(160), " ") ' Non-breaking space
 
-    ExtrairTextoLimpo = Trim(texto)
+    ExtrairTextoParaIA = Trim(texto)
 End Function
 
 
@@ -1202,12 +1254,165 @@ End Sub
 
 
 ' =============================================================================
+' SUBSTITUI TEXTO PRESERVANDO FORMATACAO - MULTI-PARAGRAFO
+' =============================================================================
+'
+' Processa selecoes com MULTIPLOS PARAGRAFOS de forma independente.
+'
+' Estrategia:
+'   1. Divide o range original em paragrafos individuais via
+'      rng.Paragraphs (cada um com seu proprio vbCr).
+'   2. Divide o texto corrigido da IA pelos marcadores PARAGRAPH_MARKER
+'      (¶) para obter o conteudo de cada paragrafo corrigido.
+'   3. Para CADA paragrafo, chama SubstituirTextoPreservandoFormatacao
+'      apenas no range daquele paragrafo especifico, preservando
+'      alinhamento, recuos, Style, bordas, shading e formatacao de
+'      caractere daquele paragrafo individualmente.
+'   4. Se a IA alterar o numero de paragrafos, o excedente do texto
+'      original e mantido inalterado, e paragrafos extras da IA sao
+'      descartados (comportamento seguro).
+'
+' NOTA: Esta rotina e SEMPRE chamada dentro de um grupo UndoRecord
+'       gerenciado pela rotina chamadora (CorrigirProposituraComIA
+'       ou TestarRevisaoTextoSelecionado).
+'
+' =============================================================================
+Private Sub SubstituirTextoPreservandoFormatacaoMultiParagrafo( _
+    ByVal rngOriginal As Range, _
+    ByVal textoCorrigidoComMarcadores As String)
+    On Error GoTo ErrorHandler
+
+    ' -----------------------------------------------------------------
+    ' 1. PARSE DO TEXTO CORRIGIDO: divide por marcador ¶
+    ' -----------------------------------------------------------------
+    Dim paragrafosCorrigidos() As String
+    Dim pCount As Long
+    Dim i As Long
+    Dim posMarker As Long
+    Dim textoRestante As String
+
+    textoRestante = textoCorrigidoComMarcadores
+    pCount = 0
+
+    ' Conta paragrafos (numero de ¶ + 1, ou 1 se nao houver marcador)
+    Do While Len(textoRestante) > 0
+        posMarker = InStr(textoRestante, PARAGRAPH_MARKER)
+        If posMarker = 0 Then
+            pCount = pCount + 1
+            Exit Do
+        End If
+        pCount = pCount + 1
+        textoRestante = Mid(textoRestante, posMarker + 1)
+    Loop
+
+    If pCount = 0 Then Exit Sub
+
+    ReDim paragrafosCorrigidos(1 To pCount)
+
+    ' Preenche array
+    textoRestante = textoCorrigidoComMarcadores
+    i = 1
+    Do While Len(textoRestante) > 0
+        posMarker = InStr(textoRestante, PARAGRAPH_MARKER)
+        If posMarker = 0 Then
+            paragrafosCorrigidos(i) = Trim(textoRestante)
+            Exit Do
+        End If
+        paragrafosCorrigidos(i) = Trim(Left(textoRestante, posMarker - 1))
+        textoRestante = Mid(textoRestante, posMarker + 1)
+        i = i + 1
+        If i > pCount Then Exit Do
+    Loop
+
+    LogMessage LOG_PREFIX & ": Processando " & pCount & _
+        " paragrafo(s) corrigido(s) pela IA", LOG_LEVEL_INFO
+
+    ' -----------------------------------------------------------------
+    ' 2. ITERA SOBRE PARAGRAFOS DO RANGE ORIGINAL
+    ' -----------------------------------------------------------------
+    Dim totalParasOriginal As Long
+    totalParasOriginal = rngOriginal.Paragraphs.count
+
+    LogMessage LOG_PREFIX & ": Range original contem " & _
+        totalParasOriginal & " paragrafo(s)", LOG_LEVEL_INFO
+
+    ' Se for paragrafo unico e sem marcador, delega direto
+    If totalParasOriginal = 1 And pCount = 1 Then
+        Dim paraUnico As Range
+        Set paraUnico = rngOriginal.Paragraphs(1).Range.Duplicate
+        If paraUnico.End > paraUnico.Start Then
+            If Asc(paraUnico.Characters.Last.text) = 13 Then
+                paraUnico.MoveEnd wdCharacter, -1
+            End If
+        End If
+        If Len(paraUnico.text) > 0 Or Len(paragrafosCorrigidos(1)) > 0 Then
+            SubstituirTextoPreservandoFormatacao paraUnico, paragrafosCorrigidos(1)
+        End If
+        Set paraUnico = Nothing
+        Exit Sub
+    End If
+
+    ' Multiplos paragrafos: processa cada um independentemente
+    Dim paraIndex As Long
+    Dim textoCorrigidoParagrafo As String
+    Dim paraRange As Range
+
+    For paraIndex = 1 To totalParasOriginal
+        Set paraRange = rngOriginal.Paragraphs(paraIndex).Range.Duplicate
+
+        ' Exclui a marca de paragrafo (vbCr) do final do range
+        If paraRange.End > paraRange.Start Then
+            If Asc(paraRange.Characters.Last.text) = 13 Then
+                paraRange.MoveEnd wdCharacter, -1
+            End If
+        End If
+
+        ' Determina o texto corrigido correspondente
+        If paraIndex <= pCount Then
+            textoCorrigidoParagrafo = paragrafosCorrigidos(paraIndex)
+        Else
+            textoCorrigidoParagrafo = paraRange.text
+            LogMessage LOG_PREFIX & _
+                ": Aviso - IA retornou " & pCount & _
+                " paragrafo(s) mas range tem " & totalParasOriginal & _
+                "; mantendo paragrafo " & paraIndex & " inalterado", _
+                LOG_LEVEL_WARNING
+        End If
+
+        ' Substitui texto deste paragrafo preservando SUA formatacao
+        If Len(paraRange.text) > 0 Or Len(textoCorrigidoParagrafo) > 0 Then
+            SubstituirTextoPreservandoFormatacao _
+                paraRange, textoCorrigidoParagrafo
+        End If
+
+        Set paraRange = Nothing
+    Next paraIndex
+
+    If pCount > totalParasOriginal Then
+        LogMessage LOG_PREFIX & _
+            ": Aviso - IA retornou " & pCount & _
+            " paragrafo(s) mas range tem " & totalParasOriginal & _
+            "; excedentes da IA descartados", LOG_LEVEL_WARNING
+    End If
+
+    Exit Sub
+
+ErrorHandler:
+    LogMessage LOG_PREFIX & _
+        ": Erro na substituicao multi-paragrafo: " & _
+        Err.Number & " - " & Err.Description, LOG_LEVEL_ERROR
+    Resume Next
+End Sub
+
+
+' =============================================================================
 ' NORMALIZA PARA COMPARACAO
 ' =============================================================================
 Private Function NormalizarComparacao( _
     ByVal texto As String) As String
     texto = Replace(texto, vbCr, "")
     texto = Replace(texto, vbLf, "")
+    texto = Replace(texto, PARAGRAPH_MARKER, "")
     texto = Replace(texto, Chr(160), " ")
     NormalizarComparacao = Trim(texto)
 End Function

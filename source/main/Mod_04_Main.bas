@@ -100,16 +100,30 @@ Public Sub PadronizarDocumentoMain()
 
     ' ---------------------------------------------------------------------------
     ' INICIO DO GRUPO DE DESFAZER (UndoRecord) - melhor esforco
+    ' Late binding via CallByName: evita erro de compilacao "Metodo ou membro
+    ' de dados nao encontrado" em versoes do Word onde UndoRecord nao resolve.
     ' ---------------------------------------------------------------------------
     On Error Resume Next
-    Application.UndoRecord.StartCustomRecord "Z7_STDPROPOSERS - Padronizacao"
+    Dim objUndoStart As Object
+    Set objUndoStart = CallByName(Application, "UndoRecord", VbGet)
     If Err.Number = 0 Then
-        undoGroupEnabled = True
-        LogMessage "UndoRecord iniciado", LOG_LEVEL_INFO
+        If Not objUndoStart Is Nothing Then
+            CallByName objUndoStart, "StartCustomRecord", VbMethod, "Z7_STDPROPOSERS - Padronizacao"
+            If Err.Number = 0 Then
+                undoGroupEnabled = True
+                LogMessage "UndoRecord iniciado", LOG_LEVEL_INFO
+            Else
+                undoGroupEnabled = False
+                Err.Clear
+            End If
+        Else
+            undoGroupEnabled = False
+        End If
     Else
         undoGroupEnabled = False
         Err.Clear
     End If
+    Set objUndoStart = Nothing
     On Error GoTo CriticalErrorHandler
     ' ---------------------------------------------------------------------------
 
@@ -251,10 +265,19 @@ Public Sub PadronizarDocumentoMain()
 CleanUp:
     ' ---------------------------------------------------------------------------
     ' FIM DO GRUPO DE DESFAZER - SEMPRE fecha o UndoRecord
+    ' Late binding via CallByName: evita erro de compilacao "Metodo ou membro
+    ' de dados nao encontrado" em versoes do Word onde UndoRecord nao resolve.
     ' ---------------------------------------------------------------------------
     On Error Resume Next
     If undoGroupEnabled Then
-        Application.UndoRecord.EndCustomRecord
+        Dim objUndoEnd As Object
+        Set objUndoEnd = CallByName(Application, "UndoRecord", VbGet)
+        If Err.Number = 0 Then
+            If Not objUndoEnd Is Nothing Then
+                CallByName objUndoEnd, "EndCustomRecord", VbMethod
+            End If
+        End If
+        Err.Clear
         Application.OnRepeat "Z7_STDPROPOSERS - Padronizacao", "PadronizarDocumentoMain"
         undoGroupEnabled = False
         LogMessage "UndoRecord finalizado com sucesso", LOG_LEVEL_INFO
