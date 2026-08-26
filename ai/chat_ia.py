@@ -35,7 +35,7 @@ _MAX_CONTEXT_CHARS = 150_000
 _RPC_BUSY_RETRIES = 3
 _RPC_BUSY_RETRY_DELAY = 0.3
 
-_APP_VERSION = "8.10.3"
+_APP_VERSION = "8.12.3"
 _APP_AUTHOR  = "CMS"
 _ORG         = "Câmara Municipal de Santa Bárbara d'Oeste"
 _LICENSE     = "GPL-3.0"
@@ -58,6 +58,27 @@ def get_today_date_text() -> str:
     }
     month_name = months[now.month]
     return f"Hoje é {now.day} de {month_name} de {now.year}."
+
+# ==========================================
+# Helper para barra de progresso ASCII na StatusBar do Word
+# ==========================================
+class _WordHelper:
+    """Renderiza barra de progresso ASCII para a StatusBar do Word."""
+    BAR_WIDTH: int = 20
+    BAR_FILL: str = "#"
+    BAR_EMPTY: str = "-"
+
+    @staticmethod
+    def render_progress_bar(percent: int, msg: str = "") -> str:
+        """Render ASCII progress bar for Word StatusBar."""
+        pct = max(0, min(100, percent))
+        filled = int(pct * _WordHelper.BAR_WIDTH / 100)
+        empty = _WordHelper.BAR_WIDTH - filled
+        bar = "[" + _WordHelper.BAR_FILL * filled + _WordHelper.BAR_EMPTY * empty + "]"
+        if msg:
+            return bar + " " + str(pct).rjust(3) + "% | " + msg + " (z7)"
+        return bar + " " + str(pct).rjust(3) + "% (z7)"
+
 
 # ==========================================
 # Classe Principal do Chat
@@ -148,21 +169,6 @@ class ChatApp:
             LOGGER.info("Word window resized to 3/4 of screen")
         except Exception as e:
             log_exception(LOGGER, "Failed to resize Word window", e)
-
-    BAR_WIDTH = 20
-    BAR_FILL = "#"
-    BAR_EMPTY = "-"
-
-    @staticmethod
-    def render_progress_bar(percent: int, msg: str = "") -> str:
-        """Render ASCII progress bar for Word StatusBar."""
-        pct = max(0, min(100, percent))
-        filled = int(pct * _WordHelper.BAR_WIDTH / 100)
-        empty = _WordHelper.BAR_WIDTH - filled
-        bar = "[" + _WordHelper.BAR_FILL * filled + _WordHelper.BAR_EMPTY * empty + "]"
-        if msg:
-            return bar + " " + str(pct).rjust(3) + "% | " + msg + " (z7)"
-        return bar + " " + str(pct).rjust(3) + "% (z7)"
 
     def _set_word_status(self, message: str, percent: int = -1) -> None:
         """Atualiza StatusBar do Word com barra de progresso ASCII."""
