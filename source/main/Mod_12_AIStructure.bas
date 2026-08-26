@@ -806,7 +806,7 @@ Public Sub DiagnosticarEstruturaIA()
     ' -----------------------------------------------------------------
     ' 3. TESTA CONEXAO HTTP
     ' -----------------------------------------------------------------
-    Application.StatusBar = AI_STRUCT_PREFIX & ": Testando conectividade..."
+    Application.StatusBar = RenderProgressBar(30, "Testando conectividade OpenRouter")
 
     Set http = CreateObject("MSXML2.ServerXMLHTTP.6.0")
     http.setTimeouts _

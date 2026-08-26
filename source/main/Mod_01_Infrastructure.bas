@@ -76,7 +76,7 @@ Public Const CHAT_IA_SCRIPT_RELATIVE_PATH As String = "\AppData\Local\Z7\Apps\Z7
 ' CONSTANTES DE SISTEMA
 '================================================================================
 Public Const MIN_SUPPORTED_VERSION As Long = 14
-Public Const Z7_STDPROPOSERS_VERSION As String = "8.10.7"
+Public Const Z7_STDPROPOSERS_VERSION As String = "8.11.0"
 Public Const REQUIRED_STRING As String = "$NUMERO$/$ANO$"
 Public Const MAX_BACKUP_FILES As Long = 10
 Public Const DEBUG_MODE As Boolean = False
@@ -105,6 +105,15 @@ Public Const ANEXO_TEXT_SINGULAR As String = "anexo"
 Public Const ANEXO_TEXT_PLURAL As String = "anexos"
 Public Const ASSINATURA_PARAGRAPH_COUNT As Long = 3
 Public Const ASSINATURA_BLANK_LINES_BEFORE As Long = 2
+
+'================================================================================
+' CONSTANTES DA BARRA DE PROGRESSO ASCII
+'================================================================================
+Public Const PROGRESS_BAR_WIDTH As Long = 20
+Public Const PROGRESS_BAR_FILL As String = "#"
+Public Const PROGRESS_BAR_EMPTY As String = "-"
+
+'================================================================================
 ' VARIAVEIS GLOBAIS
 '================================================================================
 Public undoGroupEnabled As Boolean
@@ -291,7 +300,7 @@ End Function
 Public Function ConfigureDocumentView(doc As Document) As Boolean
     On Error GoTo ErrorHandler
 
-    Application.StatusBar = "Configurando visualizacao..."
+    Application.StatusBar = RenderProgressBar(50, "Configurando visualizacao")
 
     Dim docWindow As Window
     Set docWindow = doc.ActiveWindow
@@ -398,16 +407,32 @@ Public Sub CloseAllOpenFiles()
 End Sub
 
 '================================================================================
-' ATUALIZACAO DA BARRA DE PROGRESSO
+' ATUALIZACAO DA BARRA DE PROGRESSO (ASCII)
 '================================================================================
 Public Sub UpdateProgress(message As String, percentComplete As Long)
-    If message <> "" Then
-        Application.StatusBar = "Padronizando... " & message
-    Else
-        Application.StatusBar = "Padronizando..."
-    End If
+    Application.StatusBar = RenderProgressBar(percentComplete, message)
     DoEvents
 End Sub
+
+'================================================================================
+' RENDER PROGRESS BAR - Barra ASCII grafica
+' Ex: [##########----------] 50% | Formatando titulo...
+'================================================================================
+Public Function RenderProgressBar(ByVal percent As Long, ByVal msg As String) As String
+    Dim filled As Long
+    
+    If percent < 0 Then percent = 0
+    If percent > 100 Then percent = 100
+    filled = CLng(percent * PROGRESS_BAR_WIDTH / 100)
+    
+    RenderProgressBar = "[" & String(filled, PROGRESS_BAR_FILL) & String(PROGRESS_BAR_WIDTH - filled, PROGRESS_BAR_EMPTY) & "]"
+    
+    If Len(msg) > 0 Then
+        RenderProgressBar = RenderProgressBar & " " & Format(percent, "0") & "% | " & msg & " (z7)"
+    Else
+        RenderProgressBar = RenderProgressBar & " " & Format(percent, "0") & "% (z7)"
+    End If
+End Function
 
 '================================================================================
 ' SALVAMENTO INICIAL DO DOCUMENTO
@@ -415,7 +440,7 @@ End Sub
 Public Function SaveDocumentFirst(doc As Document) As Boolean
     On Error GoTo ErrorHandler
 
-    Application.StatusBar = "Salvando documento..."
+    Application.StatusBar = RenderProgressBar(0, "Salvando documento")
     ' Log de inicio removido para performance
 
     Dim saveDialog As Object
@@ -441,7 +466,7 @@ Public Function SaveDocumentFirst(doc As Document) As Boolean
         Do While Timer < startTime + 1
             DoEvents
         Loop
-        Application.StatusBar = "Salvando... (" & waitCount & "/" & maxWait & ")"
+        Application.StatusBar = RenderProgressBar(CLng(waitCount * 100 / maxWait), "Salvando")
     Next waitCount
 
     If doc.Path = "" Then
@@ -505,7 +530,7 @@ Public Function CreateDocumentBackup(doc As Document) As Boolean
     End If
 
     ' Salva uma copia do documento como backup
-    Application.StatusBar = "Criando backup..."
+    Application.StatusBar = RenderProgressBar(20, "Criando backup")
 
     ' Salva o documento atual primeiro para garantir que esta atualizado
     doc.Save

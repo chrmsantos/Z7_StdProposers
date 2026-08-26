@@ -138,11 +138,11 @@ def resolve_project_root() -> Path:
     Determine the project root directory.
 
     When running as a PyInstaller frozen executable, the .exe is inside
-    scripts/dist/; go two levels up. In script mode, go one level up.
+    dist/; go one level up. In script mode, go one level up.
     """
     if getattr(sys, "frozen", False):
         exe_dir = Path(sys.executable).resolve().parent
-        return exe_dir.parent.parent
+        return exe_dir.parent
     return Path(__file__).resolve().parent.parent
 
 

@@ -874,7 +874,10 @@ def main() -> None:
             word = win32com.client.GetActiveObject("Word.Application")
         except Exception:
             word = win32com.client.GetObject(Class="Word.Application")
-        word.StatusBar = "Z7: Abrindo Configuracoes..."
+        # ASCII progress bar
+        BAR_W = 20
+        bar = "[" + "#" * 0 + "-" * BAR_W + "]"
+        word.StatusBar = bar + "   0% | Abrindo Configuracoes (z7)"
     except Exception as e:
         LOGGER.warning("Could not connect to Word to update status bar: %s", str(e))
 

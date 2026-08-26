@@ -615,7 +615,7 @@ Public Sub RestaurarBackup()
     End If
 
     ' Salva documento atual como _discarded
-    Application.StatusBar = "Salvando documento descartado..."
+    Application.StatusBar = RenderProgressBar(30, "Salvando documento descartado")
     doc.SaveAs2 discardedPath
 
     ' Fecha o documento descartado
@@ -627,7 +627,7 @@ Public Sub RestaurarBackup()
     End If
 
     ' Copia o backup mais antigo para o local original
-    Application.StatusBar = "Restaurando backup..."
+    Application.StatusBar = RenderProgressBar(35, "Restaurando backup")
     fso.CopyFile targetBackupPath, originalPath, True
 
     ' Abre o backup restaurado

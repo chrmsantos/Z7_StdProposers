@@ -328,8 +328,7 @@ Public Sub TestarRevisaoTextoSelecionado()
     ' -----------------------------------------------------------------
     ' ENVIA PARA A IA
     ' -----------------------------------------------------------------
-    Application.StatusBar = _
-        LOG_PREFIX & ": Enviando texto selecionado para a IA..."
+    Application.StatusBar = RenderProgressBar(20, "Enviando texto para a IA")
     DoEvents
 
     textoCorrigido = ProcessarTextoComIA(textoOriginal)
@@ -434,8 +433,7 @@ Public Sub CorrigirProposituraComIA()
     ' -----------------------------------------------------------------
     ' ENVIA O TEXTO SELECIONADO PARA A IA
     ' -----------------------------------------------------------------
-    Application.StatusBar = _
-        LOG_PREFIX & ": Enviando texto para a IA..."
+    Application.StatusBar = RenderProgressBar(20, "Enviando texto para a IA")
     DoEvents
 
     textoCorrigido = ProcessarTextoComIA(textoOriginal)
@@ -475,15 +473,12 @@ Public Sub CorrigirProposituraComIA()
         SubstituirTextoPreservandoFormatacao _
             rng, _
             textoCorrigido
-        Application.StatusBar = _
-            LOG_PREFIX & ": Texto corrigido com sucesso! | " & _
-            Format(Timer - startTime, "0.0") & "s"
+        Application.StatusBar = RenderProgressBar(100, "Texto corrigido com sucesso")
         LogStepComplete "Correcao de texto selecionado", _
             "Texto corrigido e substituido | " & _
             Format(Timer - startTime, "0.0") & "s"
     Else
-        Application.StatusBar = _
-            LOG_PREFIX & ": Nenhuma alteracao necessaria."
+        Application.StatusBar = RenderProgressBar(100, "Nenhuma alteracao necessaria")
         LogStepComplete "Correcao de texto selecionado", _
             "Nenhuma alteracao necessaria | " & _
             Format(Timer - startTime, "0.0") & "s"
@@ -495,6 +490,7 @@ Public Sub CorrigirProposituraComIA()
     On Error Resume Next
     If undoGroupEnabled Then
         Application.UndoRecord.EndCustomRecord
+        Application.OnRepeat "Z7_STDPROPOSERS - Correcao IA", "CorrigirProposituraComIA"
         undoGroupEnabled = False
         LogMessage LOG_PREFIX & ": UndoRecord finalizado com sucesso", LOG_LEVEL_INFO
     End If
@@ -1460,7 +1456,7 @@ Public Sub DiagnosticarOpenRouter()
         Exit Sub
     End If
 
-    Application.StatusBar = LOG_PREFIX & ": Testando conectividade..."
+    Application.StatusBar = RenderProgressBar(30, "Testando conectividade OpenRouter")
 
     Set http = CreateObject("MSXML2.ServerXMLHTTP.6.0")
 

@@ -1748,7 +1748,7 @@ Public Function InsertHeaderstamp(doc As Document) As Boolean
     imgFile = GetHeaderImagePath()
 
     If imgFile = "" Then
-        Application.StatusBar = "Aviso: Imagem nao encontrada"
+        Application.StatusBar = RenderProgressBar(80, "Verificando imagens")
         InsertHeaderstamp = False
         Exit Function
     End If
@@ -1817,7 +1817,7 @@ End Function
 Public Function BackupAllImages(doc As Document) As Boolean
     On Error GoTo ErrorHandler
 
-    Application.StatusBar = "Protegendo imagens..."
+    Application.StatusBar = RenderProgressBar(10, "Protegendo imagens")
 
     imageCount = 0
     ReDim savedImages(0)
@@ -1923,7 +1923,7 @@ Public Function RestoreAllImages(doc As Document) As Boolean
         Exit Function
     End If
 
-    Application.StatusBar = "Verificando integridade das imagens..."
+    Application.StatusBar = RenderProgressBar(75, "Verificando integridade das imagens")
 
     Dim i As Long
     Dim verifiedCount As Long

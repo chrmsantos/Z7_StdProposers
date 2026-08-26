@@ -128,7 +128,7 @@ class ChatApp:
             word.WindowState = 1  # wdWindowStateNormal
             word.Left = 0
             word.Top = 0
-            word.StatusBar = "Z7: Aguardando interacao no Chat..."
+            word.StatusBar = _WordHelper.render_progress_bar(0, "Aguardando interacao no Chat")
             
             target_width_px = screen_width - self.chat_width_px
             target_height_px = screen_height
@@ -149,11 +149,29 @@ class ChatApp:
         except Exception as e:
             log_exception(LOGGER, "Failed to resize Word window", e)
 
-    def _set_word_status(self, message: str) -> None:
-        """Atualiza StatusBar do Word sem interromper o fluxo do chat."""
+    BAR_WIDTH = 20
+    BAR_FILL = "#"
+    BAR_EMPTY = "-"
+
+    @staticmethod
+    def render_progress_bar(percent: int, msg: str = "") -> str:
+        """Render ASCII progress bar for Word StatusBar."""
+        pct = max(0, min(100, percent))
+        filled = int(pct * _WordHelper.BAR_WIDTH / 100)
+        empty = _WordHelper.BAR_WIDTH - filled
+        bar = "[" + _WordHelper.BAR_FILL * filled + _WordHelper.BAR_EMPTY * empty + "]"
+        if msg:
+            return bar + " " + str(pct).rjust(3) + "% | " + msg + " (z7)"
+        return bar + " " + str(pct).rjust(3) + "% (z7)"
+
+    def _set_word_status(self, message: str, percent: int = -1) -> None:
+        """Atualiza StatusBar do Word com barra de progresso ASCII."""
         try:
             if self.word_app is not None:
-                self.word_app.StatusBar = message
+                if percent >= 0:
+                    self.word_app.StatusBar = _WordHelper.render_progress_bar(percent, message)
+                else:
+                    self.word_app.StatusBar = message
         except Exception:
             pass
         

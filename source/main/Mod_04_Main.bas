@@ -246,7 +246,7 @@ Public Sub PadronizarDocumentoMain()
     execSeconds = CLng((Now - executionStartTime) * 86400)
 
     ' Mostra mensagem final na barra de status
-    Application.StatusBar = "Padronizacao concluida em " & execSeconds & "s, com " & errorCount & " erros e " & warningCount & " avisos! (z7_stdproposers)"
+    Application.StatusBar = RenderProgressBar(100, "Padronizacao concluida em " & execSeconds & "s, " & errorCount & " erros, " & warningCount & " avisos")
 
 CleanUp:
     ' ---------------------------------------------------------------------------
@@ -255,6 +255,7 @@ CleanUp:
     On Error Resume Next
     If undoGroupEnabled Then
         Application.UndoRecord.EndCustomRecord
+        Application.OnRepeat "Z7_STDPROPOSERS - Padronizacao", "PadronizarDocumentoMain"
         undoGroupEnabled = False
         LogMessage "UndoRecord finalizado com sucesso", LOG_LEVEL_INFO
     End If
@@ -652,7 +653,7 @@ Public Sub AbrirReadme()
     Const GITHUB_REPO_URL As String = "https://github.com/chrmsantos/Z7_StdProposers"
 
     ' Abre o repositorio do GitHub no navegador padrao
-    Application.StatusBar = "Abrindo repositorio do GitHub..."
+    Application.StatusBar = RenderProgressBar(50, "Abrindo repositorio do GitHub")
 
     ' Usa o comando Shell com o protocolo http:// para abrir no navegador padrao
     CreateObject("WScript.Shell").Run GITHUB_REPO_URL, 1, False
@@ -712,7 +713,7 @@ Public Sub ConfirmarDesfazerPadronizacao()
     docPath = doc.Path
 
     ' Executa o comando Desfazer (Undo)
-    Application.StatusBar = "Desfazendo padronizacao..."
+    Application.StatusBar = RenderProgressBar(40, "Desfazendo padronizacao")
     On Error Resume Next
     doc.Undo
     On Error GoTo ErrorHandler
@@ -876,7 +877,7 @@ Public Sub ChatComGemini()
     ' Muda o ponteiro do mouse para indicar carregamento
     System.Cursor = wdCursorWait
     
-    Application.StatusBar = "Carregando o chat interativo da IA..."
+    Application.StatusBar = RenderProgressBar(15, "Carregando chat IA")
     DoEvents
     
     ' Executa o comando SEM aguardar a conclusao, pois e uma janela interativa
@@ -1005,7 +1006,7 @@ Public Sub ComentarElementosPropositura()
     ClearParagraphCache
 
     If commentAddedCount > 0 Then
-        Application.StatusBar = commentAddedCount & " partes da propositura foram comentadas com sucesso! (z7_stdproposers)"
+        Application.StatusBar = RenderProgressBar(100, commentAddedCount & " partes comentadas com sucesso")
         MsgBox "Identificacao concluida! " & commentAddedCount & " partes estruturais foram marcadas com comentarios no documento.", vbInformation, "Z7 - Comentar Propositura"
     Else
         MsgBox "Nenhuma parte estrutural da propositura foi identificada.", vbExclamation, "Z7 - Comentar Propositura"
