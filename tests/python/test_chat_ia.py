@@ -579,7 +579,8 @@ class TestGetWordApp(unittest.TestCase):
         stubs, client_stub = _make_get_word_client(
             gao_result=empty_word, go_result=good_word)
         with mock.patch.dict(sys.modules, stubs), \
-             mock.patch.object(chat_ia.ChatApp, "_find_word_with_documents", return_value=None):
+             mock.patch.object(chat_ia.ChatApp, "_find_word_with_documents", return_value=None), \
+             mock.patch.object(chat_ia.ChatApp, "_find_word_via_windows", return_value=None):
             result = self.app._get_word_app()
         self.assertIs(result, good_word)
         client_stub.GetActiveObject.assert_called_once()
@@ -592,7 +593,8 @@ class TestGetWordApp(unittest.TestCase):
 
         stubs, _client_stub = _make_get_word_client(gao_result=good_gao)
         with mock.patch.dict(sys.modules, stubs), \
-             mock.patch.object(chat_ia.ChatApp, "_find_word_with_documents", return_value=empty_rot):
+             mock.patch.object(chat_ia.ChatApp, "_find_word_with_documents", return_value=empty_rot), \
+             mock.patch.object(chat_ia.ChatApp, "_find_word_via_windows", return_value=None):
             result = self.app._get_word_app()
         self.assertIs(result, good_gao)
 
@@ -602,9 +604,10 @@ class TestGetWordApp(unittest.TestCase):
         stubs, _client_stub = _make_get_word_client(
             gao_result=empty, go_result=empty)
         with mock.patch.dict(sys.modules, stubs), \
-             mock.patch.object(chat_ia.ChatApp, "_find_word_with_documents", return_value=None):
+             mock.patch.object(chat_ia.ChatApp, "_find_word_with_documents", return_value=None), \
+             mock.patch.object(chat_ia.ChatApp, "_find_word_via_windows", return_value=None):
             result = self.app._get_word_app()
-        # Último recurso: GetActiveObject retorna a instância (vazia, mas existente)
+        # Último recurso: getter liberal retorna a instância (vazia, mas existente)
         self.assertIsNotNone(result)
 
     def test_word_not_running_raises(self):
@@ -613,12 +616,192 @@ class TestGetWordApp(unittest.TestCase):
         stubs, _client_stub = _make_get_word_client(
             gao_error=not_running, go_error=not_running)
         with mock.patch.dict(sys.modules, stubs), \
-             mock.patch.object(chat_ia.ChatApp, "_find_word_with_documents", return_value=None):
+             mock.patch.object(chat_ia.ChatApp, "_find_word_with_documents", return_value=None), \
+             mock.patch.object(chat_ia.ChatApp, "_find_word_via_windows", return_value=None):
             with self.assertRaises(Exception) as ctx:
                 self.app._get_word_app()
         self.assertIn("Não foi possível", str(ctx.exception))
 
+    def test_window_fallback_recovers_instance_when_rot_fails(self):
+        """CENÁRIO DO BUG: ROT e GetActiveObject só enxergam instância vazia;
+        a enumeração de janelas OpusApp recupera a instância real com documento."""
+        good_word = FakeWordApp(normal_texts=["Documento real via janela."])
+        empty = FakeWordApp()
+        stubs, _client_stub = _make_get_word_client(gao_result=empty, go_result=empty)
+        with mock.patch.dict(sys.modules, stubs), \
+             mock.patch.object(chat_ia.ChatApp, "_find_word_with_documents", return_value=None), \
+             mock.patch.object(chat_ia.ChatApp, "_find_word_via_windows", return_value=good_word):
+            result = self.app._get_word_app()
+        self.assertIs(result, good_word)
 
+    def test_last_resort_uses_liberal_getter(self):
+        """Quando todas as tentativas verificadas falham, o último recurso
+        aceita qualquer instância viva via _get_active_word_liberal."""
+        empty = FakeWordApp()
+        liberal_word = FakeWordApp(normal_texts=["doc via getter liberal"])
+        stubs, _client_stub = _make_get_word_client(gao_result=empty, go_result=empty)
+        with mock.patch.dict(sys.modules, stubs), \
+             mock.patch.object(chat_ia.ChatApp, "_find_word_with_documents", return_value=None), \
+             mock.patch.object(chat_ia.ChatApp, "_find_word_via_windows", return_value=None), \
+             mock.patch.object(chat_ia.ChatApp, "_get_active_word_liberal", return_value=liberal_word):
+            result = self.app._get_word_app()
+        self.assertIs(result, liberal_word)
+
+
+
+
+# ---------------------------------------------------------------------------
+# Detecção por janelas OpusApp + OLE Accessibility (fallback independente da ROT)
+# ---------------------------------------------------------------------------
+class TestEnumWordWindows(unittest.TestCase):
+    """Cobre _enum_word_windows — enumeração Win32 de janelas OpusApp."""
+
+    def _make_user32(self, class_by_hwnd):
+        user32 = mock.MagicMock()
+        user32.IsWindowVisible.return_value = True
+
+        def _get_class_name(hwnd, buf, _n):
+            buf.value = class_by_hwnd.get(int(hwnd), "OtherClass")
+            return len(buf.value)
+
+        user32.GetClassNameW.side_effect = _get_class_name
+
+        def _enum_windows(cb, lparam):
+            for hwnd in class_by_hwnd:
+                cb(hwnd, lparam)
+            return True
+
+        user32.EnumWindows.side_effect = _enum_windows
+        return user32
+
+    def test_returns_only_opus_app_windows(self):
+        user32 = self._make_user32({101: "OpusApp", 202: "Notepad", 303: "OpusApp"})
+        with mock.patch("ctypes.windll") as windll:
+            windll.user32 = user32
+            hwnds = chat_ia.ChatApp._enum_word_windows()
+        self.assertEqual(hwnds, [101, 303])
+
+    def test_skips_invisible_windows(self):
+        user32 = self._make_user32({101: "OpusApp", 202: "OpusApp"})
+        user32.IsWindowVisible.side_effect = lambda hwnd: int(hwnd) != 202
+        with mock.patch("ctypes.windll") as windll:
+            windll.user32 = user32
+            hwnds = chat_ia.ChatApp._enum_word_windows()
+        self.assertEqual(hwnds, [101])
+
+
+class TestWordAppFromWindow(unittest.TestCase):
+    """Cobre _word_app_from_window — WM_GETOBJECT + ObjectFromLresult."""
+
+    def _make_stubs(self, lresult_value=987654321, hret=1):
+        user32 = mock.MagicMock()
+
+        def _smt(_hwnd, _msg, _wp, _lp, _flags, _timeout, presult):
+            presult._obj.value = lresult_value
+            return hret
+
+        user32.SendMessageTimeoutW.side_effect = _smt
+        oleacc = mock.MagicMock()
+
+        pythoncom_stub = mock.MagicMock()
+        pythoncom_stub.ObjectFromLresult.return_value = "dispatch-ptr"
+        win32com_client_stub = mock.MagicMock()
+        win32com_client_stub.Dispatch.return_value = "word-app"
+        win32com_stub = mock.MagicMock()
+        win32com_stub.client = win32com_client_stub
+
+        windll = mock.MagicMock()
+        windll.user32 = user32
+        windll.oleacc = oleacc
+
+        mods = {"pythoncom": pythoncom_stub, "win32com": win32com_stub,
+                "win32com.client": win32com_client_stub}
+        return windll, mods, user32, pythoncom_stub, win32com_client_stub
+
+    def test_returns_word_application_from_window(self):
+        windll, mods, user32, pythoncom_stub, client_stub = self._make_stubs()
+        with mock.patch("ctypes.windll", windll), mock.patch.dict(sys.modules, mods):
+            word = chat_ia.ChatApp._word_app_from_window(456)
+        self.assertEqual(word, "word-app")
+        user32.SendMessageTimeoutW.assert_called_once()
+        pythoncom_stub.ObjectFromLresult.assert_called_once()
+        args = pythoncom_stub.ObjectFromLresult.call_args[0]
+        self.assertEqual(args[0], 987654321)  # lresult repassado ao resolver
+        client_stub.Dispatch.assert_called_once_with("dispatch-ptr")
+
+    def test_returns_none_when_window_does_not_answer(self):
+        windll, mods, user32, pythoncom_stub, client_stub = self._make_stubs(hret=0)
+        with mock.patch("ctypes.windll", windll), mock.patch.dict(sys.modules, mods):
+            word = chat_ia.ChatApp._word_app_from_window(456)
+        self.assertIsNone(word)
+        pythoncom_stub.ObjectFromLresult.assert_not_called()
+
+
+class TestFindWordViaWindows(unittest.TestCase):
+    """Cobre _find_word_via_windows — fallback por janelas independente da ROT."""
+
+    def setUp(self):
+        self.app = _new_app()
+
+    def test_selects_window_instance_with_documents(self):
+        empty_word = FakeWordApp()
+        good_word = FakeWordApp(normal_texts=["doc via janela"])
+        with mock.patch.object(chat_ia.ChatApp, "_enum_word_windows", return_value=[11, 22]), \
+             mock.patch.object(chat_ia.ChatApp, "_word_app_from_window",
+                               side_effect=[empty_word, good_word]):
+            result = self.app._find_word_via_windows()
+        self.assertIs(result, good_word)
+
+    def test_returns_first_instance_when_none_has_docs(self):
+        word_a = FakeWordApp()
+        with mock.patch.object(chat_ia.ChatApp, "_enum_word_windows", return_value=[11]), \
+             mock.patch.object(chat_ia.ChatApp, "_word_app_from_window", return_value=word_a):
+            result = self.app._find_word_via_windows()
+        self.assertIs(result, word_a)
+
+    def test_skips_windows_without_accessible_object(self):
+        good_word = FakeWordApp(normal_texts=["doc"])
+        with mock.patch.object(chat_ia.ChatApp, "_enum_word_windows", return_value=[11, 22]), \
+             mock.patch.object(chat_ia.ChatApp, "_word_app_from_window",
+                               side_effect=[Exception("no accessibility"), good_word]):
+            result = self.app._find_word_via_windows()
+        self.assertIs(result, good_word)
+
+    def test_returns_none_when_no_word_windows(self):
+        with mock.patch.object(chat_ia.ChatApp, "_enum_word_windows", return_value=[]):
+            result = self.app._find_word_via_windows()
+        self.assertIsNone(result)
+
+
+class TestGetActiveWordLiberal(unittest.TestCase):
+    """Cobre _get_active_word_liberal — getter sem exigência de documentos."""
+
+    def setUp(self):
+        self.app = _new_app()
+
+    def test_prefers_rot_instance(self):
+        rot_word = FakeWordApp(normal_texts=["via ROT"])
+        with mock.patch.object(chat_ia.ChatApp, "_find_word_with_documents", return_value=rot_word), \
+             mock.patch.object(chat_ia.ChatApp, "_find_word_via_windows") as win_mock:
+            result = self.app._get_active_word_liberal()
+        self.assertIs(result, rot_word)
+        win_mock.assert_not_called()
+
+    def test_falls_back_to_window_instance(self):
+        win_word = FakeWordApp(normal_texts=["via janela"])
+        with mock.patch.object(chat_ia.ChatApp, "_find_word_with_documents", return_value=None), \
+             mock.patch.object(chat_ia.ChatApp, "_find_word_via_windows", return_value=win_word):
+            result = self.app._get_active_word_liberal()
+        self.assertIs(result, win_word)
+
+    def test_falls_back_to_get_active_object(self):
+        gao_word = FakeWordApp()
+        stubs, _client_stub = _make_get_word_client(gao_result=gao_word)
+        with mock.patch.dict(sys.modules, stubs), \
+             mock.patch.object(chat_ia.ChatApp, "_find_word_with_documents", return_value=None), \
+             mock.patch.object(chat_ia.ChatApp, "_find_word_via_windows", return_value=None):
+            result = self.app._get_active_word_liberal()
+        self.assertIs(result, gao_word)
 
 
 # ---------------------------------------------------------------------------
@@ -828,6 +1011,14 @@ class TestSourceConventions(unittest.TestCase):
     def test_protected_view_is_supported(self):
         """Guarda de regressão do bug: leitura DEVE cobrir ProtectedViewWindows."""
         self.assertIn("ProtectedViewWindows", self.source)
+
+    def test_window_fallback_is_supported(self):
+        """Guarda de regressão do bug: detecção DEVE cobrir janelas OpusApp via
+        OLE Accessibility (fallback independente da Running Object Table)."""
+        self.assertIn("OpusApp", self.source)
+        self.assertIn("ObjectFromLresult", self.source)
+        self.assertIn("_find_word_via_windows", self.source)
+        self.assertIn("_get_active_word_liberal", self.source)
 
     def test_read_methods_cover_six_strategies(self):
         for method_name in (

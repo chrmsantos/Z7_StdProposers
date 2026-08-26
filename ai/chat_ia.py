@@ -35,7 +35,7 @@ _MAX_CONTEXT_CHARS = 150_000
 _RPC_BUSY_RETRIES = 3
 _RPC_BUSY_RETRY_DELAY = 0.3
 
-_APP_VERSION = "8.12.3"
+_APP_VERSION = "8.12.4"
 _APP_AUTHOR  = "CMS"
 _ORG         = "Câmara Municipal de Santa Bárbara d'Oeste"
 _LICENSE     = "GPL-3.0"
@@ -138,11 +138,10 @@ class ChatApp:
         try:
             import pythoncom
             pythoncom.CoInitialize()
-            import win32com.client
-            try:
-                word = win32com.client.GetActiveObject("Word.Application")
-            except Exception:
-                word = win32com.client.GetObject(Class="Word.Application")
+            # Usa o getter liberal (ROT → janelas OpusApp → GetActiveObject) para
+            # mirar a instância CORRETA do Word desde o início — inclusive a que
+            # contém o documento, mesmo quando não registrada na ROT.
+            word = self._get_active_word_liberal()
 
             self.word_app = word
                 
@@ -757,6 +756,14 @@ class ChatApp:
         uma instância vazia (tela inicial), causando 'nenhum documento foi aberto'.
         Documentos em Protected View (Temp/Internet/anexos) também são contados,
         pois NÃO aparecem em Documents.Count.
+
+        LIMITAÇÃO CONHECIDA (causa raiz do bug recorrente): nem toda instância do
+        Word se registra na ROT. O Office omite o registro em diversas situações
+        (processo iniciado por outra automação, timing de boot, sessões restritas).
+        Quando isso ocorre, a ROT expõe apenas uma instância vazia e o processo
+        real — com o documento aberto — permanece invisível para ROT e
+        GetActiveObject. O fallback por janelas (:meth:`_find_word_via_windows`)
+        cobre exatamente esse cenário.
         """
         import pythoncom
         import win32com.client
@@ -820,6 +827,142 @@ class ChatApp:
             return candidates[0][2]
         return None
 
+    @staticmethod
+    def _enum_word_windows() -> list:
+        """Enumera as janelas top-level do Word (classe ``OpusApp``) visíveis.
+
+        Usa a API Win32 ``EnumWindows`` — enxerga TODOS os processos
+        WINWORD.EXE da sessão, independentemente de registro na Running Object
+        Table. Retorna uma lista de HWNDs (inteiros).
+        """
+        import ctypes
+        from ctypes import wintypes
+
+        user32 = ctypes.windll.user32
+        WNDENUMPROC = ctypes.WINFUNCTYPE(wintypes.BOOL, wintypes.HWND, wintypes.LPARAM)
+        hwnds: list = []
+
+        def _cb(hwnd, _lparam):
+            try:
+                if not user32.IsWindowVisible(hwnd):
+                    return True
+                buf = ctypes.create_unicode_buffer(64)
+                user32.GetClassNameW(hwnd, buf, 64)
+                if buf.value == "OpusApp":
+                    hwnds.append(int(hwnd))
+            except Exception:
+                pass
+            return True
+
+        user32.EnumWindows(WNDENUMPROC(_cb), 0)
+        LOGGER.info("EnumWindows(OpusApp): %d Word window(s) found", len(hwnds))
+        return hwnds
+
+    @staticmethod
+    def _word_app_from_window(hwnd: int):
+        """Obtém o objeto ``Word.Application`` associado à janela ``hwnd``.
+
+        Envia ``WM_GETOBJECT`` à janela e resolve o ponteiro retornado via OLE
+        Accessibility (``ObjectFromLresult``). Esta técnica NÃO depende da ROT:
+        funciona mesmo quando a instância do Word nunca se registrou — cenário
+        observado em produção em que ROT e ``GetActiveObject`` só enxergavam
+        uma instância vazia (tela inicial), enquanto o documento real estava
+        aberto em outro processo WINWORD.EXE.
+
+        Retorna a instância ``Word.Application`` ou ``None`` se a janela não
+        expuser um objeto acessível.
+        """
+        import ctypes
+        from ctypes import wintypes
+
+        import pythoncom
+        import win32com.client
+
+        user32 = ctypes.windll.user32
+        oleacc = ctypes.windll.oleacc
+
+        WM_GETOBJECT = 0x003D
+        SMTO_ABORTIFHUNG = 0x0002
+        # Assinaturas explícitas: lresult deve ser assinado (pode ser negativo)
+        # e o ponteiro de retorno é uLongLong para compatibilidade 64-bit.
+        user32.SendMessageTimeoutW.restype = wintypes.LPARAM
+        user32.SendMessageTimeoutW.argtypes = [
+            wintypes.HWND, wintypes.UINT, wintypes.WPARAM, wintypes.LPARAM,
+            wintypes.UINT, wintypes.UINT,
+            ctypes.POINTER(ctypes.c_ulonglong),
+        ]
+
+        lresult = ctypes.c_ulonglong(0)
+        hret = user32.SendMessageTimeoutW(
+            hwnd, WM_GETOBJECT, 0, 0, SMTO_ABORTIFHUNG, 2000, ctypes.byref(lresult)
+        )
+        if hret == 0 or not lresult.value:
+            LOGGER.info("WM_GETOBJECT no response from hwnd=%s", hwnd)
+            return None
+
+        disp = pythoncom.ObjectFromLresult(
+            lresult.value, pythoncom.IID_IDispatch, 0, oleacc.AccessibleObjectFromWindow
+        )
+        return win32com.client.Dispatch(disp)
+
+    def _find_word_via_windows(self):
+        """Localiza a instância do Word com documentos via janelas ``OpusApp``.
+
+        Fallback independente da Running Object Table: enumera as janelas
+        top-level do Word e, para cada uma, resolve o objeto COM via OLE
+        Accessibility. Retorna a primeira instância com documentos acessíveis
+        (normais ou Protected View); se nenhuma tiver, retorna a primeira
+        instância obtida (o documento pode estar carregando); se nenhuma
+        janela responder, retorna ``None``.
+        """
+        try:
+            hwnds = self._enum_word_windows()
+        except Exception as e_enum:
+            LOGGER.warning("Window enumeration failed: %s", e_enum)
+            return None
+
+        first_word = None
+        for hwnd in hwnds:
+            try:
+                word = self._word_app_from_window(hwnd)
+            except Exception as e_acc:
+                LOGGER.warning("WM_GETOBJECT/ObjectFromLresult failed for hwnd=%s: %s",
+                               hwnd, e_acc)
+                continue
+            if word is None:
+                continue
+            normal, protected, readable = self._word_doc_counts_with_status(word)
+            LOGGER.info(
+                "Word window hwnd=%s: Documents=%d, ProtectedView=%d, readable=%s",
+                hwnd, normal, protected, readable)
+            if first_word is None:
+                first_word = word
+            if (normal + protected) > 0:
+                LOGGER.info("Selected Word instance from window hwnd=%s "
+                            "(%d accessible document(s))", hwnd, normal + protected)
+                return word
+        if first_word is not None:
+            LOGGER.warning("No Word window reports accessible documents; using first window instance")
+        return first_word
+
+    def _get_active_word_liberal(self):
+        """Obtém QUALQUER instância do Word, sem exigir documentos.
+
+        Encadeia ROT → janelas OpusApp → ``GetActiveObject`` e retorna a
+        primeira instância viva. Usada como último recurso, quando todos os
+        métodos verificados falharam — a leitura posterior ainda pode
+        recuperar documentos que as contagens não enxergaram.
+        """
+        import win32com.client
+
+        word = self._find_word_with_documents()
+        if word is not None:
+            return word
+        word = self._find_word_via_windows()
+        if word is not None:
+            return word
+        return win32com.client.GetActiveObject("Word.Application")
+
     def _get_word_app(self):
         """Obtém uma referência COM para o Word, preferindo instância com documentos acessíveis.
 
@@ -842,7 +985,21 @@ class ChatApp:
         except Exception as e_rot:
             LOGGER.warning("_find_word_with_documents failed: %s", e_rot)
 
-        # 2) Fallbacks tradicionais — cada um verificado antes de retornar
+        # 2) Fallback por janelas OpusApp (INDEPENDENTE da ROT) — cobre o bug
+        # recorrente em que o processo do Word com o documento não se registrou
+        # na Running Object Table, ficando invisível para ROT e GetActiveObject.
+        try:
+            word = self._find_word_via_windows()
+            if word is not None:
+                snap = self._log_word_snapshot(word, "windows")
+                if (snap["documents"]["status"] == "ok" and snap["documents"]["value"] > 0) or \
+                   (snap["protected_view"]["status"] == "ok" and snap["protected_view"]["value"] > 0):
+                    return word
+                LOGGER.warning("Window-based Word instance has no accessible documents yet; trying classic fallbacks")
+        except Exception as e_win:
+            LOGGER.warning("_find_word_via_windows failed: %s", e_win)
+
+        # 3) Fallbacks tradicionais — cada um verificado antes de retornar
         try:
             word = win32com.client.GetActiveObject("Word.Application")
             snap = self._log_word_snapshot(word, "GetActiveObject")
@@ -863,12 +1020,13 @@ class ChatApp:
             LOGGER.warning("GetObject failed: %s", e2)
         # Dispatch SEMPRE cria uma nova instância vazia — não resolve 'nenhum documento'.
         # Se chegamos aqui, o Word pode estar aberto mas nenhum método encontrou
-        # uma instância com documentos. Usa GetActiveObject como último recurso
-        # (a instância pode ter documentos que _word_doc_counts não conseguiu contar).
+        # uma instância com documentos. Último recurso: aceitar QUALQUER
+        # instância viva (ROT → janelas → GetActiveObject), pois a leitura
+        # posterior pode recuperar documentos que as contagens não enxergaram.
         try:
-            word = win32com.client.GetActiveObject("Word.Application")
-            self._log_word_snapshot(word, "last-resort GetActiveObject")
-            LOGGER.info("Last-resort GetActiveObject for Word (doc counts previously reported 0)")
+            word = self._get_active_word_liberal()
+            self._log_word_snapshot(word, "last-resort")
+            LOGGER.info("Last-resort Word instance accepted (doc counts previously reported 0)")
             return word
         except Exception:
             raise Exception(
