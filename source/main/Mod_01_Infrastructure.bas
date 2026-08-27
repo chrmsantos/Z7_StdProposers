@@ -76,7 +76,7 @@ Public Const CHAT_IA_SCRIPT_RELATIVE_PATH As String = "\AppData\Local\Z7\Apps\Z7
 ' CONSTANTES DE SISTEMA
 '================================================================================
 Public Const MIN_SUPPORTED_VERSION As Long = 14
-Public Const Z7_STDPROPOSERS_VERSION As String = "9.1.0"
+Public Const Z7_STDPROPOSERS_VERSION As String = "9.2.0"
 Public Const REQUIRED_STRING As String = "$NUMERO$/$ANO$"
 Public Const MAX_BACKUP_FILES As Long = 10
 Public Const DEBUG_MODE As Boolean = False
@@ -538,9 +538,6 @@ Public Function CreateDocumentBackup(doc As Document) As Boolean
 
     ' Salva uma copia do documento como backup
     Application.StatusBar = RenderProgressBar(20, "Criando backup")
-
-    ' Salva o documento atual primeiro para garantir que esta atualizado
-    doc.Save
 
     ' Cria uma copia do arquivo usando FileSystemObject
     fso.CopyFile doc.FullName, backupFilePath, True

@@ -1,3 +1,20 @@
+## v9.2.0 — Z7 StdProposers
+
+### Correcoes Criticas
+- **Crash no 2o Desfazer corrigido**: removidas operacoes `doc.Save` e `doc.Range(0,0).Select` do `CleanUp` que criavam entradas orfas na pilha de undo apos `EndCustomRecord`, causando Access Violation no Word ao desfazer pela segunda vez
+- **doc.Save removido de CreateDocumentBackup**: operacao de salvamento antes do `StartCustomRecord` removida para evitar entradas de undo indesejadas; backup continua sendo feito via `fso.CopyFile`
+
+### Refatoracao
+- **Remocao de funcionalidades descontinuadas**: removidas chamadas `BackupListFormats`, `BackupCenteredParagraphs`, `RestoreListFormats`, `FormatBulletedParagraphsIndent`, `RestoreCenteredParagraphs`, `CleanupCenteredParaBackup`, `RemovePageBreaks` e verificacao de dados sensiveis (`CheckSensitiveData`) do pipeline
+- **Documentacao atualizada**: PROCESSAMENTO_PADRONIZAR_DOCUMENTO.md e PASSO_A_PASSO_PADRONIZAR_DOCUMENTO.md sincronizados com o estado atual do codigo
+
+### Assets
+- chat_ia-v9.2.0.zip — Chat IA com contexto do documento
+- config_prompt-v9.2.0.zip — Editor de prompts side-by-side
+- import_bas_to_normal.exe — Importador de modulos VBA
+
+---
+
 ## v9.1.0 — Z7 StdProposers
 
 ### Correcoes

@@ -86,18 +86,6 @@ Public Sub PadronizarDocumentoMain()
         LogMessage "Aviso: Falha no backup de imagens - continuando com protecao basica", LOG_LEVEL_WARNING
     End If
 
-    ' Backup de formatacoes de lista antes das formatacoes
-    IncrementProgress "Protegendo listas"
-    If Not BackupListFormats(doc) Then
-        LogMessage "Aviso: Falha no backup de listas - formatacoes de lista podem ser perdidas", LOG_LEVEL_WARNING
-    End If
-
-    ' Backup de paragrafos centralizados antes das formatacoes
-    IncrementProgress "Protegendo paragrafos centralizados"
-    If Not BackupCenteredParagraphs(doc) Then
-        LogMessage "Aviso: Falha no backup de paragrafos centralizados", LOG_LEVEL_WARNING
-    End If
-
     ' ---------------------------------------------------------------------------
     ' INICIO DO GRUPO DE DESFAZER (UndoRecord) - melhor esforco
     ' Late binding via CallByName: evita erro de compilacao "Metodo ou membro
@@ -186,24 +174,6 @@ Public Sub PadronizarDocumentoMain()
     RemoverLinhasEmBrancoExtras doc
     EnsureConsideringBlankLines doc
 
-    ' Restaura formatacoes de lista apos formatacoes
-    IncrementProgress "Restaurando listas"
-    If Not RestoreListFormats(doc) Then
-        LogMessage "Aviso: Algumas formatacoes de lista podem nao ter sido restauradas", LOG_LEVEL_WARNING
-    End If
-
-    ' Rotina desabilitada: remocao de todas as formatacoes especificamente definidas para listas numeradas
-    IncrementProgress "Ajustando numeracao"
-    ' If Not FormatNumberedParagraphsIndent(doc) Then
-    '     LogMessage "Aviso: Falha ao formatar recuos de paragrafos numerados", LOG_LEVEL_WARNING
-    ' End If
-
-    ' Formata paragrafos iniciados com marcador (aplica recuo de lista com marcadores)
-    IncrementProgress "Ajustando marcadores"
-    If Not FormatBulletedParagraphsIndent(doc) Then
-        LogMessage "Aviso: Falha ao formatar recuos de paragrafos com marcadores", LOG_LEVEL_WARNING
-    End If
-
     ' Formata recuos de paragrafos com imagens (zera recuo a esquerda)
     IncrementProgress "Ajustando layout"
     If Not FormatImageParagraphsIndents(doc) Then
@@ -214,12 +184,6 @@ Public Sub PadronizarDocumentoMain()
     IncrementProgress "Centralizando elementos"
     If Not CenterImageAfterPlenario(doc) Then
         LogMessage "Aviso: Falha ao centralizar imagem apos Plenario", LOG_LEVEL_WARNING
-    End If
-
-    ' Restaura centralizacao dos paragrafos que estavam centralizados antes do processamento
-    IncrementProgress "Restaurando paragrafos centralizados"
-    If Not RestoreCenteredParagraphs(doc) Then
-        LogMessage "Aviso: Falha ao restaurar paragrafos centralizados", LOG_LEVEL_WARNING
     End If
 
     ' Remove formatacao de numero de paragrafos vazios ao final do processamento
@@ -289,7 +253,6 @@ CleanUp:
     SafeCleanup
     CleanupImageProtection       ' Limpa variaveis de protecao de imagens
     CleanupViewSettings          ' Limpa variaveis de configuracoes de visualizacao
-    CleanupCenteredParaBackup    ' Limpa variaveis de backup de paragrafos centralizados
 
     ' Restaura estado da aplicacao preservando a StatusBar (mantem mensagem final)
     If Not SetAppState(True, "", True) Then
@@ -297,24 +260,6 @@ CleanUp:
     End If
 
     SafeFinalizeLogging
-
-    ' Posiciona cursor no inicio do documento
-    On Error Resume Next
-    If Not doc Is Nothing Then
-        doc.Range(0, 0).Select
-    End If
-    On Error GoTo 0
-
-    ' Salva o documento ativo logo apos o processamento
-    On Error Resume Next
-    If Not doc Is Nothing Then
-        If doc.Path <> "" And Not doc.ReadOnly Then
-            doc.Save
-            LogMessage "Documento salvo automaticamente apos padronizacao", LOG_LEVEL_INFO
-        End If
-    End If
-    On Error GoTo 0
-
     Exit Sub
 
 CriticalErrorHandler:

@@ -62,11 +62,6 @@ Public Function PreviousChecking(doc As Document) As Boolean
         LogMessage "Estrutura do documento validada com avisos", LOG_LEVEL_WARNING
     End If
 
-    ' Verifica presenca de possiveis dados sensiveis
-    If Not CheckSensitiveData(doc) Then
-        LogMessage "Aviso de dados sensiveis foi exibido ao usuario", LOG_LEVEL_INFO
-    End If
-
     LogStepComplete "Validacao de documento", "Todas as verificacoes passaram"
     LogMessage "Verificacoes de seguranca concluidas com sucesso", LOG_LEVEL_INFO
     PreviousChecking = True

@@ -13,7 +13,7 @@ A macro executa em sete fases encadeadas:
 | Fase | Conteúdo |
 |------|----------|
 | 1 | Inicialização e verificações iniciais |
-| 2 | Backups (documento, visualização, imagens, listas, parágrafos centralizados) |
+| 2 | Backups (documento, visualização, imagens) |
 | 3 | Início do grupo de desfazer (`UndoRecord`) |
 | 4 | Pipeline de formatação (até duas passagens) |
 | 5 | Ajustes pós-pipeline |
@@ -46,7 +46,7 @@ A macro executa em sete fases encadeadas:
    - Em caso de falha, registra `LOG_LEVEL_WARNING`.
 
 7. Avança o progresso (`IncrementProgress "Verificando documento"`) e executa `PreviousChecking(doc)`:
-   - Valida tipo de documento, proteção, modo somente-leitura, espaço em disco e presença de dados sensíveis (CPF/CNPJ/cartão/CID).
+   - Valida tipo de documento, proteção, modo somente-leitura e espaço em disco.
    - Se a verificação falhar, desvia para `CleanUp`.
 
 8. Se o documento ainda não foi salvo (`doc.Path = ""`):
@@ -62,10 +62,6 @@ A macro executa em sete fases encadeadas:
 10. Faz backup das configurações de visualização: `BackupViewSettings(doc)` — salva tipo de vista, régua, marcadores, zoom, etc.
 
 11. Faz backup de imagens: `BackupAllImages(doc)` — cataloga posição, dimensões e tipo (inline/flutuante) de todas as imagens.
-
-12. Faz backup de listas: `BackupListFormats(doc)` — salva tipo, nível e string de cada parágrafo com formatação de lista.
-
-13. Faz backup de parágrafos centralizados: `BackupCenteredParagraphs(doc)` — salva índices e texto dos parágrafos centralizados (excluindo títulos/headings).
 
 ---
 
@@ -83,7 +79,7 @@ A macro executa em sete fases encadeadas:
 
 16. Constrói o cache de parágrafos: `BuildParagraphCache doc`:
     - Para cada parágrafo, captura texto bruto, texto normalizado (sem acentos, caixa baixa), presença de imagens e se é parágrafo especial (CONSIDERANDO, Justificativa, Vereador, Diante do exposto, Requeiro, Anexo).
-    - Internamente dispara a identificação da estrutura do documento (`IdentifyDocumentStructure`), que identifica por heurística (posição/texto/formatação) os elementos: **Título**, **Ementa**, **Vocativo**, **Corpo**, **Título da Justificativa**, **Justificativa**, **Data (Plenário)**, **Assinatura**, **Título do Anexo** e **Anexo**.
+    - Internamente dispara a identificação da estrutura do documento (`IdentifyDocumentStructure`), que identifica por IA ou, como fallback, por heurística (posição/texto/formatação) os elementos: **Título**, **Ementa**, **Vocativo**, **Corpo**, **Título da Justificativa**, **Justificativa**, **Data (Plenário)**, **Assinatura**, **Título do Anexo** e **Anexo**.
 
 17. Força a primeira passagem: `documentDirty = True`.
 
@@ -108,7 +104,6 @@ A macro executa em sete fases encadeadas:
 
 21. Normalização de quebras:
     - `ReplaceLineBreaksWithParagraphBreaks doc` — converte quebras de linha em quebras de parágrafo.
-    - `RemovePageBreaks doc` — remove quebras de página.
 
 22. Limpeza estrutural:
     - `RemovePageNumberLines doc` — remove linhas de número de página.
@@ -122,7 +117,7 @@ A macro executa em sete fases encadeadas:
 
 25. Remoção de aspas da ementa: `RemoveEmentaQuotes doc`.
 
-26. Substituição de "DAE" por "Poder Executivo Municipal" em Indicações: `ProcessEmentaIndicacao doc`.
+26. Substituição de "DAE" por "Poder Executivo Municipal" na ementa de Indicações: `ProcessEmentaIndicacao doc`.
 
 27. Formatação do título: `FormatDocumentTitle doc`.
 
@@ -236,17 +231,9 @@ A macro executa em sete fases encadeadas:
 
 73. Garantia de linhas em branco após "CONSIDERANDO": `EnsureConsideringBlankLines doc`.
 
-74. Restauração de formatações de lista: `RestoreListFormats(doc)` (tipo, nível e string originais).
-
-75. *(Rotina desabilitada — comentada no código)* `FormatNumberedParagraphsIndent` — recuos de listas numeradas.
-
-76. Formatação de recuos com marcadores: `FormatBulletedParagraphsIndent(doc)` — parágrafos iniciados por `*`, `-`, `>`, `+`, `~` recebem recuo esquerdo de 36 pontos (≈1,27 cm).
-
 77. Formatação de recuos de imagens: `FormatImageParagraphsIndents(doc)` — zera recuo esquerdo/primeira linha e centraliza parágrafos com imagens inline.
 
 78. Centralização de imagem após o Plenário: `CenterImageAfterPlenario(doc)` — centraliza imagem localizada entre a 5ª e a 7ª linha após o parágrafo "Plenário".
-
-79. Restauração de parágrafos centralizados: `RestoreCenteredParagraphs(doc)` — reaplica centralização e zera recuos nos parágrafos que estavam centralizados antes do processamento.
 
 80. Remoção de numeração de parágrafos em branco: `RemoveNumberingFromBlankParagraphs(doc)`.
 
@@ -281,15 +268,10 @@ A macro executa em sete fases encadeadas:
 91. Limpa as variáveis de proteção:
     - `CleanupImageProtection` (imagens).
     - `CleanupViewSettings` (configurações de visualização).
-    - `CleanupCenteredParaBackup` (backup de parágrafos centralizados).
 
 92. Restaura o estado da aplicação: `SetAppState(True, "", True)` — preservando a barra de status (mantém a mensagem final).
 
 93. Finaliza o logging: `SafeFinalizeLogging`.
-
-94. Posiciona o cursor no início do documento: `doc.Range(0, 0).Select`.
-
-95. Salva o documento automaticamente: se `doc.Path <> ""` e o documento não for somente-leitura, executa `doc.Save`.
 
 > **`CriticalErrorHandler`:** em caso de erro crítico, registra `"ERRO CRITICO #<número>: <descrição> em <fonte> (Linha: <linha>)"` no log, registra snapshot `"ERRO_CRITICO"` e retoma a execução em `CleanUp`, garantindo que o `UndoRecord` seja sempre fechado e o estado da aplicação restaurado.
 

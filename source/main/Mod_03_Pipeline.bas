@@ -198,7 +198,6 @@ Public Function PreviousFormatting(doc As Document) As Boolean
 
     LogStepStart "Normalizacao de quebras"
     ReplaceLineBreaksWithParagraphBreaks doc
-    RemovePageBreaks doc
     LogStepComplete "Normalizacao de quebras"
 
     LogStepStart "Limpeza estrutural"
