@@ -30,7 +30,6 @@
 - chat_ia-v9.1.0.zip — Chat IA com contexto do documento
 - config_prompt-v9.1.0.zip — Editor de prompts side-by-side
 - import_bas_to_normal.exe — Importador de modulos VBA
-- import_ui_to_word.exe — Importador de UI customizada
 
 ---
 
