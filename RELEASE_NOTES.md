@@ -1,3 +1,22 @@
+## v9.1.0 — Z7 StdProposers
+
+### Correcoes
+- **Ementa formatada como titulo**: corrigido bug onde paragrafos em branco acima do titulo causavam desalinhamento de indices estruturais, fazendo a ementa receber a formatacao do titulo (negrito, sublinhado, centralizado)
+
+### Melhorias
+- Zoom de visualizacao padronizado para **130%** (antes inconsistente: 120% na configuracao inicial e 140% na restauracao)
+
+### Documentacao
+- Atualizadas referencias de zoom em PASSO_A_PASSO_PADRONIZAR_DOCUMENTO.md e PROCESSAMENTO_PADRONIZAR_DOCUMENTO.md
+
+### Assets
+- chat_ia-v9.1.0.zip — Chat IA com contexto do documento
+- config_prompt-v9.1.0.zip — Editor de prompts side-by-side
+- import_bas_to_normal.exe — Importador de modulos VBA
+- import_ui_to_word.exe — Importador de UI customizada
+
+---
+
 ## v9.0.0 — Z7 StdProposers
 
 ### Correcoes Criticas

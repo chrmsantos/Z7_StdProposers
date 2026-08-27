@@ -252,7 +252,7 @@ A macro executa em sete fases encadeadas:
 
 81. Garantia final de fonte: reaplica **Arial 12** em todo o `doc.Range.Font` (corrige trechos que Find/Replace possam ter deixado com a fonte do estilo Normal, ex.: Calibri).
 
-82. Restauração das configurações de visualização: `RestoreViewSettings(doc)` — restaura tudo, **exceto o zoom**, que é mantido em 140%.
+82. Restauração das configurações de visualização: `RestoreViewSettings(doc)` — restaura tudo, **exceto o zoom**, que é mantido em 130%.
 
 ---
 

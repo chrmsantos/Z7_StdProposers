@@ -1557,6 +1557,11 @@ Public Function CleanDocumentStructure(doc As Document) As Boolean
     ' Log simplificado apenas se houve limpeza significativa
     If emptyLinesRemoved > 0 Then
         LogMessage "Estrutura limpa: " & emptyLinesRemoved & " linhas vazias removidas"
+        ' CRITICAL: Reconstroi o cache de paragrafos (que internamente chama
+        ' IdentifyDocumentStructure) apos remocao de paragrafos no topo,
+        ' atualizando todos os indices globais (tituloParaIndex, ementaParaIndex,
+        ' etc.) que foram invalidados pelo deslocamento
+        BuildParagraphCache doc
     End If
 
     CleanDocumentStructure = True
@@ -2653,15 +2658,15 @@ Public Function RestoreViewSettings(doc As Document) As Boolean
         .TableGridlines = originalViewSettings.TableGridlines
         ' .EnlargeFontsLessThan removida para compatibilidade
 
-        ' ZOOM e mantido em 140% - unica configuracao que permanece alterada
-        .Zoom.Percentage = 140
+        ' ZOOM mantido em 130% - unica configuracao que permanece alterada
+        .Zoom.Percentage = 130
     End With
 
     ' Configuracoes especificas do Window (para reguas)
     docWindow.DisplayRulers = originalViewSettings.ShowHorizontalRuler
     docWindow.DisplayVerticalRuler = originalViewSettings.ShowVerticalRuler
 
-    LogMessage "Configuracoes de visualizacao originais restauradas (zoom mantido em 140%)"
+    LogMessage "Configuracoes de visualizacao originais restauradas (zoom mantido em 130%)"
     RestoreViewSettings = True
     Exit Function
 

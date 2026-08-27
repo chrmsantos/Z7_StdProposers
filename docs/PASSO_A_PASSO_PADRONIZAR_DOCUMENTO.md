@@ -250,7 +250,7 @@ Executa as seguintes substituições globais (Find/Replace):
 
 ### 5.27 Configuração de Visualização (`ConfigureDocumentView`)
 
-- Define o zoom em **140%**.
+- Define o zoom em **130%**.
 - Mantém as demais configurações de visualização preservadas.
 
 ### 5.28 Inserção de Rodapé (`InsertFooterStamp`)
@@ -432,7 +432,7 @@ Para cada parágrafo que contenha apenas "Vereador" (com ou sem hífens/travess�
 ### 6.11 Restauração de Configurações de Visualização (`RestoreViewSettings`)
 
 - Restaura **todas** as configurações de visualização originais (tipo de vista, régua, marcadores, etc.).
-- **Exceção:** o zoom é mantido em **140%**.
+- **Exceção:** o zoom é mantido em **130%**.
 
 ---
 
