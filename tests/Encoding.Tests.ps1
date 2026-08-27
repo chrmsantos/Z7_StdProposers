@@ -464,7 +464,8 @@ Configuracao do sistema
 
     # =========================================================================
     # Anti-regression: import_bas_to_normal.py and .bas file integrity
-    # See ai_context.md section G ("VBA module import encoding rule").
+    # See .clinerules/02-vba-coding.md (Importação de Módulos) and
+    # .clinerules/03-python-coding.md (VBA module import encoding rule).
     # These tests prevent the recurring bug where Attribute VB_Name is not
     # processed (causing unnamed modules and compile errors) and where UTF-8
     # content is silently garbled by CP1252 decoding.

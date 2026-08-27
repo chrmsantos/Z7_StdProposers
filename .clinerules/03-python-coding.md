@@ -38,7 +38,10 @@ paths:
 
 ### 4. Contexto Word
 - `chat_ia.py` usa `_context_pending`: se a chamada Gemini inicial falhar (503), o texto do documento é inserido na primeira mensagem.
-- `_find_word_with_documents` detecta Word via ROT por class moniker (CLSID `{000209FF-…}`) E item moniker legado.
+- Detecção de Word multi-estratégia:
+  - **ROT**: `_find_word_with_documents` detecta Word via class moniker (CLSID `{000209FF-…}`) E item moniker legado (`!Word.Application.N`).
+  - **Windows**: `_find_word_via_windows` enumera janelas `OpusApp` visíveis e resolve o objeto COM via OLE Accessibility (`WM_GETOBJECT` + `AccessibleObjectFromWindow`).
+  - **Fallback**: `_get_active_word_liberal` encadeia ROT → windows → `GetActiveObject` sem exigir documentos abertos.
 
 ### 5. Testes — Regra do tkinter
 **NUNCA use `tkinter.Tk()` real em testes unitários.** Múltiplas instâncias causam `_tkinter.TclError`.

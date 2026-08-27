@@ -278,7 +278,6 @@ CleanUp:
             End If
         End If
         Err.Clear
-        CallByName Application, "OnRepeat", VbMethod, "Z7_STDPROPOSERS - Padronizacao", "PadronizarDocumentoMain"
         undoGroupEnabled = False
         LogMessage "UndoRecord finalizado com sucesso", LOG_LEVEL_INFO
     End If

@@ -75,7 +75,7 @@ def _get_logs_dir() -> Path:
         return Path(profile) / "AppData" / "Local" / "Z7" / "Apps" / "Z7_StdProposers" / "setup" / "logs"
     return Path.cwd() / "logs"
 
-# PLACEHOLDER_PART2
+
 
 # ---------------------------------------------------------------------------
 # Path resolution
@@ -108,7 +108,7 @@ def discover_bas_files(source_dir: Path) -> list:
     files = sorted(source_dir.glob("*.bas"))
     return [str(f) for f in files]
 
-# PLACEHOLDER_PART3
+
 
 # ---------------------------------------------------------------------------
 # Backup
@@ -145,7 +145,7 @@ def create_backup(normal_path: Path, logger: logging.Logger) -> Path:
     logger.debug("Verificacao de integridade: OK (%d bytes)", backup_size)
     return backup_path
 
-# PLACEHOLDER_PART4
+
 
 # ---------------------------------------------------------------------------
 # Word COM operations
@@ -374,28 +374,48 @@ def _report_manual_copy(tmp_copy: Path, normal_dotm: Path,
         "  de: %s\n  para: %s", tmp_copy, normal_dotm
     )
 
-# PLACEHOLDER_PART5
+
 
 def _remove_z7_modules(vb_project, logger: logging.Logger) -> int:
     """Remove all Z7 modules (names starting with Z7_MODULE_PREFIX) from the VBProject.
 
-    Returns the number of modules removed.  Modules are collected first and
-    removed in a second pass to avoid mutating the VBComponents collection
-    while iterating over it.
+    Returns the number of modules removed.  Uses index-based iteration
+    (VBComponents.Count + VBComponents.Item) which is more reliable than
+    COM _NewEnum enumeration across different Word versions.
+
+    Modules are collected first and removed in a second pass to avoid
+    mutating the VBComponents collection while iterating over it.
     """
     to_remove = []
-    for comp in vb_project.VBComponents:
-        if comp.Name.startswith(Z7_MODULE_PREFIX):
-            to_remove.append(comp)
+    count = 0
+    try:
+        count = vb_project.VBComponents.Count
+    except Exception:
+        logger.warning("Nao foi possivel obter contagem de VBComponents")
+        return 0
 
+    # Collect Z7 modules using index-based iteration.
+    # COM _NewEnum on VBComponents is unreliable across Word versions;
+    # Item(i) always works.
+    for i in range(1, count + 1):
+        try:
+            comp = vb_project.VBComponents.Item(i)
+            if comp is not None and comp.Name.startswith(Z7_MODULE_PREFIX):
+                to_remove.append(comp)
+        except Exception:
+            # Ignore components that cannot be accessed (e.g. document modules).
+            pass
+
+    removed_count = 0
     for comp in to_remove:
         try:
             logger.info("  [REM] %s", comp.Name)
             vb_project.VBComponents.Remove(comp)
+            removed_count += 1
         except Exception as e:
             logger.warning("  [REM] %s - falha ao remover: %s", comp.Name, e)
 
-    return len(to_remove)
+    return removed_count
 
 
 def _import_single_module(vb_project, bas_path: str, bas_name: str, logger: logging.Logger):
@@ -442,7 +462,7 @@ def _import_single_module(vb_project, bas_path: str, bas_name: str, logger: logg
 
     logger.info("  [OK] %s - importado", bas_name)
 
-# PLACEHOLDER_PART6
+
 
 # ---------------------------------------------------------------------------
 # Main

@@ -52,7 +52,7 @@ Describe 'Z7_STDPROPOSERS - Testes de Integridade' {
 
     Context 'Documentacao' {
         It 'Existem docs essenciais minimos' {
-            $expected = @('README.md','AI_CONTEXT.md','LICENSE','VERSION')
+            $expected = @('README.md','LICENSE','VERSION')
             foreach ($e in $expected) {
                 (Test-Path (Join-Path (Get-RepoRoot) $e)) | Should Be $true
             }

@@ -22,8 +22,8 @@ O projeto usa 12 módulos VBA com responsabilidades BEM definidas:
 | `Mod_08_Ementa.bas` | Formatação específica de ementas |
 | `Mod_09_SpecialParagraphs.bas` | Parágrafos especiais (justificativa, assinatura, etc.) |
 | `Mod_10_Validation.bas` | Validações pós-formatação |
-| `Mod_11_RevisionText.bas` | Revisão de texto via OpenRouter API |
-| `Mod_12_AIStructure.bas` | Identificação de estrutura via AI (OpenRouter) |
+| `Mod_11_RevisionText.bas` | Revisão de texto via OpenRouter API. Entrypoints: `TestarRevisaoTextoSelecionado`, `CorrigirProposituraComIA`, `DiagnosticarOpenRouter`. Preserva formatação (Borders, Shading, KeepWithNext) durante substituição. |
+| `Mod_12_AIStructure.bas` | Identificação de estrutura via AI (OpenRouter). Entrypoint: `IdentifyDocumentStructureWithAI`. Envia texto com marcadores de parágrafo, parseia JSON com ranges para cada elemento estrutural. |
 
 **NÃO adicione novos módulos.** Modifique apenas os existentes, respeitando responsabilidades.
 
@@ -82,6 +82,10 @@ word.StatusBar = "Processando..."        ' ERRADO — acento!
 - Após editar, execute: `python scripts/fix_bas_encoding.py`
 - Linha 1: `Attribute VB_Name = "Mod_XX_..."` (obrigatório para `VBComponents.Import`)
 - Linha 2: `Option Explicit` (obrigatório)
+
+## Rodapé
+
+- Formato de numeração de página: **`Página X de Y`** (aplicado ao parágrafo completo do rodapé com fonte e cor uniformes).
 
 ## Importação de Módulos (Contexto Python)
 

@@ -20,6 +20,25 @@ paths:
 | **VBA-Logging** | `Run-Tests.ps1 -TestSuite VBA-Logging` | `VBA-Logging.Tests.ps1` |
 | **VBA-AIStructure** | `Run-Tests.ps1 -TestSuite VBA-AIStructure` | `VBA-AIStructure.Tests.ps1` |
 
+### Arquivos de Teste Individuais
+
+| Arquivo | Cobertura |
+|---------|-----------|
+| `tests/All.Tests.ps1` | Integridade estrutural (arquitetura modular) |
+| `tests/VBA.Tests.ps1` | Contratos de API VBA (Mod_01 a Mod_04) |
+| `tests/VBA-IdentifierFunctions.Tests.ps1` | Segurança de ranges identificadores em `Mod_04_Main.bas` |
+| `tests/VBA-Logging.Tests.ps1` | Observabilidade (session/op IDs, snapshots, primitivas) |
+| `tests/VBA-AIStructure.Tests.ps1` | Identificação de estrutura via AI |
+| `tests/Python.Tests.ps1` | Integração Python + invocação unittest |
+| `tests/Encoding.Tests.ps1` | Encoding, line-endings (UTF-8 safe, CRLF, sem UTF-16) |
+| `tests/python/test_z7_logging.py` | Unit tests para `z7_logging.py` |
+| `tests/python/test_z7_api_key.py` | Unit tests para `z7_api_key.py` |
+| `tests/python/test_chat_ia.py` | AI init, leitura de documento, streaming, fallback |
+| `tests/python/test_import_bas_to_normal.py` | Unit tests para `import_bas_to_normal.py` |
+| `tests/python/test_import_ui_to_word.py` | Unit tests para `import_ui_to_word.py` |
+| `tests/python/test_config_prompt.py` | Unit tests para `config_prompt.py` |
+| `tests/python/test_z7_theme.py` | Unit tests para `z7_theme.py` |
+
 ## Comando Padrão
 ```powershell
 powershell -ExecutionPolicy Bypass -File tests/Run-Tests.ps1 -TestSuite All -NoProgress

@@ -76,7 +76,7 @@ Public Const CHAT_IA_SCRIPT_RELATIVE_PATH As String = "\AppData\Local\Z7\Apps\Z7
 ' CONSTANTES DE SISTEMA
 '================================================================================
 Public Const MIN_SUPPORTED_VERSION As Long = 14
-Public Const Z7_STDPROPOSERS_VERSION As String = "8.12.4"
+Public Const Z7_STDPROPOSERS_VERSION As String = "9.0.0"
 Public Const REQUIRED_STRING As String = "$NUMERO$/$ANO$"
 Public Const MAX_BACKUP_FILES As Long = 10
 Public Const DEBUG_MODE As Boolean = False
@@ -305,16 +305,16 @@ Public Function ConfigureDocumentView(doc As Document) As Boolean
     Dim docWindow As Window
     Set docWindow = doc.ActiveWindow
 
-    ' Configura APENAS o zoom para 130% - todas as outras configuracoes sao preservadas
+    ' Configura APENAS o zoom para 120% - todas as outras configuracoes sao preservadas
     With docWindow.View
-        .Zoom.Percentage = 140
+        .Zoom.Percentage = 120
         ' NAO altera mais o tipo de visualizacao - preserva o original
     End With
 
     ' Remove configuracoes que alteravam configuracoes globais do Word
     ' Estas configuracoes sao agora preservadas do estado original
 
-    LogMessage "Visualizacao configurada: zoom definido para 140%, demais configuracoes preservadas"
+    LogMessage "Visualizacao configurada: zoom definido para 120%, demais configuracoes preservadas"
     ConfigureDocumentView = True
     Exit Function
 

@@ -54,10 +54,20 @@ Evite `Range.Characters(n)` em loops quentes. Prefira operar no `Range` diretame
 2. Pass 2: formatação sensível a alinhamento.
    - Pass 2 só executa se Pass 1 alterou conteúdo (`documentDirty = True`).
 
+### 5.1 Heurísticas Estruturais (Elementos Detectados)
+
+Âncoras-chave inferidas por assinaturas de texto/formatacão:
+
+- **Título** e **Ementa**.
+- Cabeçalho/corpo da **Justificativa**.
+- Âncoras de **Plenário/Data**.
+- Bloco de **Assinatura** (inclui autoria por "Presidente" e "Prefeito").
+- Cabeçalho/corpo de **Anexo**.
+
 ## 6. Logging
 
-- **VBA**: `Mod_03_Pipeline.bas` (`InitializeLogging`, `LogMessage`, `SafeFinalizeLogging`). Snapshots em INICIO, FIM, ERRO_CRITICO.
-- **Python**: `z7_logging.py` com `RotatingFileHandler` (2MB / 3 backups). Logs em `%LOCALAPPDATA%\Z7\Apps\Z7_StdProposers\setup\logs`.
+- **VBA**: `Mod_03_Pipeline.bas` (`InitializeLogging`, `LogMessage`, `SafeFinalizeLogging`). Snapshots em INICIO, FIM, ERRO_CRITICO. Metadados de sessão/operação (`currentLogSessionId`, `currentOperationId`) com formato de elapsed-time estruturado e marcador `[op=...]`. Buffered flushing controlado por `LOG_BUFFER_FLUSH_SECONDS`.
+- **Python**: `z7_logging.py` com `RotatingFileHandler` (2MB / 3 backups). Logs em `%LOCALAPPDATA%\Z7\Apps\Z7_StdProposers\setup\logs`. Formato: `YYYY-MM-DD HH:MM:SS.mmm | LEVEL | z7.<component> | mensagem`.
 
 ## 7. Testes
 
@@ -75,7 +85,7 @@ Evite `Range.Characters(n)` em loops quentes. Prefira operar no `Range` diretame
 ## 9. Regra de Ouro
 
 Ao editar qualquer código:
-1. **Leia** o `AI_CONTEXT.md` completo antes de começar.
+1. **Leia** as regras em `.clinerules/` antes de começar.
 2. **Execute** `python scripts/fix_bas_encoding.py` após editar `.bas`.
 3. **Execute** `tests/Run-Tests.ps1 -TestSuite All -NoProgress` antes de finalizar.
 4. **NUNCA** enfraqueça um teste para fazê-lo passar — corrija o código.
