@@ -95,13 +95,11 @@ Ao editar qualquer código:
 ## 10. Critérios para Agentes de IA
 
 ### 10.1 Comportamento de Undo/Redo
-- Toda macro principal (`PadronizarDocumentoMain`, `CorrigirProposituraComIA`, etc.) deve funcionar como um único comando de desfazer/refazer no Word.
-- O botão "Desfazer" deve permanecer habilitado após a execução da macro, permitindo desfazer todas as alterações como um único grupo.
-- O botão "Refazer" deve permitir refazer todas as alterações como um único grupo.
-- **NUNCA use `doc.UndoClear`** — nem antes de `StartCustomRecord`, nem após `EndCustomRecord`. `doc.UndoClear` cria entradas fantasmas na pilha de undo que causam Access Violation (crash) no Word ao desfazer pela segunda vez.
+- `PadronizarDocumentoMain` **não** se integra ao sistema de desfazer do Word — suas alterações são permanentes e não registradas no histórico de undo.
+- `CorrigirProposituraComIA` funciona como um único comando de desfazer/refazer no Word (via `StartCustomRecord`/`EndCustomRecord`).
+- **NUNCA use `doc.UndoClear`** — cria entradas fantasmas na pilha de undo que causam Access Violation (crash) no Word.
 - NÃO chame `DoEvents` entre `EndCustomRecord` e `SetAppState` no CleanUp — pode criar entradas parasitas na pilha de undo.
 
 ### 10.2 Segurança e Estabilidade
-- Sempre emparelhe `StartCustomRecord` com `EndCustomRecord` em todos os caminhos de saída.
-- Use estrutura de tratamento de erros adequada com `GoTo CleanUp` para garantir que `EndCustomRecord` seja sempre chamado.
+- Use estrutura de tratamento de erros adequada com `GoTo CleanUp`.
 - Evite chamadas que possam corromper a pilha de desfazer, como `Application.OnRepeat` (já removida do código).

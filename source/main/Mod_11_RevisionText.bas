@@ -629,7 +629,7 @@ Private Function ProcessarTextoComIA( _
     If http.Status = 200 Then
         resposta = BytesParaStringUTF8(http.ResponseBody)
         conteudo = ExtrairContentJSON(resposta)
-        ProcessarTextoComIA = LimparRespostaIA(conteudo)
+        ProcessarTextoComIA = SanitizarTextoIA(LimparRespostaIA(conteudo))
     Else
         Dim respostaErro As String
         respostaErro = BytesParaStringUTF8(http.ResponseBody)
@@ -917,6 +917,11 @@ Private Sub SubstituirTextoPreservandoFormatacao( _
     Set rng = rngOriginal.Duplicate
     lenOld = rng.End - rng.Start
     If lenOld <= 0 Then Exit Sub
+
+    ' -----------------------------------------------------------------
+    ' 1b. SANITIZA TEXTO DA IA (defesa contra caracteres invalidos)
+    ' -----------------------------------------------------------------
+    novoTexto = SanitizarTextoIA(novoTexto)
 
     ' -----------------------------------------------------------------
     ' 2. SALVA FORMATACAO COMPLETA DO PARAGRAFO (ANTES DE QUALQUER
@@ -1435,7 +1440,7 @@ Private Function LimparRespostaIA( _
     ' Remove blocos de markdown
     If Left(texto, 3) = "```" Then
         Dim posFim As Long
-        posFim = InStr(texto, vbLf)
+        posFim = InStr(texto, vbCr)
         If posFim > 0 Then
             texto = Mid(texto, posFim + 1)
         Else
@@ -1458,6 +1463,55 @@ Private Function LimparRespostaIA( _
     End If
 
     LimparRespostaIA = Trim(texto)
+End Function
+
+' =============================================================================
+' SANITIZA TEXTO RETORNADO PELA IA
+' Remove caracteres que causam erros de encoding/rendering no Word.
+' Chamada antes de qualquer rng.Text = novoTexto.
+' =============================================================================
+Private Function SanitizarTextoIA(ByVal texto As String) As String
+    On Error Resume Next
+
+    If Len(texto) = 0 Then
+        SanitizarTextoIA = texto
+        Exit Function
+    End If
+
+    ' 1. vbCrLf -> vbCr (Word usa apenas Chr(13) como marcador de paragrafo)
+    texto = Replace(texto, vbCrLf, vbCr)
+
+    ' 2. vbLf isolado -> vbCr
+    texto = Replace(texto, vbLf, vbCr)
+
+    ' 3. Remove NUL (Chr(0)) e DEL (Chr(127))
+    texto = Replace(texto, Chr(0), "")
+    texto = Replace(texto, Chr(127), "")
+
+    ' 4. Remove Unicode BOM markers que podem ter escapado
+    '    U+FFFE = ChrW(&HFFFE), U+FFFF = ChrW(&HFFFF)
+    texto = Replace(texto, ChrW(&HFFFE), "")
+    texto = Replace(texto, ChrW(&HFFFF), "")
+
+    ' 5. Remove caracteres de controle (0x01-0x08, 0x0B, 0x0C, 0x0E-0x1F)
+    '    Preserva: vbCr (0x0D), vbTab (0x09)
+    Dim i As Long
+    Dim resultado As String
+    Dim c As Long
+    resultado = ""
+    For i = 1 To Len(texto)
+        c = AscW(Mid$(texto, i, 1)) And &HFFFF&
+        Select Case c
+            Case &H9, &HD  ' Tab, CR - preservar
+                resultado = resultado & Mid$(texto, i, 1)
+            Case &H0 To &H8, &HA To &HC, &HE To &H1F  ' Controles - remover
+                ' skip
+            Case Else
+                resultado = resultado & Mid$(texto, i, 1)
+        End Select
+    Next i
+
+    SanitizarTextoIA = resultado
 End Function
 
 ' =============================================================================
@@ -1606,7 +1660,7 @@ Private Function DesescaparJSON( _
                     resultado = resultado & "/"
                     i = i + 2
                 Case "n"
-                    resultado = resultado & vbCrLf
+                    resultado = resultado & vbCr
                     i = i + 2
                 Case "r"
                     i = i + 2
@@ -1620,7 +1674,17 @@ Private Function DesescaparJSON( _
                         numero = CLng("&H" & codigo)
                         On Error GoTo 0
                         If numero > 0 Then
-                            resultado = resultado & ChrW(numero)
+                            ' Valida codepoints problematicos
+                            Select Case numero
+                                Case &H0  ' NUL - pular
+                                    ' skip
+                                Case &HFFFE, &HFFFF  ' BOM markers invalidos - pular
+                                    ' skip
+                                Case &HD800 To &HDFFF  ' Surrogates isolados - pular
+                                    ' skip
+                                Case Else
+                                    resultado = resultado & ChrW(numero)
+                            End Select
                             i = i + 6
                         Else
                             resultado = resultado & caractere

@@ -109,6 +109,45 @@ Describe 'Z7_STDPROPOSERS - VBA Modular Architecture' {
             $script:moduleContent['Mod_11_RevisionText.bas'] | Should Match 'LOG_LEVEL_ERROR'
         }
 
+        It 'Mod_11_RevisionText tem SanitizarTextoIA para prevenir erros de encoding' {
+            $script:moduleContent['Mod_11_RevisionText.bas'] | Should Match 'Private Function SanitizarTextoIA'
+        }
+
+        It 'DesescaparJSON usa vbCr (nao vbCrLf) para quebras de linha JSON' {
+            $mod11 = $script:moduleContent['Mod_11_RevisionText.bas']
+            # Extrai o bloco Case "n" dentro de DesescaparJSON
+            $match = [regex]::Match($mod11, 'Case "n"\s*\r?\n\s*(resultado\s*=\s*resultado\s*&\s*\w+)')
+            $match.Success | Should Be $true
+            $match.Groups[1].Value | Should Match 'vbCr\b'
+            $match.Groups[1].Value | Should Not Match 'vbCrLf'
+        }
+
+        It 'SubstituirTextoPreservandoFormatacao sanitiza texto antes de substituir' {
+            $script:moduleContent['Mod_11_RevisionText.bas'] | Should Match 'novoTexto = SanitizarTextoIA\(novoTexto\)'
+        }
+
+        It 'ProcessarTextoComIA sanitiza resposta antes de retornar' {
+            $script:moduleContent['Mod_11_RevisionText.bas'] | Should Match 'SanitizarTextoIA\(LimparRespostaIA'
+        }
+
+        It 'SanitizarTextoIA remove caracteres de controle preservando CR e Tab' {
+            $mod11 = $script:moduleContent['Mod_11_RevisionText.bas']
+            # Verifica que preserva vbCr e vbTab
+            $mod11 | Should Match 'Case &H9, &HD'
+            # Verifica que remove controles 0x01-0x08, 0x0B-0x0C, 0x0E-0x1F
+            $mod11 | Should Match '&H0 To &H8.*&HA To &HC.*&HE To &H1F'
+        }
+
+        It 'DesescaparJSON valida codepoints Unicode problematicos' {
+            $mod11 = $script:moduleContent['Mod_11_RevisionText.bas']
+            # Verifica que rejeita NUL
+            $mod11 | Should Match 'Case &H0.*NUL'
+            # Verifica que rejeita BOM markers
+            $mod11 | Should Match '&HFFFE.*&HFFFF'
+            # Verifica que rejeita surrogates isolados
+            $mod11 | Should Match '&HD800 To &HDFFF'
+        }
+
         It 'Diagnostico de Estrutura IA esta em Mod_12_AIStructure' {
             $script:moduleContent['Mod_12_AIStructure.bas'] | Should Match '(?m)^Public Sub DiagnosticarEstruturaIA\(\)'
         }
@@ -142,16 +181,22 @@ Describe 'Z7_STDPROPOSERS - VBA Modular Architecture' {
             }
         }
 
-        It 'PadronizarDocumentoMain usa StartCustomRecord para agrupar undo' {
-            $script:moduleContent['Mod_04_Main.bas'] | Should Match 'StartCustomRecord.*Padronizacao'
+        It 'PadronizarDocumentoMain NAO usa StartCustomRecord (sem integracao undo)' {
+            $mod04 = $script:moduleContent['Mod_04_Main.bas']
+            $codeLines = ($mod04 -split "`n") | Where-Object {
+                $_ -notmatch '^\s*\x27' -and $_ -notmatch '^\s*Rem\s'
+            }
+            $codeContent = $codeLines -join "`n"
+            $codeContent | Should Not Match 'StartCustomRecord'
         }
 
-        It 'PadronizarDocumentoMain usa EndCustomRecord no CleanUp' {
-            $script:moduleContent['Mod_04_Main.bas'] | Should Match 'EndCustomRecord'
-        }
-
-        It 'PadronizarDocumentoMain tem undoGroupEnabled como guarda' {
-            $script:moduleContent['Mod_04_Main.bas'] | Should Match 'If undoGroupEnabled Then'
+        It 'PadronizarDocumentoMain NAO usa EndCustomRecord (sem integracao undo)' {
+            $mod04 = $script:moduleContent['Mod_04_Main.bas']
+            $codeLines = ($mod04 -split "`n") | Where-Object {
+                $_ -notmatch '^\s*\x27' -and $_ -notmatch '^\s*Rem\s'
+            }
+            $codeContent = $codeLines -join "`n"
+            $codeContent | Should Not Match 'EndCustomRecord'
         }
 
         It 'CorrigirProposituraComIA tambem nao usa doc.UndoClear' {
@@ -161,20 +206,6 @@ Describe 'Z7_STDPROPOSERS - VBA Modular Architecture' {
             }
             $codeContent = $codeLines -join "`n"
             $codeContent | Should Not Match 'doc\.UndoClear'
-        }
-
-        It 'Nao ha DoEvents entre EndCustomRecord e SetAppState no CleanUp' {
-            $mod04 = $script:moduleContent['Mod_04_Main.bas']
-            # Extrai a regiao do CleanUp (depois de EndCustomRecord ate Exit Sub)
-            $cleanUpMatch = [regex]::Match($mod04, 'EndCustomRecord[\s\S]+?Exit Sub')
-            if ($cleanUpMatch.Success) {
-                $cleanUpBlock = $cleanUpMatch.Value
-                # DoEvents nao deve aparecer ANTES de SetAppState no CleanUp
-                $beforeSetApp = [regex]::Match($cleanUpBlock, '([\s\S]*?)SetAppState')
-                if ($beforeSetApp.Success) {
-                    $beforeSetApp.Groups[1].Value | Should Not Match 'DoEvents'
-                }
-            }
         }
     }
 

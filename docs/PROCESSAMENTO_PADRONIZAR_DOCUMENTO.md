@@ -27,7 +27,6 @@ A macro executa em sete fases encadeadas:
 1. Define as variáveis globais de execução:
    - `executionStartTime = Now` (marca o início para cálculo de tempo).
    - `formattingCancelled = False` (flag de cancelamento).
-   - `undoGroupEnabled = False` (reset do grupo de desfazer).
 
 2. Chama `CheckWordVersion()`:
    - Se a versão do Word for inferior ao mínimo suportado (`MIN_SUPPORTED_VERSION`, Word 2010+), exibe `MsgBox` crítico, registra `LOG_LEVEL_ERROR` e encerra (`Exit Sub`) sem modificar nada.
@@ -62,16 +61,6 @@ A macro executa em sete fases encadeadas:
 10. Faz backup das configurações de visualização: `BackupViewSettings(doc)` — salva tipo de vista, régua, marcadores, zoom, etc.
 
 11. Faz backup de imagens: `BackupAllImages(doc)` — cataloga posição, dimensões e tipo (inline/flutuante) de todas as imagens.
-
----
-
-## Fase 3 — Início do grupo de desfazer (`UndoRecord`)
-
-> **NOTA:** `doc.UndoClear` NÃO é chamado deliberadamente — cria entradas fantasmas na pilha de undo que causam Access Violation no Word ao desfazer pela segunda vez.
-
-14. Inicia o `UndoRecord` customizado com `Application.UndoRecord.StartCustomRecord "Z7_STDPROPOSERS - Padronizacao"` (melhor esforço):
-    - Se não gerar erro, define `undoGroupEnabled = True`.
-    - Todas as edições subsequentes ficam agrupadas em uma única ação de desfazer (Ctrl+Z).
 
 ---
 
@@ -261,9 +250,7 @@ A macro executa em sete fases encadeadas:
 
 ## Fase 7 — `CleanUp` (sempre executado) e tratamento de erros
 
-88. **Fecha o `UndoRecord`:** se `undoGroupEnabled = True`, executa `Application.UndoRecord.EndCustomRecord` e reseta a flag.
-
-89. Limpa o cache de parágrafos: `ClearParagraphCache`.
+88. Limpa o cache de parágrafos: `ClearParagraphCache`.
 
 90. Executa `SafeCleanup` (limpeza geral de objetos/temp).
 
@@ -277,7 +264,7 @@ A macro executa em sete fases encadeadas:
 
 94. Finaliza o logging: `SafeFinalizeLogging`.
 
-> **`CriticalErrorHandler`:** em caso de erro crítico, registra `"ERRO CRITICO #<número>: <descrição> em <fonte> (Linha: <linha>)"` no log, registra snapshot `"ERRO_CRITICO"` e retoma a execução em `CleanUp`, garantindo que o `UndoRecord` seja sempre fechado e o estado da aplicação restaurado.
+> **`CriticalErrorHandler`:** em caso de erro crítico, registra `"ERRO CRITICO #<número>: <descrição> em <fonte> (Linha: <linha>)"` no log, registra snapshot `"ERRO_CRITICO"` e retoma a execução em `CleanUp`, garantindo que o estado da aplicação seja restaurado.
 
 ---
 

@@ -16,9 +16,8 @@ Public Sub PadronizarDocumentoMain()
 
     executionStartTime = Now
     formattingCancelled = False
-    undoGroupEnabled = False ' Reset inicial
 
-    ' Verificacoes iniciais ANTES de iniciar UndoRecord
+    ' Verificacoes iniciais
     If Not CheckWordVersion() Then
         Application.StatusBar = "Erro: Word 2010 ou superior necessario"
         LogMessage "Versao do Word " & Application.version & " nao suportada. Minimo: " & CStr(MIN_SUPPORTED_VERSION), LOG_LEVEL_ERROR
@@ -85,45 +84,6 @@ Public Sub PadronizarDocumentoMain()
     If Not BackupAllImages(doc) Then
         LogMessage "Aviso: Falha no backup de imagens - continuando com protecao basica", LOG_LEVEL_WARNING
     End If
-
-    ' ---------------------------------------------------------------------------
-    ' NOTA: doc.UndoClear NAO e chamado aqui deliberadamente.
-    ' doc.UndoClear cria entradas fantasmas na pilha de undo do Word que causam
-    ' Access Violation (crash) quando o usuario tenta desfazer pela segunda vez
-    ' apos desfazer a padronizacao. Em vez disso, usamos APENAS
-    ' StartCustomRecord/EndCustomRecord para agrupar operacoes, seguindo o mesmo
-    ' padrao seguro de CorrigirProposituraComIA (Mod_11).
-    ' ---------------------------------------------------------------------------
-
-    ' ---------------------------------------------------------------------------
-    ' INICIO DO GRUPO DE DESFAZER (UndoRecord) - melhor esforco
-    ' Late binding via CallByName: evita erro de compilacao "Metodo ou membro
-    ' de dados nao encontrado" em versoes do Word onde UndoRecord nao resolve.
-    ' ---------------------------------------------------------------------------
-    On Error Resume Next
-    Dim objUndoStart As Object
-    Set objUndoStart = CallByName(Application, "UndoRecord", VbGet)
-    If Err.Number = 0 Then
-        If Not objUndoStart Is Nothing Then
-            CallByName objUndoStart, "StartCustomRecord", VbMethod, "Z7_STDPROPOSERS - Padronizacao"
-            If Err.Number = 0 Then
-                undoGroupEnabled = True
-                undoRecordActive = True  ' Marca que o UndoRecord esta ativo
-                LogMessage "UndoRecord iniciado", LOG_LEVEL_INFO
-            Else
-                undoGroupEnabled = False
-                Err.Clear
-            End If
-        Else
-            undoGroupEnabled = False
-        End If
-    Else
-        undoGroupEnabled = False
-        Err.Clear
-    End If
-    Set objUndoStart = Nothing
-    On Error GoTo CriticalErrorHandler
-    ' ---------------------------------------------------------------------------
 
     ' ==========================================================================
     ' PIPELINE DE FORMATACAO (DUPLA PASSAGEM OTIMIZADA)
@@ -237,31 +197,6 @@ Public Sub PadronizarDocumentoMain()
     Application.StatusBar = RenderProgressBar(100, "Padronizacao concluida em " & execSeconds & "s, " & errorCount & " erros, " & warningCount & " avisos")
 
 CleanUp:
-    ' ---------------------------------------------------------------------------
-    ' FIM DO GRUPO DE DESFAZER - SEMPRE fecha o UndoRecord
-    ' Late binding via CallByName: evita erro de compilacao "Metodo ou membro
-    ' de dados nao encontrado" em versoes do Word onde UndoRecord nao resolve.
-    ' ---------------------------------------------------------------------------
-    On Error Resume Next
-    If undoGroupEnabled Then
-        Dim objUndoEnd As Object
-        Set objUndoEnd = CallByName(Application, "UndoRecord", VbGet)
-        If Err.Number = 0 Then
-            If Not objUndoEnd Is Nothing Then
-                CallByName objUndoEnd, "EndCustomRecord", VbMethod
-                If Err.Number <> 0 Then
-                    LogMessage "Erro ao finalizar UndoRecord: " & Err.Description, LOG_LEVEL_WARNING
-                    Err.Clear
-                End If
-            End If
-        Else
-            Err.Clear
-        End If
-        undoGroupEnabled = False
-        undoRecordActive = False  ' Marca que o UndoRecord terminou
-        LogMessage "UndoRecord finalizado com sucesso", LOG_LEVEL_INFO
-    End If
-    Err.Clear
 
     ClearParagraphCache ' Limpa cache de paragrafos
     SafeCleanup
