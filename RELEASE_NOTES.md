@@ -1,3 +1,22 @@
+## v9.2.1 — Z7 StdProposers
+
+### Correcoes Criticas
+- **Crash no 2o Desfazer corrigido**: removido doc.UndoClear que causava entradas fantasmas na pilha de undo do Word, resultando em Access Violation ao desfazer pela segunda vez apos PadronizarDocumentoMain
+- **Controle de DoEvents durante UndoRecord**: adicionada flag global undoRecordActive que impede chamadas de DoEvents enquanto o grupo de undo esta ativo, prevenindo criacao de entradas parasitas
+- **ScreenRefresh reposicionado**: movido para apos SetAppState no CleanUp para evitar interferencia com a pilha de undo
+
+### Melhorias
+- **42 chamadas de DoEvents atualizadas**: todas as funcoes de processamento de paragrafos agora verificam undoRecordActive antes de chamar DoEvents
+- **6 novos testes de regressao**: testes adicionados para prevenir reintroducao do bug de undo
+- **Documentacao atualizada**: .clinerules e PROCESSAMENTO_PADRONIZAR_DOCUMENTO.md atualizados com regras de seguranca de undo
+
+### Assets
+- chat_ia-v9.2.1.zip — Chat IA com contexto do documento
+- config_prompt-v9.2.1.zip — Editor de prompts side-by-side
+- import_bas_to_normal.exe — Importador de modulos VBA
+
+---
+
 ## v9.2.0 — Z7 StdProposers
 
 ### Correcoes Criticas

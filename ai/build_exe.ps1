@@ -71,6 +71,23 @@ function Install-Executable {
 	if (-not (Test-Path $src)) { throw "dist\$Name nao encontrado apos compilacao." }
 	if (Test-Path $dest) { Remove-Item -Path $dest -Recurse -Force }
 	Copy-Item -Path $src -Destination $dest -Recurse -Force
+	
+	# Verifica se os diretorios Tk/Tcl foram copiados corretamente
+	$tkDataSrc = Join-Path $src "_internal\_tk_data"
+	$tkDataDest = Join-Path $dest "_internal\_tk_data"
+	$tclDataSrc = Join-Path $src "_internal\_tcl_data"
+	$tclDataDest = Join-Path $dest "_internal\_tcl_data"
+	
+	if ((Test-Path $tkDataSrc) -and (-not (Test-Path $tkDataDest))) {
+		Write-Warning "Copiando _tk_data que nao foi incluido na copia inicial..."
+		Copy-Item -Path $tkDataSrc -Destination $tkDataDest -Recurse -Force
+	}
+	
+	if ((Test-Path $tclDataSrc) -and (-not (Test-Path $tclDataDest))) {
+		Write-Warning "Copiando _tcl_data que nao foi incluido na copia inicial..."
+		Copy-Item -Path $tclDataSrc -Destination $tclDataDest -Recurse -Force
+	}
+	
 	Write-Host "[$Name] instalado."
 }
 
