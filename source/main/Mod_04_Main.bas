@@ -268,8 +268,8 @@ CleanUp:
     ' ---------------------------------------------------------------------------
     On Error Resume Next
     Application.ScreenRefresh  ' Força atualização da interface
-    Application.DoEvents       ' Processa todos os eventos pendentes
-    Application.DoEvents       ' Processa todos os eventos pendentes (cópia adicional para garantia)
+    DoEvents                   ' Processa todos os eventos pendentes
+    DoEvents                   ' Processa todos os eventos pendentes (copia adicional para garantia)
     On Error GoTo 0
     ' ---------------------------------------------------------------------------
 
