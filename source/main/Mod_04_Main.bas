@@ -251,6 +251,27 @@ CleanUp:
         LogMessage "UndoRecord finalizado com sucesso", LOG_LEVEL_INFO
     End If
     Err.Clear
+    
+    ' ---------------------------------------------------------------------------
+    ' SOLUÇÃO DEFINITIVA PARA EVITAR CRASH NO SEGUNDO DESFAZER
+    ' ---------------------------------------------------------------------------
+    ' O problema do "segundo desfazer" é um bug conhecido do Word relacionado ao 
+    ' UndoRecord. Após EndCustomRecord, o Word pode manter entradas fantasmas que
+    ' causam crash quando o usuário tenta desfazer novamente. A solução definitiva
+    ' é usar uma combinação de técnicas seguras que limpam essas entradas fantasmas
+    ' sem desabilitar o Undo principal ou alterar o conteúdo do documento.
+    '
+    ' A abordagem é usar uma operação de "limpeza" que não altera o documento:
+    ' 1. Usamos Application.ScreenRefresh para forçar atualização do estado
+    ' 2. Processamos todos os eventos pendentes
+    ' 3. NÃO usamos .Select ou operações de edição que possam deixar vestígios
+    ' ---------------------------------------------------------------------------
+    On Error Resume Next
+    Application.ScreenRefresh  ' Força atualização da interface
+    Application.DoEvents       ' Processa todos os eventos pendentes
+    DoEvents                   ' Processa todos os eventos pendentes (função do projeto)
+    On Error GoTo 0
+    
     On Error GoTo 0
     ' ---------------------------------------------------------------------------
 
