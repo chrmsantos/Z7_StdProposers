@@ -1,3 +1,27 @@
+## v9.3.0 — Z7 StdProposers
+
+### Mudancas Estruturais
+- **Remocao de integracao undo em PadronizarDocumentoMain**: a macro nao registra mais operacoes no historico de desfazer do Word. As alteracoes sao permanentes e nao podem ser desfeitas com Ctrl+Z. Isso elimina definitivamente o crash no segundo desfazer.
+- **Removidos StartCustomRecord/EndCustomRecord** de PadronizarDocumentoMain
+- **Removido undoGroupEnabled** — flag ja nao e necessaria
+
+### Correcoes de Encoding
+- **Sanitizacao de texto da IA**: nova funcao `SanitizarTextoIA` que remove caracteres de controle, BOM markers e normaliza quebras de linha antes de inserir texto corrigido no documento
+- **DesescaparJSON corrigido**: `\n` agora produz `vbCr` (separador de paragrafo do Word) em vez de `vbCrLf` que causava soft-line-breaks fantasmas
+- **Validacao de codepoints Unicode**: rejeita NUL, BOM markers (U+FFFE/U+FFFF) e surrogates isolados na resposta da IA
+- **LimparRespostaIA corrigido**: deteccao de blocos markdown usa `vbCr` em vez de `vbLf`
+
+### Testes
+- **7 novos testes de encoding**: validam presenca de SanitizarTextoIA, uso correto de vbCr em DesescaparJSON, sanitizacao em SubstituirTextoPreservandoFormatacao e ProcessarTextoComIA, validacao de codepoints Unicode
+- **Testes de undo atualizados**: validam ausencia de StartCustomRecord/EndCustomRecord em PadronizarDocumentoMain
+
+### Assets
+- chat_ia-v9.3.0.zip — Chat IA com contexto do documento
+- config_prompt-v9.3.0.zip — Editor de prompts side-by-side
+- import_bas_to_normal.exe — Importador de modulos VBA
+
+---
+
 ## v9.2.1 — Z7 StdProposers
 
 ### Correcoes Criticas

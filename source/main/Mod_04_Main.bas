@@ -942,4 +942,42 @@ ErrorHandler:
     MsgBox "Erro ao comentar elementos: " & Err.Description, vbCritical, "Erro de Execucao"
 End Sub
 
+'================================================================================
+' AUTOOPEN - Executado automaticamente ao abrir o documento
+' Registra atalhos de teclado para os entrypoints principais.
+'================================================================================
+Public Sub AutoOpen()
+    On Error Resume Next
+    RegistrarAtalhosTeclado
+    On Error GoTo 0
+End Sub
+
+'================================================================================
+' REGISTRAR ATALHOS DE TECLADO
+' Configura combinacoes de teclas para os entrypoints do Z7 StdProposers.
+'================================================================================
+Public Sub RegistrarAtalhosTeclado()
+    On Error GoTo ErrorHandler
+
+    Application.CustomizationContext = NormalTemplate
+
+    ' Alt+P: PadronizarDocumentoMain
+    Application.KeyBindings.Add _
+        KeyCategory:=wdKeyCategoryCommand, _
+        Command:="PadronizarDocumentoMain", _
+        KeyCode:=BuildKeyCode(wdKeyAlt, vbKeyP)
+
+    ' Alt+C: CorrigirProposituraComIA
+    Application.KeyBindings.Add _
+        KeyCategory:=wdKeyCategoryCommand, _
+        Command:="CorrigirProposituraComIA", _
+        KeyCode:=BuildKeyCode(wdKeyAlt, vbKeyC)
+
+    LogMessage "Atalhos de teclado registrados: Alt+P (Padronizar), Alt+C (Corrigir IA)", LOG_LEVEL_INFO
+    Exit Sub
+
+ErrorHandler:
+    LogMessage "Erro ao registrar atalhos de teclado: " & Err.Description, LOG_LEVEL_WARNING
+End Sub
+
 

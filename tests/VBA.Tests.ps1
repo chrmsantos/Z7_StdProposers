@@ -166,6 +166,26 @@ Describe 'Z7_STDPROPOSERS - VBA Modular Architecture' {
             $script:moduleContent['Mod_12_AIStructure.bas'] | Should Match 'GetZ7StdProposersDataPath'
         }
 
+        It 'AutoOpen esta em Mod_04_Main para registrar atalhos' {
+            $script:moduleContent['Mod_04_Main.bas'] | Should Match '(?m)^Public Sub AutoOpen\(\)'
+        }
+
+        It 'RegistrarAtalhosTeclado esta em Mod_04_Main' {
+            $script:moduleContent['Mod_04_Main.bas'] | Should Match '(?m)^Public Sub RegistrarAtalhosTeclado\(\)'
+        }
+
+        It 'RegistrarAtalhosTeclado registra Alt+P e Alt+C' {
+            $mod04 = $script:moduleContent['Mod_04_Main.bas']
+            $mod04 | Should Match 'PadronizarDocumentoMain'
+            $mod04 | Should Match 'CorrigirProposituraComIA'
+            $mod04 | Should Match 'wdKeyAlt'
+        }
+
+        It 'CriarAtalhosTeclado.bas nao existe mais (integrado em Mod_04)' {
+            $mainPath = Join-Path (Get-RepoRoot) 'source\main'
+            Test-Path (Join-Path $mainPath 'CriarAtalhosTeclado.bas') | Should Be $false
+        }
+
     }
 
     Context 'UndoRecord - Seguranca de pilha de desfazer' {
