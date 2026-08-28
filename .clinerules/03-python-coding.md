@@ -18,7 +18,6 @@ paths:
 | `ai/z7_api_key.py` | Gerenciamento de API key com DPAPI. |
 | `ai/z7_theme.py` | Temas da UI (tkinter). |
 | `scripts/import_bas_to_normal.py` | Importa `.bas` no Normal.dotm do Word. |
-| `scripts/import_ui_to_word.py` | Importa UI customizada (QAT) no Word. |
 | `scripts/fix_bas_encoding.py` | Corrige encoding de `.bas` para CP1252. |
 
 ## Regras Obrigatórias

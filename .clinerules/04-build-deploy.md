@@ -25,16 +25,15 @@ paths:
 3. **Executar testes**: `powershell -ExecutionPolicy Bypass -File tests/Run-Tests.ps1 -TestSuite All -NoProgress`. SÓ PROSSIGA se todos passarem.
 
 4. **Build dos executáveis**: `powershell -ExecutionPolicy Bypass -File ai/build_exe.ps1`
-   - Compila `chat_ia.py`, `config_prompt.py`, `import_bas_to_normal.py`, `import_ui_to_word.py`
-   - Artefatos em `dist/`: `chat_ia-v<VERSION>.zip`, `config_prompt-v<VERSION>.zip`, `import_bas_to_normal.exe`, `import_ui_to_word.exe`
+   - Compila `chat_ia.py`, `config_prompt.py`, `import_bas_to_normal.py`
+   - Artefatos em `dist/`: `chat_ia-v<VERSION>.zip`, `config_prompt-v<VERSION>.zip`, `import_bas_to_normal.exe`
    - **NÃO delete o diretório `ai/build/`** — o cache `Analysis-00.toc` evita bug do Python 3.14
 
-5. **Verificar artefatos**: Liste `dist/` e confirme que os 4 arquivos existem com a versão correta:
+5. **Verificar artefatos**: Liste `dist/` e confirme que os 3 arquivos existem com a versão correta:
    ```
    dist/chat_ia-v8.10.1.zip
    dist/config_prompt-v8.10.1.zip
    dist/import_bas_to_normal.exe
-   dist/import_ui_to_word.exe
    ```
 
 ### Passo a Passo — Deploy (GitHub Release)
@@ -50,7 +49,6 @@ paths:
      dist/chat_ia-v<VERSION>.zip `
      dist/config_prompt-v<VERSION>.zip `
      dist/import_bas_to_normal.exe `
-     dist/import_ui_to_word.exe `
      --title "v<VERSION>" `
      --notes "Release notes aqui"
    ```

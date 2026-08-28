@@ -35,7 +35,6 @@ paths:
 | `tests/python/test_z7_api_key.py` | Unit tests para `z7_api_key.py` |
 | `tests/python/test_chat_ia.py` | AI init, leitura de documento, streaming, fallback |
 | `tests/python/test_import_bas_to_normal.py` | Unit tests para `import_bas_to_normal.py` |
-| `tests/python/test_import_ui_to_word.py` | Unit tests para `import_ui_to_word.py` |
 | `tests/python/test_config_prompt.py` | Unit tests para `config_prompt.py` |
 | `tests/python/test_z7_theme.py` | Unit tests para `z7_theme.py` |
 

@@ -239,13 +239,34 @@ CleanUp:
         If Err.Number = 0 Then
             If Not objUndoEnd Is Nothing Then
                 CallByName objUndoEnd, "EndCustomRecord", VbMethod
+                If Err.Number <> 0 Then
+                    LogMessage "Erro ao finalizar UndoRecord: " & Err.Description, LOG_LEVEL_WARNING
+                    Err.Clear
+                End If
             End If
+        Else
+            Err.Clear
         End If
-        Err.Clear
         undoGroupEnabled = False
         LogMessage "UndoRecord finalizado com sucesso", LOG_LEVEL_INFO
     End If
     Err.Clear
+
+    ' ---------------------------------------------------------------------------
+    ' LIMPEZA DA PILHA DE DESFAZER (correcao do bug do 2o desfazer)
+    ' Apos encerrar o UndoRecord customizado, o Word pode manter uma entrada
+    ' residual (fantasma) na lista de comandos do botao Desfazer. Acionar essa
+    ' segunda entrada causa Access Violation e reinicia o Word. UndoClear remove
+    ' a entrada residual e evita o crash. O backup criado antes do processamento
+    ' permanece disponivel como forma de reversao via RestaurarBackup.
+    ' ---------------------------------------------------------------------------
+    If Not doc Is Nothing Then
+        doc.UndoClear
+        If Err.Number <> 0 Then
+            LogMessage "Aviso: Falha ao limpar pilha de desfazer: " & Err.Description, LOG_LEVEL_WARNING
+            Err.Clear
+        End If
+    End If
     On Error GoTo 0
     ' ---------------------------------------------------------------------------
 
