@@ -271,8 +271,6 @@ CleanUp:
     Application.DoEvents       ' Processa todos os eventos pendentes
     DoEvents                   ' Processa todos os eventos pendentes (função do projeto)
     On Error GoTo 0
-    
-    On Error GoTo 0
     ' ---------------------------------------------------------------------------
 
     ClearParagraphCache ' Limpa cache de paragrafos
