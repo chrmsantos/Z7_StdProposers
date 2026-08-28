@@ -73,10 +73,12 @@ Public Const CHAT_IA_SCRIPT_RELATIVE_PATH As String = "\AppData\Local\Z7\Apps\Z7
 
 
 '================================================================================
+' Flag global para indicar se estamos dentro de um UndoRecord (evita DoEvents parasitas)
+Public undoRecordActive As Boolean
 ' CONSTANTES DE SISTEMA
 '================================================================================
 Public Const MIN_SUPPORTED_VERSION As Long = 14
-Public Const Z7_STDPROPOSERS_VERSION As String = "9.2.0"
+Public Const Z7_STDPROPOSERS_VERSION As String = "9.2.1"
 Public Const REQUIRED_STRING As String = "$NUMERO$/$ANO$"
 Public Const MAX_BACKUP_FILES As Long = 10
 Public Const DEBUG_MODE As Boolean = False
@@ -418,7 +420,9 @@ End Sub
 '================================================================================
 Public Sub UpdateProgress(message As String, percentComplete As Long)
     Application.StatusBar = RenderProgressBar(percentComplete, message)
-    DoEvents
+    If Not undoRecordActive Then
+        DoEvents
+    End If
 End Sub
 
 '================================================================================
@@ -466,12 +470,16 @@ Public Function SaveDocumentFirst(doc As Document) As Boolean
     maxWait = 10
 
     For waitCount = 1 To maxWait
-        DoEvents
+        If Not undoRecordActive Then
+            DoEvents
+        End If
         If doc.Path <> "" Then Exit For
         Dim startTime As Double
         startTime = Timer
         Do While Timer < startTime + 1
-            DoEvents
+            If Not undoRecordActive Then
+                DoEvents
+            End If
         Loop
         Application.StatusBar = RenderProgressBar(CLng(waitCount * 100 / maxWait), "Salvando")
     Next waitCount

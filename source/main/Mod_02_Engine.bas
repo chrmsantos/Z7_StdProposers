@@ -983,7 +983,9 @@ Private Sub IdentifyDocumentStructureHeuristics(doc As Document)
 
         ' Atualiza progresso a cada 50 paragrafos
         If i Mod 50 = 0 Then
-            DoEvents
+            If Not undoRecordActive Then
+                DoEvents
+            End If
         End If
     Next i
 
@@ -1065,7 +1067,10 @@ Public Sub BuildParagraphCache(doc As Document)
 
     For i = 1 To cacheSize
         ' DoEvents a cada 20 paragrafos para manter responsividade
-        If i Mod 20 = 0 Then DoEvents
+        ' Evita DoEvents enquanto UndoRecord esta ativo para prevenir entradas fantasmas
+        If Not undoRecordActive Then
+            If i Mod 20 = 0 Then DoEvents
+        End If
 
         Set para = doc.Paragraphs(i)
 
@@ -1290,7 +1295,9 @@ Public Function ApplyStdFontOptimized(doc As Document) As Boolean
 NextParagraph:
         ' Atualiza progresso a cada 500 paragrafos
         If i Mod 500 = 0 Then
-            DoEvents ' Permite cancelamento
+            If Not undoRecordActive Then
+                DoEvents ' Permite cancelamento
+            End If
         End If
     Next i
 
@@ -1831,7 +1838,9 @@ Public Function BackupAllImages(doc As Document) As Boolean
     ' Conta todas as imagens primeiro (com DoEvents para responsividade)
     Dim totalImages As Long
     For i = 1 To doc.Paragraphs.count
-        If i Mod 30 = 0 Then DoEvents ' Responsividade
+        If Not undoRecordActive Then
+            If i Mod 30 = 0 Then DoEvents ' Responsividade
+        End If
         Set para = doc.Paragraphs(i)
         totalImages = totalImages + para.Range.InlineShapes.count
     Next i
@@ -1845,7 +1854,9 @@ Public Function BackupAllImages(doc As Document) As Boolean
 
         ' Backup de imagens inline - apenas propriedades criticas
         For i = 1 To doc.Paragraphs.count
-            If i Mod 30 = 0 Then DoEvents ' Responsividade
+            If Not undoRecordActive Then
+                If i Mod 30 = 0 Then DoEvents ' Responsividade
+            End If
             Set para = doc.Paragraphs(i)
 
             For j = 1 To para.Range.InlineShapes.count
@@ -2009,7 +2020,9 @@ Public Function FormatImageParagraphsIndents(doc As Document) As Boolean
     imgCounter = 0
     For Each para In doc.Paragraphs
         imgCounter = imgCounter + 1
-        If imgCounter Mod 30 = 0 Then DoEvents ' Responsividade
+        If Not undoRecordActive Then
+            If imgCounter Mod 30 = 0 Then DoEvents ' Responsividade
+        End If
 
         ' Verifica se o paragrafo contem imagens inline
         If para.Range.InlineShapes.count > 0 Then
@@ -2055,7 +2068,9 @@ Public Function BackupListFormats(doc As Document) As Boolean
     countIter = 0
     For Each para In doc.Paragraphs
         countIter = countIter + 1
-        If countIter Mod 30 = 0 Then DoEvents ' Responsividade
+        If Not undoRecordActive Then
+            If countIter Mod 30 = 0 Then DoEvents ' Responsividade
+        End If
         If para.Range.ListFormat.ListType <> 0 Then
             totalLists = totalLists + 1
         End If
@@ -2076,7 +2091,9 @@ Public Function BackupListFormats(doc As Document) As Boolean
     i = 1
     For Each para In doc.Paragraphs
         saveIter = saveIter + 1
-        If saveIter Mod 30 = 0 Then DoEvents ' Responsividade
+        If Not undoRecordActive Then
+            If saveIter Mod 30 = 0 Then DoEvents ' Responsividade
+        End If
 
         If para.Range.ListFormat.ListType <> 0 Then
             With tempListInfo
@@ -2326,7 +2343,9 @@ Public Function BackupCenteredParagraphs(doc As Document) As Boolean
     i = 0
     For Each para In doc.Paragraphs
         i = i + 1
-        If i Mod 50 = 0 Then DoEvents
+        If Not undoRecordActive Then
+            If i Mod 50 = 0 Then DoEvents
+        End If
         If para.Format.alignment = wdAlignParagraphCenter Then
             On Error Resume Next
             builtinStyleId = para.Style.BuiltinStyle
@@ -2354,7 +2373,9 @@ Public Function BackupCenteredParagraphs(doc As Document) As Boolean
     saveIdx = 0
     For Each para In doc.Paragraphs
         i = i + 1
-        If i Mod 50 = 0 Then DoEvents
+        If Not undoRecordActive Then
+            If i Mod 50 = 0 Then DoEvents
+        End If
         If para.Format.alignment = wdAlignParagraphCenter Then
             On Error Resume Next
             builtinStyleId = para.Style.BuiltinStyle

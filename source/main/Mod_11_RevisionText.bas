@@ -333,7 +333,9 @@ Public Sub TestarRevisaoTextoSelecionado()
     ' ENVIA PARA A IA
     ' -----------------------------------------------------------------
     Application.StatusBar = RenderProgressBar(20, "Enviando texto para a IA")
-    DoEvents
+    If Not undoRecordActive Then
+        DoEvents
+    End If
 
     textoCorrigido = ProcessarTextoComIA(textoOriginal)
     Application.StatusBar = False
@@ -438,7 +440,9 @@ Public Sub CorrigirProposituraComIA()
     ' ENVIA O TEXTO SELECIONADO PARA A IA
     ' -----------------------------------------------------------------
     Application.StatusBar = RenderProgressBar(20, "Enviando texto para a IA")
-    DoEvents
+    If Not undoRecordActive Then
+        DoEvents
+    End If
 
     textoCorrigido = ProcessarTextoComIA(textoOriginal)
 

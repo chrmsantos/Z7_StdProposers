@@ -76,7 +76,8 @@ Use `-NoProgress` para evitar travamentos no VS Code. O runner já configura `$P
   - Criem um grupo de desfazer único com `StartCustomRecord` e `EndCustomRecord`
   - Não desabilitem o botão "Desfazer" após a execução
   - Permitam desfazer todas as alterações como um único comando
-  - NÃO utilizem `doc.UndoClear` após `EndCustomRecord`
+  - **NUNCA use `doc.UndoClear`** (nem antes nem após o grupo) — causa entradas fantasmas e crash
+  - NÃO chame `DoEvents` entre `EndCustomRecord` e `SetAppState` no CleanUp
 
 ### 7. Antes de Commit
 ```powershell

@@ -42,6 +42,8 @@ NUNCA mova esta chamada para antes do loop de deleção.
 `StartCustomRecord` e `EndCustomRecord` devem estar pareados em TODOS os caminhos de saída.
 Falhas roteiam via `CriticalErrorHandler -> GoTo CleanUp`.
 
+**NUNCA use `doc.UndoClear`** — nem antes de `StartCustomRecord`, nem após `EndCustomRecord`. `doc.UndoClear` cria entradas fantasmas na pilha de undo do Word que causam Access Violation (crash) quando o usuário tenta desfazer pela segunda vez. Use APENAS `StartCustomRecord`/`EndCustomRecord` para agrupar operações.
+
 ### 4.3 Disciplina COM
 Evite `Range.Characters(n)` em loops quentes. Prefira operar no `Range` diretamente.
 
@@ -96,7 +98,8 @@ Ao editar qualquer código:
 - Toda macro principal (`PadronizarDocumentoMain`, `CorrigirProposituraComIA`, etc.) deve funcionar como um único comando de desfazer/refazer no Word.
 - O botão "Desfazer" deve permanecer habilitado após a execução da macro, permitindo desfazer todas as alterações como um único grupo.
 - O botão "Refazer" deve permitir refazer todas as alterações como um único grupo.
-- NÃO utilize `doc.UndoClear` após `EndCustomRecord`, pois isso limpa toda a pilha de desfazer e desabilita o botão "Desfazer".
+- **NUNCA use `doc.UndoClear`** — nem antes de `StartCustomRecord`, nem após `EndCustomRecord`. `doc.UndoClear` cria entradas fantasmas na pilha de undo que causam Access Violation (crash) no Word ao desfazer pela segunda vez.
+- NÃO chame `DoEvents` entre `EndCustomRecord` e `SetAppState` no CleanUp — pode criar entradas parasitas na pilha de undo.
 
 ### 10.2 Segurança e Estabilidade
 - Sempre emparelhe `StartCustomRecord` com `EndCustomRecord` em todos os caminhos de saída.

@@ -26,7 +26,9 @@ Public Sub FixHyphenatedVereadorParagraphIndents(doc As Document)
 
     For i = 1 To doc.Paragraphs.count
         If i > doc.Paragraphs.count Then Exit For
-        If i Mod 30 = 0 Then DoEvents
+        If Not undoRecordActive Then
+            If i Mod 30 = 0 Then DoEvents
+        End If
 
         Set para = doc.Paragraphs(i)
         paraText = Replace(Replace(para.Range.text, vbCr, ""), vbLf, "")
@@ -836,7 +838,9 @@ Public Function CapitalizeFirstLetterOfParagraphs(doc As Document) As Long
 
     For Each para In doc.Paragraphs
         paraCounter = paraCounter + 1
-        If paraCounter Mod 30 = 0 Then DoEvents
+        If Not undoRecordActive Then
+            If paraCounter Mod 30 = 0 Then DoEvents
+        End If
 
         ' Pula paragrafos sem conteudo visual (imagem/shape)
         If HasVisualContent(para) Then GoTo NextParagraph
@@ -1159,7 +1163,9 @@ Public Sub ApplyBoldToSpecialParagraphs(doc As Document)
     paraCounter = 0
     For Each para In doc.Paragraphs
         paraCounter = paraCounter + 1
-        If paraCounter Mod 25 = 0 Then DoEvents ' Responsividade
+        If Not undoRecordActive Then
+            If paraCounter Mod 25 = 0 Then DoEvents ' Responsividade
+        End If
 
         If Not HasVisualContent(para) Then
             cleanText = GetCleanParagraphText(para)
@@ -2079,7 +2085,9 @@ Public Sub FormatDianteDoExposto(doc As Document)
     iterCounter = 0
     For Each para In doc.Paragraphs
         iterCounter = iterCounter + 1
-        If iterCounter Mod 25 = 0 Then DoEvents ' Responsividade
+        If Not undoRecordActive Then
+            If iterCounter Mod 25 = 0 Then DoEvents ' Responsividade
+        End If
 
         If Not HasVisualContent(para) Then
             ' Obtem o texto do paragrafo
@@ -2136,7 +2144,9 @@ Public Sub FormatRequeiroParagraphs(doc As Document)
     reqCounter = 0
     For Each para In doc.Paragraphs
         reqCounter = reqCounter + 1
-        If reqCounter Mod 25 = 0 Then DoEvents ' Responsividade
+        If Not undoRecordActive Then
+            If reqCounter Mod 25 = 0 Then DoEvents ' Responsividade
+        End If
 
         If Not HasVisualContent(para) Then
             ' Obtem o texto do paragrafo (sem marca de paragrafo)

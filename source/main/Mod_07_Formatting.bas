@@ -1176,7 +1176,9 @@ Public Function ClearAllFormatting(doc As Document) As Boolean
         For Each para In doc.Paragraphs
             clearCounter = clearCounter + 1
             ' DoEvents a cada 15 paragrafos para manter responsividade
-            If clearCounter Mod 15 = 0 Then DoEvents
+            If Not undoRecordActive Then
+                If clearCounter Mod 15 = 0 Then DoEvents
+            End If
 
             On Error Resume Next
 
@@ -1275,7 +1277,9 @@ Public Function ClearAllFormatting(doc As Document) As Boolean
     For Each para In doc.Paragraphs
         styleCounter = styleCounter + 1
         ' DoEvents a cada 20 paragrafos para manter responsividade
-        If styleCounter Mod 20 = 0 Then DoEvents
+        If Not undoRecordActive Then
+            If styleCounter Mod 20 = 0 Then DoEvents
+        End If
 
         On Error Resume Next
         para.Style = "Normal"
@@ -1776,7 +1780,9 @@ Public Function CleanMultipleSpaces(doc As Document) As Boolean
                 spacesRemoved = spacesRemoved + 1
                 ' Protecao otimizada - verifica a cada 200 operacoes
                 If currentReplaceCount Mod 200 = 0 Then
-                    DoEvents
+                    If Not undoRecordActive Then
+                        DoEvents
+                    End If
                     If spacesRemoved > 2000 Then Exit Do
                 End If
             Loop
@@ -1960,7 +1966,9 @@ Public Function LimitSequentialEmptyLines(doc As Document) As Boolean
             linesRemoved = linesRemoved + 1
             totalReplaces = totalReplaces + 1
             If totalReplaces > 500 Then Exit Do
-            If linesRemoved Mod 50 = 0 Then DoEvents
+            If Not undoRecordActive Then
+                If linesRemoved Mod 50 = 0 Then DoEvents
+            End If
         Loop
 
         ' Remove 3 quebras -> 2 quebras
@@ -1971,7 +1979,9 @@ Public Function LimitSequentialEmptyLines(doc As Document) As Boolean
             linesRemoved = linesRemoved + 1
             totalReplaces = totalReplaces + 1
             If totalReplaces > 500 Then Exit Do
-            If linesRemoved Mod 50 = 0 Then DoEvents
+            If Not undoRecordActive Then
+                If linesRemoved Mod 50 = 0 Then DoEvents
+            End If
         Loop
     End With
 
@@ -2053,7 +2063,9 @@ Public Function LimitSequentialEmptyLines(doc As Document) As Boolean
             End If
 
             ' Responsividade e protecao otimizadas
-            If fallbackRemoved Mod 10 = 0 Then DoEvents
+            If Not undoRecordActive Then
+                If fallbackRemoved Mod 10 = 0 Then DoEvents
+            End If
             If i > 500 Then Exit Do ' Protecao adicional
         Loop
     End If
@@ -2113,7 +2125,9 @@ Public Function RemoveAllHighlightsAndBorders(doc As Document) As Boolean
 
         ' Responsividade
         If processedCount Mod 50 = 0 Then
-            DoEvents
+            If Not undoRecordActive Then
+                DoEvents
+            End If
             Application.StatusBar = RenderProgressBar(CLng(processedCount * 100 / doc.Paragraphs.count), "Removendo bordas")
         End If
 
@@ -2232,7 +2246,9 @@ Public Function RemoveEmptyPagesAtEnd(doc As Document) As Boolean
                 End If
 
                 ' Protecao contra loop infinito
-                If removedInThisPass Mod 3 = 0 Then DoEvents
+                If Not undoRecordActive Then
+                    If removedInThisPass Mod 3 = 0 Then DoEvents
+                End If
             Loop
 
             ' Se nao removeu nada nesta passada, termina
@@ -2302,7 +2318,9 @@ Public Function FormatBulletedParagraphsIndent(doc As Document) As Boolean
     bulletCounter = 0
     For Each para In doc.Paragraphs
         bulletCounter = bulletCounter + 1
-        If bulletCounter Mod 30 = 0 Then DoEvents ' Responsividade
+        If Not undoRecordActive Then
+            If bulletCounter Mod 30 = 0 Then DoEvents ' Responsividade
+        End If
 
         paraText = Trim(para.Range.text)
 
@@ -2459,7 +2477,9 @@ Public Sub RemoverLinhasEmBrancoExtras(doc As Document)
     adjustCounter = 0
     For Each para In doc.Paragraphs
         adjustCounter = adjustCounter + 1
-        If adjustCounter Mod 30 = 0 Then DoEvents ' Responsividade
+        If Not undoRecordActive Then
+            If adjustCounter Mod 30 = 0 Then DoEvents ' Responsividade
+        End If
 
         Dim cleanTxt As String
         cleanTxt = NormalizeForComparison(Trim(Replace(para.Range.text, vbCr, "")))
@@ -2741,7 +2761,9 @@ Public Sub ReplacePlenarioDateParagraph(doc As Document)
     plenCounter = 0
     For Each para In doc.Paragraphs
         plenCounter = plenCounter + 1
-        If plenCounter Mod 30 = 0 Then DoEvents ' Responsividade
+        If Not undoRecordActive Then
+            If plenCounter Mod 30 = 0 Then DoEvents ' Responsividade
+        End If
 
         matchCount = 0
 
@@ -2910,7 +2932,9 @@ Public Sub ApplyUniversalFinalFormatting(doc As Document)
     universalCounter = 0
     For Each para In doc.Paragraphs
         universalCounter = universalCounter + 1
-        If universalCounter Mod 20 = 0 Then DoEvents ' Responsividade
+        If Not undoRecordActive Then
+            If universalCounter Mod 20 = 0 Then DoEvents ' Responsividade
+        End If
 
         On Error Resume Next
 
@@ -3237,7 +3261,9 @@ Public Function RemoveNumberingFromBlankParagraphs(doc As Document) As Boolean
     LogMessage "Removendo formatacao de numero de paragrafos em branco...", LOG_LEVEL_INFO
 
     For i = 1 To totalParas
-        If i Mod 50 = 0 Then DoEvents ' Responsividade
+        If Not undoRecordActive Then
+            If i Mod 50 = 0 Then DoEvents ' Responsividade
+        End If
 
         Set para = doc.Paragraphs(i)
         

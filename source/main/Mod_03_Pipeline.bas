@@ -33,7 +33,9 @@ Public Sub ReleaseObjects()
 
     Dim memoryCounter As Long
     For memoryCounter = 1 To 3
-        DoEvents
+        If Not undoRecordActive Then
+            DoEvents
+        End If
     Next memoryCounter
 End Sub
 

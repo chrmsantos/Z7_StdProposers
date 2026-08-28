@@ -87,16 +87,13 @@ Public Sub PadronizarDocumentoMain()
     End If
 
     ' ---------------------------------------------------------------------------
-    ' LIMPA HISTORICO DE DESFAZER ANTES DE INICIAR O GRUPO
+    ' NOTA: doc.UndoClear NAO e chamado aqui deliberadamente.
+    ' doc.UndoClear cria entradas fantasmas na pilha de undo do Word que causam
+    ' Access Violation (crash) quando o usuario tenta desfazer pela segunda vez
+    ' apos desfazer a padronizacao. Em vez disso, usamos APENAS
+    ' StartCustomRecord/EndCustomRecord para agrupar operacoes, seguindo o mesmo
+    ' padrao seguro de CorrigirProposituraComIA (Mod_11).
     ' ---------------------------------------------------------------------------
-    ' Garante que, apos o usuario desfazer a padronizacao via Ctrl+Z ou botao
-    ' Desfazer, o historico fique vazio e o botao Desfazer seja desabilitado.
-    ' Isso tambem elimina o bug do "segundo desfazer" (entradas fantasmas).
-    ' ---------------------------------------------------------------------------
-    On Error Resume Next
-    doc.UndoClear
-    Err.Clear
-    On Error GoTo CriticalErrorHandler
 
     ' ---------------------------------------------------------------------------
     ' INICIO DO GRUPO DE DESFAZER (UndoRecord) - melhor esforco
@@ -111,6 +108,7 @@ Public Sub PadronizarDocumentoMain()
             CallByName objUndoStart, "StartCustomRecord", VbMethod, "Z7_STDPROPOSERS - Padronizacao"
             If Err.Number = 0 Then
                 undoGroupEnabled = True
+                undoRecordActive = True  ' Marca que o UndoRecord esta ativo
                 LogMessage "UndoRecord iniciado", LOG_LEVEL_INFO
             Else
                 undoGroupEnabled = False
@@ -260,18 +258,10 @@ CleanUp:
             Err.Clear
         End If
         undoGroupEnabled = False
+        undoRecordActive = False  ' Marca que o UndoRecord terminou
         LogMessage "UndoRecord finalizado com sucesso", LOG_LEVEL_INFO
     End If
     Err.Clear
-    
-    ' ---------------------------------------------------------------------------
-    ' ATUALIZACAO DA INTERFACE APOS FIM DO UNDORECORD
-    ' ---------------------------------------------------------------------------
-    On Error Resume Next
-    Application.ScreenRefresh
-    DoEvents
-    On Error GoTo 0
-    ' ---------------------------------------------------------------------------
 
     ClearParagraphCache ' Limpa cache de paragrafos
     SafeCleanup
@@ -282,6 +272,13 @@ CleanUp:
     If Not SetAppState(True, "", True) Then
         LogMessage "Falha ao restaurar estado da aplicacao", LOG_LEVEL_WARNING
     End If
+
+    ' Atualiza tela APENAS apos restaurar ScreenUpdating (dentro de SetAppState).
+    ' Nao chamar ScreenRefresh/DoEvents entre EndCustomRecord e SetAppState pois
+    ' podem disparar operacoes que criam entradas parasitas na pilha de undo.
+    On Error Resume Next
+    Application.ScreenRefresh
+    On Error GoTo 0
 
     SafeFinalizeLogging
     Exit Sub

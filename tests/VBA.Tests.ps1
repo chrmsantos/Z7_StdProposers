@@ -129,6 +129,55 @@ Describe 'Z7_STDPROPOSERS - VBA Modular Architecture' {
 
     }
 
+    Context 'UndoRecord - Seguranca de pilha de desfazer' {
+        It 'NAO usa doc.UndoClear em nenhum modulo (causa entradas fantasmas)' {
+            foreach ($name in $script:moduleNames) {
+                $content = $script:moduleContent[$name]
+                # Permite doc.UndoClear APENAS em linhas de comentario
+                $codeLines = ($content -split "`n") | Where-Object {
+                    $_ -notmatch '^\s*\x27' -and $_ -notmatch '^\s*Rem\s'
+                }
+                $codeContent = $codeLines -join "`n"
+                $codeContent | Should Not Match 'doc\.UndoClear'
+            }
+        }
+
+        It 'PadronizarDocumentoMain usa StartCustomRecord para agrupar undo' {
+            $script:moduleContent['Mod_04_Main.bas'] | Should Match 'StartCustomRecord.*Padronizacao'
+        }
+
+        It 'PadronizarDocumentoMain usa EndCustomRecord no CleanUp' {
+            $script:moduleContent['Mod_04_Main.bas'] | Should Match 'EndCustomRecord'
+        }
+
+        It 'PadronizarDocumentoMain tem undoGroupEnabled como guarda' {
+            $script:moduleContent['Mod_04_Main.bas'] | Should Match 'If undoGroupEnabled Then'
+        }
+
+        It 'CorrigirProposituraComIA tambem nao usa doc.UndoClear' {
+            $content = $script:moduleContent['Mod_11_RevisionText.bas']
+            $codeLines = ($content -split "`n") | Where-Object {
+                $_ -notmatch '^\s*\x27' -and $_ -notmatch '^\s*Rem\s'
+            }
+            $codeContent = $codeLines -join "`n"
+            $codeContent | Should Not Match 'doc\.UndoClear'
+        }
+
+        It 'Nao ha DoEvents entre EndCustomRecord e SetAppState no CleanUp' {
+            $mod04 = $script:moduleContent['Mod_04_Main.bas']
+            # Extrai a regiao do CleanUp (depois de EndCustomRecord ate Exit Sub)
+            $cleanUpMatch = [regex]::Match($mod04, 'EndCustomRecord[\s\S]+?Exit Sub')
+            if ($cleanUpMatch.Success) {
+                $cleanUpBlock = $cleanUpMatch.Value
+                # DoEvents nao deve aparecer ANTES de SetAppState no CleanUp
+                $beforeSetApp = [regex]::Match($cleanUpBlock, '([\s\S]*?)SetAppState')
+                if ($beforeSetApp.Success) {
+                    $beforeSetApp.Groups[1].Value | Should Not Match 'DoEvents'
+                }
+            }
+        }
+    }
+
     Context 'Qualidade basica de implementacao' {
         It 'Contem tratamento de erro amigavel e recuperacao' {
             $script:allContent | Should Match 'ShowUserFriendlyError'

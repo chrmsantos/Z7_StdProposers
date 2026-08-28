@@ -72,7 +72,8 @@ CriticalErrorHandler:
 
 ### Comportamento de Undo/Redo
 - Sempre utilize `StartCustomRecord` no início da macro e `EndCustomRecord` no final para agrupar todas as operações como um único comando de desfazer.
-- NÃO utilize `doc.UndoClear` após `EndCustomRecord`, pois isso desabilita o botão "Desfazer".
+- **NUNCA use `doc.UndoClear`** — nem antes de `StartCustomRecord`, nem após `EndCustomRecord`. Cria entradas fantasmas que causam crash no Word.
+- NÃO chame `DoEvents` entre `EndCustomRecord` e `SetAppState` no CleanUp — pode criar entradas parasitas na pilha de undo.
 - Garanta que o botão "Desfazer" permaneça habilitado após a execução da macro, permitindo desfazer todas as alterações como um único grupo.
 - O padrão deve ser consistente com a macro `CorrigirProposituraComIA` do módulo `Mod_11_RevisionText.bas`.
 

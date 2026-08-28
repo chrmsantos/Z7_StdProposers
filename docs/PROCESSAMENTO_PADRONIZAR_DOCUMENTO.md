@@ -67,6 +67,8 @@ A macro executa em sete fases encadeadas:
 
 ## Fase 3 — Início do grupo de desfazer (`UndoRecord`)
 
+> **NOTA:** `doc.UndoClear` NÃO é chamado deliberadamente — cria entradas fantasmas na pilha de undo que causam Access Violation no Word ao desfazer pela segunda vez.
+
 14. Inicia o `UndoRecord` customizado com `Application.UndoRecord.StartCustomRecord "Z7_STDPROPOSERS - Padronizacao"` (melhor esforço):
     - Se não gerar erro, define `undoGroupEnabled = True`.
     - Todas as edições subsequentes ficam agrupadas em uma única ação de desfazer (Ctrl+Z).
@@ -271,7 +273,9 @@ A macro executa em sete fases encadeadas:
 
 92. Restaura o estado da aplicação: `SetAppState(True, "", True)` — preservando a barra de status (mantém a mensagem final).
 
-93. Finaliza o logging: `SafeFinalizeLogging`.
+93. Atualiza a tela: `Application.ScreenRefresh` (chamado APENAS após `SetAppState` restaurar `ScreenUpdating`).
+
+94. Finaliza o logging: `SafeFinalizeLogging`.
 
 > **`CriticalErrorHandler`:** em caso de erro crítico, registra `"ERRO CRITICO #<número>: <descrição> em <fonte> (Linha: <linha>)"` no log, registra snapshot `"ERRO_CRITICO"` e retoma a execução em `CleanUp`, garantindo que o `UndoRecord` seja sempre fechado e o estado da aplicação restaurado.
 
@@ -281,7 +285,7 @@ A macro executa em sete fases encadeadas:
 
 1. **Duas passagens:** o pipeline roda até duas vezes. A passagem 2 só executa se a passagem 1 alterou o documento (`documentDirty = True`) e, antes de rodar, reconstrói o cache para manter os índices válidos.
 
-2. **Desfazer (Ctrl+Z):** todas as edições são agrupadas em um único `UndoRecord`; é possível desfazer toda a padronização com um único Ctrl+Z.
+2. **Desfazer (Ctrl+Z):** todas as edições são agrupadas em um único `UndoRecord`; é possível desfazer toda a padronização com um único Ctrl+Z. **`doc.UndoClear` NÃO é usado** — cria entradas fantasmas que causam crash no Word.
 
 3. **Proteção de imagens:** formatações de fonte e parágrafo preservam imagens inline e *shapes* flutuantes; em parágrafos com imagem, a formatação é aplicada caractere a caractere para evitar danos.
 
