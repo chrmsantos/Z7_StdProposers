@@ -70,7 +70,13 @@ function Install-Executable {
 	$dest = Join-Path $scriptDir $Name
 	if (-not (Test-Path $src)) { throw "dist\$Name nao encontrado apos compilacao." }
 	if (Test-Path $dest) { Remove-Item -Path $dest -Recurse -Force }
-	Copy-Item -Path $src -Destination $dest -Recurse -Force
+	
+	# Usa robocopy para copia confiavel (Copy-Item -Recurse pode falhar com dirs iniciando com _)
+	$roboResult = robocopy $src $dest /E /NFL /NDL /NJH /NJS /R:1 /W:1
+	if ($LASTEXITCODE -gt 7) {
+		Write-Warning "robocopy falhou ao copiar $Name (exit code: $LASTEXITCODE). Tentando Copy-Item..."
+		Copy-Item -Path $src -Destination $dest -Recurse -Force
+	}
 	
 	# Verifica se os diretorios Tk/Tcl foram copiados corretamente
 	$tkDataSrc = Join-Path $src "_internal\_tk_data"
@@ -80,12 +86,20 @@ function Install-Executable {
 	
 	if ((Test-Path $tkDataSrc) -and (-not (Test-Path $tkDataDest))) {
 		Write-Warning "Copiando _tk_data que nao foi incluido na copia inicial..."
-		Copy-Item -Path $tkDataSrc -Destination $tkDataDest -Recurse -Force
+		robocopy $tkDataSrc $tkDataDest /E /NFL /NDL /NJH /NJS /R:1 /W:1 | Out-Null
 	}
 	
 	if ((Test-Path $tclDataSrc) -and (-not (Test-Path $tclDataDest))) {
 		Write-Warning "Copiando _tcl_data que nao foi incluido na copia inicial..."
-		Copy-Item -Path $tclDataSrc -Destination $tclDataDest -Recurse -Force
+		robocopy $tclDataSrc $tclDataDest /E /NFL /NDL /NJH /NJS /R:1 /W:1 | Out-Null
+	}
+	
+	# Verificacao final: garante que _tk_data e _tcl_data existem
+	if (-not (Test-Path $tkDataDest)) {
+		throw "ERRO CRITICO: _tk_data nao encontrado em $dest\_internal apos instalacao!"
+	}
+	if (-not (Test-Path $tclDataDest)) {
+		throw "ERRO CRITICO: _tcl_data nao encontrado em $dest\_internal apos instalacao!"
 	}
 	
 	Write-Host "[$Name] instalado."
