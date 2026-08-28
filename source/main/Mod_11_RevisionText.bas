@@ -111,19 +111,13 @@ Private Function CarregarModeloIA() As String
     On Error GoTo ErrorHandler
 
     Dim caminhoArquivo As String
-    Dim ff As Integer
     Dim conteudo As String
 
     caminhoArquivo = GetZ7StdProposersDataPath() & _
         "\selected_model.txt"
 
     If Dir(caminhoArquivo) <> "" Then
-        ff = FreeFile
-        Open caminhoArquivo For Input As #ff
-        If Not EOF(ff) Then
-            Line Input #ff, conteudo
-        End If
-        Close #ff
+        conteudo = LerArquivoUTF8(caminhoArquivo)
         conteudo = Trim(conteudo)
         If Len(conteudo) > 0 Then
             CarregarModeloIA = conteudo
@@ -142,6 +136,38 @@ ErrorHandler:
 End Function
 
 ' =============================================================================
+' LE ARQUIVO COMO UTF-8 (via ADODB.Stream)
+' =============================================================================
+' Leitura confiavel de arquivos UTF-8 gerados pelo Python.
+' Evita o problema de Open/Line Input que usa a codepage ANSI do sistema.
+' =============================================================================
+Private Function LerArquivoUTF8( _
+    ByVal caminhoArquivo As String) As String
+    On Error GoTo ErrorHandler
+
+    Dim stream As Object
+    Set stream = CreateObject("ADODB.Stream")
+    stream.Type = 2          ' adTypeText
+    stream.Charset = "utf-8"
+    stream.Open
+    stream.LoadFromFile caminhoArquivo
+    LerArquivoUTF8 = stream.ReadText(-1)  ' adReadAll
+    stream.Close
+    Set stream = Nothing
+    Exit Function
+
+ErrorHandler:
+    On Error Resume Next
+    If Not stream Is Nothing Then
+        stream.Close
+        Set stream = Nothing
+    End If
+    LogMessage LOG_PREFIX & ": Erro ao ler arquivo UTF-8: " & _
+        Err.Description, LOG_LEVEL_WARNING
+    LerArquivoUTF8 = ""
+End Function
+
+' =============================================================================
 ' CARREGAR PROMPT DE REVISAO DO CONFIG_PROMPT
 ' =============================================================================
 ' Le revision_prompt.txt gravado pelo config_prompt.py.
@@ -151,26 +177,13 @@ Private Function CarregarPromptRevisao() As String
     On Error GoTo ErrorHandler
 
     Dim caminhoArquivo As String
-    Dim ff As Integer
     Dim conteudo As String
-    Dim linha As String
 
     caminhoArquivo = GetZ7StdProposersDataPath() & _
         "\revision_prompt.txt"
 
     If Dir(caminhoArquivo) <> "" Then
-        ff = FreeFile
-        Open caminhoArquivo For Input As #ff
-        conteudo = ""
-        Do While Not EOF(ff)
-            Line Input #ff, linha
-            If Len(conteudo) > 0 Then
-                conteudo = conteudo & vbLf & linha
-            Else
-                conteudo = linha
-            End If
-        Loop
-        Close #ff
+        conteudo = LerArquivoUTF8(caminhoArquivo)
         conteudo = Trim(conteudo)
         If Len(conteudo) > 0 Then
             CarregarPromptRevisao = conteudo
@@ -1570,26 +1583,102 @@ Private Function BytesParaStringUTF8( _
     ByVal bytes As Variant) As String
     On Error GoTo ErrorHandler
 
-    Dim stream As Object
-    Set stream = CreateObject("ADODB.Stream")
-    stream.Type = 1
-    stream.Open
-    stream.Write bytes
-    stream.Position = 0
-    stream.Type = 2
-    stream.Charset = "utf-8"
-    BytesParaStringUTF8 = stream.ReadText
-    stream.Close
-    Set stream = Nothing
+    ' Decodifica bytes UTF-8 manualmente para string VBA (UTF-16).
+    ' Nao depende de ADODB.Stream Charset, que pode usar a codepage
+    ' ANSI do sistema em vez de UTF-8 em certas configuracoes,
+    ' causando mojibake (ex: "operação" -> "operaÃ§Ã£o").
+
+    Dim i As Long
+    Dim b As Long
+    Dim b2 As Long
+    Dim b3 As Long
+    Dim b4 As Long
+    Dim codepoint As Long
+    Dim resultado As String
+    Dim lb As Long, ub As Long
+
+    If IsEmpty(bytes) Then
+        BytesParaStringUTF8 = ""
+        Exit Function
+    End If
+
+    lb = LBound(bytes)
+    ub = UBound(bytes)
+
+    resultado = ""
+    i = lb
+
+    Do While i <= ub
+        b = bytes(i) And &HFF
+
+        If b <= &H7F Then
+            ' 1-byte ASCII
+            resultado = resultado & ChrW(b)
+            i = i + 1
+
+        ElseIf (b And &HE0) = &HC0 And i + 1 <= ub Then
+            ' 2-byte sequence (U+0080 .. U+07FF)
+            b2 = bytes(i + 1) And &HFF
+            If (b2 And &HC0) = &H80 Then
+                codepoint = ((b And &H1F) * &H40) Or _
+                            (b2 And &H3F)
+                resultado = resultado & ChrW(codepoint)
+                i = i + 2
+            Else
+                resultado = resultado & ChrW(b)
+                i = i + 1
+            End If
+
+        ElseIf (b And &HF0) = &HE0 And i + 2 <= ub Then
+            ' 3-byte sequence (U+0800 .. U+FFFF)
+            b2 = bytes(i + 1) And &HFF
+            b3 = bytes(i + 2) And &HFF
+            If (b2 And &HC0) = &H80 And (b3 And &HC0) = &H80 Then
+                codepoint = ((b And &HF) * &H1000) Or _
+                            ((b2 And &H3F) * &H40) Or _
+                            (b3 And &H3F)
+                resultado = resultado & ChrW(codepoint)
+                i = i + 3
+            Else
+                resultado = resultado & ChrW(b)
+                i = i + 1
+            End If
+
+        ElseIf (b And &HF8) = &HF0 And i + 3 <= ub Then
+            ' 4-byte sequence (U+10000 .. U+10FFFF) -> surrogate pair
+            b2 = bytes(i + 1) And &HFF
+            b3 = bytes(i + 2) And &HFF
+            b4 = bytes(i + 3) And &HFF
+            If (b2 And &HC0) = &H80 And _
+               (b3 And &HC0) = &H80 And _
+               (b4 And &HC0) = &H80 Then
+                codepoint = ((b And &H7) * &H40000) Or _
+                            ((b2 And &H3F) * &H1000) Or _
+                            ((b3 And &H3F) * &H40) Or _
+                            (b4 And &H3F)
+                codepoint = codepoint - &H10000
+                resultado = resultado & _
+                    ChrW(&HD800 + (codepoint \ &H400)) & _
+                    ChrW(&HDC00 + (codepoint Mod &H400))
+                i = i + 4
+            Else
+                resultado = resultado & ChrW(b)
+                i = i + 1
+            End If
+
+        Else
+            ' Byte invalido/continuacao sem leader - preserva
+            resultado = resultado & ChrW(b)
+            i = i + 1
+        End If
+    Loop
+
+    BytesParaStringUTF8 = resultado
     Exit Function
 
 ErrorHandler:
-    On Error Resume Next
-    If Not stream Is Nothing Then
-        stream.Close
-        Set stream = Nothing
-    End If
-    LogMessage LOG_PREFIX & ": Erro ao converter bytes UTF-8", LOG_LEVEL_ERROR
+    LogMessage LOG_PREFIX & ": Erro ao decodificar UTF-8: " & _
+        Err.Number & " - " & Err.Description, LOG_LEVEL_ERROR
     BytesParaStringUTF8 = ""
 End Function
 

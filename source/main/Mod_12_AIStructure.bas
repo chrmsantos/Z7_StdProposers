@@ -693,16 +693,97 @@ End Function
 
 Private Function AI_BytesParaStringUTF8(ByVal bytes As Variant) As String
     On Error GoTo ErrorHandler
-    Dim stream As Object
-    Set stream = CreateObject("ADODB.Stream")
-    stream.Type = 1: stream.Open
-    stream.Write bytes: stream.Position = 0
-    stream.Type = 2: stream.Charset = "utf-8"
-    AI_BytesParaStringUTF8 = stream.ReadText
-    stream.Close: Set stream = Nothing
+
+    ' Decodifica bytes UTF-8 manualmente para string VBA (UTF-16).
+    ' Nao depende de ADODB.Stream Charset, que pode usar a codepage
+    ' ANSI do sistema em vez de UTF-8 em certas configuracoes.
+
+    Dim i As Long
+    Dim b As Long
+    Dim b2 As Long
+    Dim b3 As Long
+    Dim b4 As Long
+    Dim codepoint As Long
+    Dim resultado As String
+    Dim lb As Long, ub As Long
+
+    If IsEmpty(bytes) Then
+        AI_BytesParaStringUTF8 = ""
+        Exit Function
+    End If
+
+    lb = LBound(bytes)
+    ub = UBound(bytes)
+
+    resultado = ""
+    i = lb
+
+    Do While i <= ub
+        b = bytes(i) And &HFF
+
+        If b <= &H7F Then
+            resultado = resultado & ChrW(b)
+            i = i + 1
+
+        ElseIf (b And &HE0) = &HC0 And i + 1 <= ub Then
+            b2 = bytes(i + 1) And &HFF
+            If (b2 And &HC0) = &H80 Then
+                codepoint = ((b And &H1F) * &H40) Or _
+                            (b2 And &H3F)
+                resultado = resultado & ChrW(codepoint)
+                i = i + 2
+            Else
+                resultado = resultado & ChrW(b)
+                i = i + 1
+            End If
+
+        ElseIf (b And &HF0) = &HE0 And i + 2 <= ub Then
+            b2 = bytes(i + 1) And &HFF
+            b3 = bytes(i + 2) And &HFF
+            If (b2 And &HC0) = &H80 And (b3 And &HC0) = &H80 Then
+                codepoint = ((b And &HF) * &H1000) Or _
+                            ((b2 And &H3F) * &H40) Or _
+                            (b3 And &H3F)
+                resultado = resultado & ChrW(codepoint)
+                i = i + 3
+            Else
+                resultado = resultado & ChrW(b)
+                i = i + 1
+            End If
+
+        ElseIf (b And &HF8) = &HF0 And i + 3 <= ub Then
+            b2 = bytes(i + 1) And &HFF
+            b3 = bytes(i + 2) And &HFF
+            b4 = bytes(i + 3) And &HFF
+            If (b2 And &HC0) = &H80 And _
+               (b3 And &HC0) = &H80 And _
+               (b4 And &HC0) = &H80 Then
+                codepoint = ((b And &H7) * &H40000) Or _
+                            ((b2 And &H3F) * &H1000) Or _
+                            ((b3 And &H3F) * &H40) Or _
+                            (b4 And &H3F)
+                codepoint = codepoint - &H10000
+                resultado = resultado & _
+                    ChrW(&HD800 + (codepoint \ &H400)) & _
+                    ChrW(&HDC00 + (codepoint Mod &H400))
+                i = i + 4
+            Else
+                resultado = resultado & ChrW(b)
+                i = i + 1
+            End If
+
+        Else
+            resultado = resultado & ChrW(b)
+            i = i + 1
+        End If
+    Loop
+
+    AI_BytesParaStringUTF8 = resultado
     Exit Function
+
 ErrorHandler:
-    Set stream = Nothing
+    LogMessage AI_STRUCT_PREFIX & ": Erro ao decodificar UTF-8: " & _
+        Err.Number & " - " & Err.Description, LOG_LEVEL_ERROR
     AI_BytesParaStringUTF8 = ""
 End Function
 

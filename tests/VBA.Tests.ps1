@@ -148,6 +148,45 @@ Describe 'Z7_STDPROPOSERS - VBA Modular Architecture' {
             $mod11 | Should Match '&HD800 To &HDFFF'
         }
 
+        It 'BytesParaStringUTF8 decodifica UTF-8 manualmente (sem ADODB.Stream Charset)' {
+            $mod11 = $script:moduleContent['Mod_11_RevisionText.bas']
+            # Extrai o corpo da funcao BytesParaStringUTF8
+            $match = [regex]::Match($mod11, 'Private Function BytesParaStringUTF8[\s\S]*?End Function')
+            # Nao deve criar ADODB.Stream (uso real, nao comentarios)
+            $match.Value | Should Not Match 'CreateObject.*ADODB'
+            # Deve ter logica de decodificacao manual (2-byte sequence detection)
+            $match.Value | Should Match 'b And &HE0.*= &HC0'
+        }
+
+        It 'LerArquivoUTF8 existe em Mod_11_RevisionText' {
+            $script:moduleContent['Mod_11_RevisionText.bas'] | Should Match 'Private Function LerArquivoUTF8'
+        }
+
+        It 'CarregarPromptRevisao usa LerArquivoUTF8 (nao Line Input)' {
+            $mod11 = $script:moduleContent['Mod_11_RevisionText.bas']
+            # Extrai o corpo de CarregarPromptRevisao
+            $match = [regex]::Match($mod11, 'Private Function CarregarPromptRevisao[\s\S]*?End Function')
+            $match.Value | Should Match 'LerArquivoUTF8'
+            $match.Value | Should Not Match 'Line Input'
+        }
+
+        It 'CarregarModeloIA usa LerArquivoUTF8 (nao Line Input)' {
+            $mod11 = $script:moduleContent['Mod_11_RevisionText.bas']
+            $match = [regex]::Match($mod11, 'Private Function CarregarModeloIA[\s\S]*?End Function')
+            $match.Value | Should Match 'LerArquivoUTF8'
+            $match.Value | Should Not Match 'Line Input'
+        }
+
+        It 'AI_BytesParaStringUTF8 em Mod_12 decodifica UTF-8 manualmente' {
+            $mod12 = $script:moduleContent['Mod_12_AIStructure.bas']
+            # Extrai o corpo da funcao AI_BytesParaStringUTF8
+            $match = [regex]::Match($mod12, 'Private Function AI_BytesParaStringUTF8[\s\S]*?End Function')
+            # Nao deve criar ADODB.Stream (uso real, nao comentarios)
+            $match.Value | Should Not Match 'CreateObject.*ADODB'
+            # Deve ter logica de decodificacao manual
+            $match.Value | Should Match 'b And &HE0.*= &HC0'
+        }
+
         It 'Diagnostico de Estrutura IA esta em Mod_12_AIStructure' {
             $script:moduleContent['Mod_12_AIStructure.bas'] | Should Match '(?m)^Public Sub DiagnosticarEstruturaIA\(\)'
         }
