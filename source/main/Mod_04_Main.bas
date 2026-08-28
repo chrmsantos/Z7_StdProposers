@@ -87,6 +87,18 @@ Public Sub PadronizarDocumentoMain()
     End If
 
     ' ---------------------------------------------------------------------------
+    ' LIMPA HISTORICO DE DESFAZER ANTES DE INICIAR O GRUPO
+    ' ---------------------------------------------------------------------------
+    ' Garante que, apos o usuario desfazer a padronizacao via Ctrl+Z ou botao
+    ' Desfazer, o historico fique vazio e o botao Desfazer seja desabilitado.
+    ' Isso tambem elimina o bug do "segundo desfazer" (entradas fantasmas).
+    ' ---------------------------------------------------------------------------
+    On Error Resume Next
+    doc.UndoClear
+    Err.Clear
+    On Error GoTo CriticalErrorHandler
+
+    ' ---------------------------------------------------------------------------
     ' INICIO DO GRUPO DE DESFAZER (UndoRecord) - melhor esforco
     ' Late binding via CallByName: evita erro de compilacao "Metodo ou membro
     ' de dados nao encontrado" em versoes do Word onde UndoRecord nao resolve.
@@ -253,23 +265,11 @@ CleanUp:
     Err.Clear
     
     ' ---------------------------------------------------------------------------
-    ' SOLUÇÃO DEFINITIVA PARA EVITAR CRASH NO SEGUNDO DESFAZER
-    ' ---------------------------------------------------------------------------
-    ' O problema do "segundo desfazer" é um bug conhecido do Word relacionado ao 
-    ' UndoRecord. Após EndCustomRecord, o Word pode manter entradas fantasmas que
-    ' causam crash quando o usuário tenta desfazer novamente. A solução definitiva
-    ' é usar uma combinação de técnicas seguras que limpam essas entradas fantasmas
-    ' sem desabilitar o Undo principal ou alterar o conteúdo do documento.
-    '
-    ' A abordagem é usar uma operação de "limpeza" que não altera o documento:
-    ' 1. Usamos Application.ScreenRefresh para forçar atualização do estado
-    ' 2. Processamos todos os eventos pendentes
-    ' 3. NÃO usamos .Select ou operações de edição que possam deixar vestígios
+    ' ATUALIZACAO DA INTERFACE APOS FIM DO UNDORECORD
     ' ---------------------------------------------------------------------------
     On Error Resume Next
-    Application.ScreenRefresh  ' Força atualização da interface
-    DoEvents                   ' Processa todos os eventos pendentes
-    DoEvents                   ' Processa todos os eventos pendentes (copia adicional para garantia)
+    Application.ScreenRefresh
+    DoEvents
     On Error GoTo 0
     ' ---------------------------------------------------------------------------
 
