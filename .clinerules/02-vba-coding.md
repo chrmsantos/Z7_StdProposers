@@ -70,6 +70,12 @@ CriticalErrorHandler:
     Resume CleanUp
 ```
 
+### Comportamento de Undo/Redo
+- Sempre utilize `StartCustomRecord` no início da macro e `EndCustomRecord` no final para agrupar todas as operações como um único comando de desfazer.
+- NÃO utilize `doc.UndoClear` após `EndCustomRecord`, pois isso desabilita o botão "Desfazer".
+- Garanta que o botão "Desfazer" permaneça habilitado após a execução da macro, permitindo desfazer todas as alterações como um único grupo.
+- O padrão deve ser consistente com a macro `CorrigirProposituraComIA` do módulo `Mod_11_RevisionText.bas`.
+
 ### StatusBar (apenas ASCII)
 ```vba
 word.StatusBar = "Processando..."        ' OK

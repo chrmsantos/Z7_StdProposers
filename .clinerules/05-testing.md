@@ -71,7 +71,14 @@ Use `-NoProgress` para evitar travamentos no VS Code. O runner já configura `$P
 - Mudanças em `Mod_02_Engine.bas`, `Mod_03_Pipeline.bas` ou `Mod_04_Main.bas` exigem validação com `All`.
 - Mudanças em scripts de import exigem `Encoding`.
 
-### 6. Antes de Commit
+### 6. Testes de Comportamento Undo/Redo
+- As macros principais (`PadronizarDocumentoMain`, `CorrigirProposituraComIA`) devem ser testadas para garantir que:
+  - Criem um grupo de desfazer único com `StartCustomRecord` e `EndCustomRecord`
+  - Não desabilitem o botão "Desfazer" após a execução
+  - Permitam desfazer todas as alterações como um único comando
+  - NÃO utilizem `doc.UndoClear` após `EndCustomRecord`
+
+### 7. Antes de Commit
 ```powershell
 # 1. Corrigir encoding
 python scripts/fix_bas_encoding.py

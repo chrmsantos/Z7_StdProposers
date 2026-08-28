@@ -89,3 +89,16 @@ Ao editar qualquer código:
 2. **Execute** `python scripts/fix_bas_encoding.py` após editar `.bas`.
 3. **Execute** `tests/Run-Tests.ps1 -TestSuite All -NoProgress` antes de finalizar.
 4. **NUNCA** enfraqueça um teste para fazê-lo passar — corrija o código.
+
+## 10. Critérios para Agentes de IA
+
+### 10.1 Comportamento de Undo/Redo
+- Toda macro principal (`PadronizarDocumentoMain`, `CorrigirProposituraComIA`, etc.) deve funcionar como um único comando de desfazer/refazer no Word.
+- O botão "Desfazer" deve permanecer habilitado após a execução da macro, permitindo desfazer todas as alterações como um único grupo.
+- O botão "Refazer" deve permitir refazer todas as alterações como um único grupo.
+- NÃO utilize `doc.UndoClear` após `EndCustomRecord`, pois isso limpa toda a pilha de desfazer e desabilita o botão "Desfazer".
+
+### 10.2 Segurança e Estabilidade
+- Sempre emparelhe `StartCustomRecord` com `EndCustomRecord` em todos os caminhos de saída.
+- Use estrutura de tratamento de erros adequada com `GoTo CleanUp` para garantir que `EndCustomRecord` seja sempre chamado.
+- Evite chamadas que possam corromper a pilha de desfazer, como `Application.OnRepeat` (já removida do código).
