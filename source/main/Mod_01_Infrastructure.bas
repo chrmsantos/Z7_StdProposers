@@ -78,7 +78,7 @@ Public undoRecordActive As Boolean
 ' CONSTANTES DE SISTEMA
 '================================================================================
 Public Const MIN_SUPPORTED_VERSION As Long = 14
-Public Const Z7_STDPROPOSERS_VERSION As String = "9.3.0"
+Public Const Z7_STDPROPOSERS_VERSION As String = "9.4.0"
 Public Const REQUIRED_STRING As String = "$NUMERO$/$ANO$"
 Public Const MAX_BACKUP_FILES As Long = 10
 Public Const DEBUG_MODE As Boolean = False

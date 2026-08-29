@@ -15,7 +15,7 @@ Option Explicit
 '
 ' Entradas publicas:
 '   - TestarRevisaoTextoSelecionado: revisa texto selecionado
-'   - CorrigirProposituraComIA:     revisa texto selecionado (substitui no documento)
+'   - CorrigirProposituraComIA:     revisa texto selecionado ou paragrafo atual (substitui no documento)
 '   - DiagnosticarOpenRouter:       diagnostico de conectividade com a API
 '
 ' Arquivos externos esperados (via config_prompt.py / z7_api_key.py):
@@ -397,6 +397,8 @@ End Sub
 '
 ' Selecione qualquer texto no Word e execute esta macro.
 ' A IA revisa e corrige o texto selecionado.
+' Se nao houver texto selecionado, o paragrafo onde esta o cursor
+' e selecionado automaticamente e corrigido.
 ' A formatacao original e preservada apos a substituicao.
 '
 ' Diferente de TestarRevisaoTextoSelecionado, esta macro exibe metricas
@@ -423,6 +425,12 @@ Public Sub CorrigirProposituraComIA()
         MsgBox "Selecione o texto a ser corrigido antes de executar " & _
             "esta macro.", vbExclamation, "Corrigir com IA"
         Exit Sub
+    End If
+
+    ' Se nao ha texto selecionado (apenas cursor), seleciona o paragrafo atual
+    If Selection.Type = wdSelectionIP Then
+        Selection.Paragraphs(1).Range.Select
+        LogMessage LOG_PREFIX & ": Paragrafo atual selecionado automaticamente", LOG_LEVEL_INFO
     End If
 
     Set rng = Selection.Range.Duplicate

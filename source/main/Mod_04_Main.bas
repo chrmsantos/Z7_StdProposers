@@ -955,6 +955,7 @@ End Sub
 '================================================================================
 ' REGISTRAR ATALHOS DE TECLADO
 ' Configura combinacoes de teclas para os entrypoints do Z7 StdProposers.
+' Se um atalho ja estiver em uso, seu registro e abortado.
 '================================================================================
 Public Sub RegistrarAtalhosTeclado()
     On Error GoTo ErrorHandler
@@ -968,10 +969,19 @@ Public Sub RegistrarAtalhosTeclado()
         KeyCode:=BuildKeyCode(wdKeyAlt, vbKeyP)
 
     ' Alt+C: CorrigirProposituraComIA
-    Application.KeyBindings.Add _
-        KeyCategory:=wdKeyCategoryCommand, _
-        Command:="CorrigirProposituraComIA", _
-        KeyCode:=BuildKeyCode(wdKeyAlt, vbKeyC)
+    ' Aborta registro se o atalho ja estiver em uso
+    Dim existingKey As Object
+    Set existingKey = Application.FindKey(BuildKeyCode(wdKeyAlt, vbKeyC))
+    If existingKey.KeyCategory = wdKeyCategoryNil Then
+        Application.KeyBindings.Add _
+            KeyCategory:=wdKeyCategoryCommand, _
+            Command:="CorrigirProposituraComIA", _
+            KeyCode:=BuildKeyCode(wdKeyAlt, vbKeyC)
+        NormalTemplate.Save
+    Else
+        LogMessage "Atalho Alt+C ja em uso por '" & _
+            existingKey.Command & "' - registro abortado", LOG_LEVEL_INFO
+    End If
 
     LogMessage "Atalhos de teclado registrados: Alt+P (Padronizar), Alt+C (Corrigir IA)", LOG_LEVEL_INFO
     Exit Sub

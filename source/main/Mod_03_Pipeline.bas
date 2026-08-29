@@ -156,7 +156,7 @@ ErrorHandler:
 End Function
 
 '--------------------------------------------------------------------------------
-' SafeReplaceText - Substitui o texto de um range mantendo a formataï¿½ï¿½o original
+' SafeReplaceText - Substitui o texto de um range mantendo a formatação original
 '--------------------------------------------------------------------------------
 Public Sub SafeReplaceText(ByVal rng As Range, ByVal newText As String)
     If rng Is Nothing Then Exit Sub
@@ -164,16 +164,16 @@ Public Sub SafeReplaceText(ByVal rng As Range, ByVal newText As String)
     Dim origFont As Font
     Dim origParaFormat As ParagraphFormat
     
-    ' Salva a formataï¿½ï¿½o original com seguranï¿½a
+    ' Salva a formatação original com seguranéa
     On Error Resume Next
     Set origFont = rng.Font.Duplicate
     Set origParaFormat = rng.ParagraphFormat.Duplicate
     On Error GoTo 0
     
-    ' Realiza a substituiï¿½ï¿½o
+    ' Realiza a substituição
     rng.text = newText
     
-    ' Restaura a formataï¿½ï¿½o original no novo range (que agora contï¿½m o novo texto)
+    ' Restaura a formatação original no novo range (que agora contúm o novo texto)
     On Error Resume Next
     If Not origFont Is Nothing Then rng.Font = origFont
     If Not origParaFormat Is Nothing Then rng.ParagraphFormat = origParaFormat
@@ -576,8 +576,9 @@ Public Sub RestaurarBackup()
 
     ' Confirma com usuario
     Dim confirmMsg As String
-    confirmMsg = "[ï¿½] Deseja restaurar o backup mais antigo do documentoï¿½" & vbCrLf & vbCrLf & _
-                 "[!] ATENCAO: O documento atual sera descartado!" & vbCrLf & vbCrLf & _
+    confirmMsg = "Deseja restaurar o backup mais antigo do documento?" & vbCrLf & vbCrLf & _
+                 "[!] ATENCAO: O documento atual sera descartado!" & vbCrLf & _
+                 "[!] A restauracao nao podera ser desfeita pelo usuario." & vbCrLf & vbCrLf & _
                  "[DIR] Documento atual: " & doc.Name & vbCrLf & _
                  "[DIR] Backup (mais antigo): " & targetBackupName
 
