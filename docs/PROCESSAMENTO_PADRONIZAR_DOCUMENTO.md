@@ -64,6 +64,12 @@ A macro executa em sete fases encadeadas:
 
 ---
 
+## Fase 3 — Início do Grupo de Desfazer (UndoRecord)
+
+12. **Inicia o `UndoRecord`** via late-binding (`CallByName`): `StartCustomRecord "Z7_STDPROPOSERS - Padronizacao"`. Define `undoRecordActive = True`, que bloqueia **todas** as 42+ chamadas de `DoEvents` durante o pipeline, prevenindo entradas parasitas na pilha de undo. Em caso de falha no late-binding, `undoRecordActive` permanece `False` e a macro prossegue sem UndoRecord (modo degradado).
+
+---
+
 ## Fase 4 — Pipeline de formatação (até duas passagens)
 
 15. Registra `"=== PIPELINE DE FORMATACAO (2 PASSAGENS) ==="` no log.
@@ -250,7 +256,9 @@ A macro executa em sete fases encadeadas:
 
 ## Fase 7 — `CleanUp` (sempre executado) e tratamento de erros
 
-88. Limpa o cache de parágrafos: `ClearParagraphCache`.
+88. **Fecha o `UndoRecord`** se `undoRecordActive = True`: `CallByName(objUndoEnd, "EndCustomRecord", VbMethod)` via late-binding. Esta operação deve vir **antes** de qualquer outra operação no `CleanUp` para garantir que as edições sejam agrupadas como uma única ação de desfazer.
+
+89. Limpa o cache de parágrafos: `ClearParagraphCache`.
 
 90. Executa `SafeCleanup` (limpeza geral de objetos/temp).
 

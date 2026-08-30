@@ -78,7 +78,7 @@ Public undoRecordActive As Boolean
 ' CONSTANTES DE SISTEMA
 '================================================================================
 Public Const MIN_SUPPORTED_VERSION As Long = 14
-Public Const Z7_STDPROPOSERS_VERSION As String = "9.4.0"
+Public Const Z7_STDPROPOSERS_VERSION As String = "9.5.0"
 Public Const REQUIRED_STRING As String = "$NUMERO$/$ANO$"
 Public Const MAX_BACKUP_FILES As Long = 10
 Public Const DEBUG_MODE As Boolean = False
@@ -374,7 +374,7 @@ Public Sub EmergencyRecovery()
     Application.StatusBar = False
     Application.EnableCancelKey = 0
 
-    ' Fecha UndoRecord se ainda estiver aberto
+    ' Fecha UndoRecord se ainda estiver aberto (CorrigirProposituraComIA)
     If undoGroupEnabled Then
         Dim emgUndo As Object
         Set emgUndo = CallByName(Application, "UndoRecord", VbGet)
@@ -385,7 +385,23 @@ Public Sub EmergencyRecovery()
         End If
         Err.Clear
         undoGroupEnabled = False
-        LogMessage "UndoRecord fechado durante recuperacao de emergencia", LOG_LEVEL_WARNING
+        LogMessage "UndoRecord (undoGroupEnabled) fechado durante recuperacao de emergencia", LOG_LEVEL_WARNING
+    End If
+
+    ' Fecha UndoRecord se ainda estiver aberto (PadronizarDocumentoMain)
+    If undoRecordActive Then
+        Dim emgUndo2 As Object
+        Set emgUndo2 = CallByName(Application, "UndoRecord", VbGet)
+        If Err.Number = 0 Then
+            If Not emgUndo2 Is Nothing Then
+                CallByName emgUndo2, "EndCustomRecord", VbMethod
+            End If
+        End If
+        Err.Clear
+        ' NAO resetamos undoRecordActive aqui — CleanUp fara isso
+        ' apos restaurar ScreenUpdating e ScreenRefresh, prevenindo
+        ' DoEvents parasitas entre EndCustomRecord e SetAppState
+        LogMessage "UndoRecord (undoRecordActive) fechado durante recuperacao de emergencia", LOG_LEVEL_WARNING
     End If
 
     ' Limpa variaveis de protecao de imagens em caso de erro

@@ -1,3 +1,21 @@
+## v9.5.0 — Z7 StdProposers
+
+### Correcoes Criticas
+
+- **Blindagem final da pilha de desfazer (UndoRecord)**: consolidado o bloco `On Error Resume Next` no `CleanUp` de `PadronizarDocumentoMain`, eliminando a troca indevida de handler entre `ScreenRefresh` e `EndCustomRecord` que podia gerar entradas fantasmas na pilha de undo e causar Access Violation no segundo Ctrl+Z
+- **Integracao undo restaurada**: `StartCustomRecord`/`EndCustomRecord` reintegrados com protecoes robustas (flag `undoRecordActive`, bloqueio de `DoEvents` parasitas, ordem obrigatoria no CleanUp, idempotencia em `EmergencyRecovery`)
+
+### Testes
+
+- **Novos testes Pester de regressao (undo)**: 5 testes adicionados validam presenca de `StartCustomRecord`/`EndCustomRecord`, flag `undoRecordActive`, ordem `ScreenRefresh < EndCustomRecord < undoRecordActive=False`, ausencia de `Selection.`, e proibicao de `Application.OnRepeat`
+- **Teste de limite de operacoes**: valida que nenhuma operacao perigosa ocorre apos `EndCustomRecord` ate o `Exit Sub` da macro
+
+### Decisoes de Design
+
+- **Suporte a "Repetir" (F4) nao implementado**: `Application.OnRepeat` ja foi removido no v9.0.0 por corromper a pilha de undo; reintroduzir seria regressao. Documentado em comentario no codigo
+
+---
+
 ## v9.3.0 — Z7 StdProposers
 
 ### Mudancas Estruturais

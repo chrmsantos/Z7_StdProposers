@@ -86,6 +86,39 @@ Public Sub PadronizarDocumentoMain()
     End If
 
     ' ==========================================================================
+    ' INICIO DO GRUPO DE DESFAZER (UndoRecord)
+    ' Late binding via CallByName: evita erro de compilacao em versoes
+    ' do Word onde UndoRecord nao resolve como early-bound.
+    ' Agrupa todas as edicoes da padronizacao em uma unica acao Ctrl+Z.
+    ' A flag global undoRecordActive bloqueia DoEvents parasitas durante
+    ' todo o pipeline, prevenindo entradas fantasmas na pilha de undo.
+    ' ==========================================================================
+    On Error Resume Next
+    Dim objUndoStart As Object
+    Set objUndoStart = CallByName(Application, "UndoRecord", VbGet)
+    If Err.Number = 0 Then
+        If Not objUndoStart Is Nothing Then
+            CallByName objUndoStart, "StartCustomRecord", VbMethod, _
+                "Z7_STDPROPOSERS - Padronizacao"
+            If Err.Number = 0 Then
+                undoRecordActive = True
+                LogMessage "UndoRecord iniciado para padronizacao", LOG_LEVEL_INFO
+            Else
+                undoRecordActive = False
+                Err.Clear
+            End If
+        Else
+            undoRecordActive = False
+        End If
+    Else
+        undoRecordActive = False
+        Err.Clear
+    End If
+    Set objUndoStart = Nothing
+    On Error GoTo CriticalErrorHandler
+    ' ==========================================================================
+
+    ' ==========================================================================
     ' PIPELINE DE FORMATACAO (DUPLA PASSAGEM OTIMIZADA)
     ' ==========================================================================
 
@@ -203,19 +236,48 @@ CleanUp:
     CleanupImageProtection       ' Limpa variaveis de protecao de imagens
     CleanupViewSettings          ' Limpa variaveis de configuracoes de visualizacao
 
-    ' Restaura estado da aplicacao preservando a StatusBar (mantem mensagem final)
+    ' Restaura estado da aplicacao preservando a StatusBar (mantem mensagem final).
+    ' undoRecordActive=True: DoEvents em ReleaseObjects ficam bloqueados.
+    ' ScreenUpdating=True e ScreenRefresh executam DENTRO do grupo de undo,
+    ' capturando quaisquer operacoes internas do Word dentro do mesmo grupo.
     If Not SetAppState(True, "", True) Then
         LogMessage "Falha ao restaurar estado da aplicacao", LOG_LEVEL_WARNING
     End If
 
-    ' Atualiza tela APENAS apos restaurar ScreenUpdating (dentro de SetAppState).
-    ' Nao chamar ScreenRefresh/DoEvents entre EndCustomRecord e SetAppState pois
-    ' podem disparar operacoes que criam entradas parasitas na pilha de undo.
+    ' Atualiza tela DENTRO do grupo de undo (undoRecordActive=True).
+    ' Se executassem ScreenRefresh apos EndCustomRecord, o recálculo de
+    ' layout do Word criaria uma entrada fantasma na pilha de undo,
+    ' resultando em Access Violation no segundo Ctrl+Z.
+    ' 
+    ' CRITICO: Consolidamos On Error Resume Next para cobrir tanto
+    ' ScreenRefresh quanto EndCustomRecord em um unico bloco protegido,
+    ' eliminando riscos de trocas indevidas de handler no meio do processo.
     On Error Resume Next
     Application.ScreenRefresh
+
+    ' CRITICO: EndCustomRecord e a ULTIMA operacao que pode afetar o estado
+    ' do documento. Nenhuma operacao de tela/layout/doc acontece apos aqui.
+    ' Isso garante que a pilha de undo termine com exatamente UMA entrada.
+    If undoRecordActive Then
+        Dim objUndoEnd As Object
+        Set objUndoEnd = CallByName(Application, "UndoRecord", VbGet)
+        If Err.Number = 0 Then
+            If Not objUndoEnd Is Nothing Then
+                CallByName objUndoEnd, "EndCustomRecord", VbMethod
+            End If
+        End If
+        Err.Clear
+        Set objUndoEnd = Nothing
+        undoRecordActive = False  ' so reseta DEPOIS do fechamento
+        LogMessage "UndoRecord finalizado com sucesso", LOG_LEVEL_INFO
+    End If
     On Error GoTo 0
 
     SafeFinalizeLogging
+    
+    ' NOTA: Suporte a "Repetir" (F4) nao implementado intencionalmente.
+    ' O risco de instabilidade da pilha de undo e alto (ver v9.0.0 do projeto), e o ganho e baixo.
+    ' O foco e garantir a integridade da pilha de Desfazer, nao implementar Repetir.
     Exit Sub
 
 CriticalErrorHandler:
@@ -232,7 +294,7 @@ CriticalErrorHandler:
     ShowUserFriendlyError Err.Number, Err.Description
     EmergencyRecovery
 
-    ' CRITICO: Garante fechamento do UndoRecord mesmo em erro
+    ' CRITICO: Fluxo para CleanUp garante fechamento do UndoRecord mesmo em erro
     GoTo CleanUp
 End Sub
 

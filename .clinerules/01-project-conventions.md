@@ -95,7 +95,7 @@ Ao editar qualquer código:
 ## 10. Critérios para Agentes de IA
 
 ### 10.1 Comportamento de Undo/Redo
-- `PadronizarDocumentoMain` **não** se integra ao sistema de desfazer do Word — suas alterações são permanentes e não registradas no histórico de undo.
+- `PadronizarDocumentoMain` usa `StartCustomRecord`/`EndCustomRecord` via late-binding (`CallByName`) para agrupar todas as edições em um único comando de desfazer. A flag global `undoRecordActive` bloqueia `DoEvents` parasitas durante o pipeline.
 - `CorrigirProposituraComIA` funciona como um único comando de desfazer/refazer no Word (via `StartCustomRecord`/`EndCustomRecord`).
 - **NUNCA use `doc.UndoClear`** — cria entradas fantasmas na pilha de undo que causam Access Violation (crash) no Word.
 - NÃO chame `DoEvents` entre `EndCustomRecord` e `SetAppState` no CleanUp — pode criar entradas parasitas na pilha de undo.
