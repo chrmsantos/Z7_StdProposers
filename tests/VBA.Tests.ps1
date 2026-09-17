@@ -203,29 +203,25 @@ Describe 'Z7_STDPROPOSERS - VBA Modular Architecture' {
 
         It 'Mod_12_AIStructure usa caminhos centralizados de Mod_01_Infrastructure' {
             $script:moduleContent['Mod_12_AIStructure.bas'] | Should Match 'GetZ7StdProposersDataPath'
+        }
+        It 'AutoOpen nao existe mais em Mod_04_Main (atalhos removidos)' {
+            $script:moduleContent['Mod_04_Main.bas'] | Should Not Match '(?m)^Public Sub AutoOpen\(\)'
         }
 
-        It 'AutoOpen esta em Mod_04_Main para registrar atalhos' {
-            $script:moduleContent['Mod_04_Main.bas'] | Should Match '(?m)^Public Sub AutoOpen\(\)'
+
+
+        It 'RegistrarAtalhosTeclado nao existe mais em Mod_04_Main (atalhos removidos)' {
+            $script:moduleContent['Mod_04_Main.bas'] | Should Not Match '(?m)^Public Sub RegistrarAtalhosTeclado\(\)'
         }
 
-        It 'RegistrarAtalhosTeclado esta em Mod_04_Main' {
-            $script:moduleContent['Mod_04_Main.bas'] | Should Match '(?m)^Public Sub RegistrarAtalhosTeclado\(\)'
-        }
 
-        It 'RegistrarAtalhosTeclado registra Alt+P e Alt+C' {
-            $mod04 = $script:moduleContent['Mod_04_Main.bas']
-            $mod04 | Should Match 'PadronizarDocumentoMain'
-            $mod04 | Should Match 'CorrigirProposituraComIA'
-            $mod04 | Should Match 'wdKeyAlt'
-        }
 
-        It 'CriarAtalhosTeclado.bas nao existe mais (integrado em Mod_04)' {
+        It 'CriarAtalhosTeclado.bas nao existe (modulo separado nunca deve voltar)' {
             $mainPath = Join-Path (Get-RepoRoot) 'source\main'
+
             Test-Path (Join-Path $mainPath 'CriarAtalhosTeclado.bas') | Should Be $false
         }
-
-    }
+}
 
     Context 'UndoRecord - Seguranca de pilha de desfazer' {
         It 'NAO usa doc.UndoClear em nenhum modulo (causa entradas fantasmas)' {

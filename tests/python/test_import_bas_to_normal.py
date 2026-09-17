@@ -75,6 +75,22 @@ class TestResolveProjectRoot(unittest.TestCase):
 # PLACEHOLDER_TEST2
 
 
+class TestVBProjectNamePreservation(unittest.TestCase):
+    """Anti-regression: import script must restore VBProject.Name to 'Normal'."""
+
+    def test_import_restores_project_name(self):
+        """When Word opens a temp .dotm, it renames VBProject to TemplateProject.
+        The import script must revert it to 'Normal' before saving."""
+        script_path = SCRIPTS_DIR / "import_bas_to_normal.py"
+        source = script_path.read_text(encoding="utf-8")
+        self.assertIn(
+            'vb_project.Name = "Normal"',
+            source,
+            "import_bas_to_normal.py must set VBProject.Name to 'Normal' "
+            "to prevent TemplateProject renaming when opening via temp path",
+        )
+
+
 class TestResolveNormalDotm(unittest.TestCase):
     def test_uses_appdata(self):
         with mock.patch.dict(os.environ, {"APPDATA": "C:\\FakeAppData"}):

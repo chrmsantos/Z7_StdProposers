@@ -199,6 +199,15 @@ def import_modules_to_normal(
         logger.info("VBProject: %s | Modulos existentes: %d",
                      vb_project.Name, vb_project.VBComponents.Count)
 
+        # Restore the VBProject Name to "Normal" -- when Word opens a .dotm
+        # via a temp path (mkstemp), it renames the project to
+        # "TemplateProject".  We must revert before saving so Normal.dotm
+        # keeps its canonical project name after copy-back.
+        if vb_project.Name != "Normal":
+            logger.info("VBProject era '%s', restaurando para 'Normal'",
+                        vb_project.Name)
+            vb_project.Name = "Normal"
+
         # Step 1: Remove ALL existing Z7 modules (including stale ones).
         removed = _remove_z7_modules(vb_project, logger)
         if removed:
