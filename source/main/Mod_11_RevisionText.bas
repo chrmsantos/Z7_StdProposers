@@ -15,7 +15,8 @@ Option Explicit
 '
 ' Entradas publicas:
 '   - TestarRevisaoTextoSelecionado: revisa texto selecionado
-'   - CorrigirProposituraComIA:     revisa texto selecionado ou paragrafo atual (substitui no documento)
+'   - CorrigirProposituraComIA:     revisa texto selecionado ou paragrafo atual (substitui no documento);
+'                                    admite apenas UM paragrafo por vez
 '   - DiagnosticarOpenRouter:       diagnostico de conectividade com a API
 '
 ' Arquivos externos esperados (via config_prompt.py / z7_api_key.py):
@@ -400,6 +401,9 @@ End Sub
 ' Se nao houver texto selecionado, o paragrafo onde esta o cursor
 ' e selecionado automaticamente e corrigido.
 ' A formatacao original e preservada apos a substituicao.
+' LIMITACAO: esta macro processa UM PARAGRAFO POR VEZ. Se a selecao
+' abranger mais de um paragrafo, um aviso gentil e exibido e o
+' documento nao e alterado.
 '
 ' Diferente de TestarRevisaoTextoSelecionado, esta macro exibe metricas
 ' detalhadas e mensagens de status mais informativas ao usuario.
@@ -434,6 +438,27 @@ Public Sub CorrigirProposituraComIA()
     End If
 
     Set rng = Selection.Range.Duplicate
+
+    ' -----------------------------------------------------------------
+    ' VALIDACAO: O CORRETOR COM IA ADMITE APENAS UM PARAGRAFO POR VEZ
+    ' Se a selecao abranger mais de um paragrafo, exibe um aviso gentil
+    ' e encerra sem alterar o documento.
+    ' -----------------------------------------------------------------
+    If SelecaoAbrangeMultiplosParagrafos(rng) Then
+        LogMessage LOG_PREFIX & ": Selecao com mais de um paragrafo - " & _
+            "correcao limitada a um paragrafo por vez", LOG_LEVEL_WARNING
+        MsgBox _
+            "O corretor com IA trabalha com um paragrafo por vez." & _
+            vbCrLf & vbCrLf & _
+            "A selecao atual abrange mais de um paragrafo." & _
+            vbCrLf & vbCrLf & _
+            "Selecione apenas o paragrafo que deseja corrigir " & _
+            "(ou deixe o cursor dentro dele) e tente novamente.", _
+            vbInformation, _
+            "Corrigir com IA"
+        Exit Sub
+    End If
+
     textoOriginal = ExtrairTextoParaIA(rng)
 
     If Len(Trim(textoOriginal)) = 0 Then
@@ -815,6 +840,40 @@ Private Function ExtrairTextoParaIA( _
     texto = Replace(texto, Chr(160), " ") ' Non-breaking space
 
     ExtrairTextoParaIA = Trim(texto)
+End Function
+
+' =============================================================================
+' VERIFICA SE A SELECAO ABRANGE MAIS DE UM PARAGRAFO
+' =============================================================================
+' Retorna True se o range toca mais de um paragrafo.
+' Desconta um eventual paragrafo final NAO tocado (quando a selecao
+' termina exatamente na fronteira dele, sem incluir nenhum caractere),
+' evitando falso positivo em selecao de paragrafo unico que inclui a
+' propria marca de paragrafo (vbCr).
+' =============================================================================
+Private Function SelecaoAbrangeMultiplosParagrafos( _
+    ByVal rng As Range) As Boolean
+    On Error GoTo ErrorHandler
+
+    Dim totalParas As Long
+
+    totalParas = rng.Paragraphs.count
+
+    ' Desconta paragrafo(s) final(is) nao tocado(s): o inicio do
+    ' paragrafo esta no fim (ou apos o fim) da selecao
+    Do While totalParas > 1
+        If rng.Paragraphs(totalParas).Range.Start >= rng.End Then
+            totalParas = totalParas - 1
+        Else
+            Exit Do
+        End If
+    Loop
+
+    SelecaoAbrangeMultiplosParagrafos = (totalParas > 1)
+    Exit Function
+
+ErrorHandler:
+    SelecaoAbrangeMultiplosParagrafos = False
 End Function
 
 

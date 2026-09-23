@@ -95,6 +95,16 @@ Describe 'Z7_STDPROPOSERS - VBA Modular Architecture' {
             $script:moduleContent['Mod_11_RevisionText.bas'] | Should Match '(?m)^Public Sub CorrigirProposituraComIA\('
         }
 
+        It 'CorrigirProposituraComIA valida selecao de um paragrafo por vez' {
+            $mod11 = $script:moduleContent['Mod_11_RevisionText.bas']
+            # Extrai o corpo do CorrigirProposituraComIA
+            $match = [regex]::Match($mod11, 'Public Sub CorrigirProposituraComIA[\s\S]*?End Sub')
+            $match.Success | Should Be $true
+            # Deve recusar selecoes com mais de um paragrafo, com aviso ao usuario
+            $match.Value | Should Match 'SelecaoAbrangeMultiplosParagrafos'
+            $match.Value | Should Match 'um paragrafo por vez'
+        }
+
         It 'Diagnostico OpenRouter esta em Mod_11_RevisionText' {
             $script:moduleContent['Mod_11_RevisionText.bas'] | Should Match '(?m)^Public Sub DiagnosticarOpenRouter\('
         }
