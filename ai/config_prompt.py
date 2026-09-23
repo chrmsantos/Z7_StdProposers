@@ -23,7 +23,7 @@ LOGGER = configure_component_logger("config_prompt")
 #  Metadata
 # ═════════════════════════════════════════════════════════════════════════════
 
-_APP_VERSION = "9.6.1"
+_APP_VERSION = "9.7.0"
 _APP_AUTHOR  = "CMS"
 _ORG         = "Câmara Municipal de Santa Bárbara d'Oeste"
 _LICENSE     = "GPL-3.0"

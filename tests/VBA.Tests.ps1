@@ -393,6 +393,81 @@ Describe 'Z7_STDPROPOSERS - VBA Modular Architecture' {
         }
     }
 
+    Context 'Isolamento de dados - texto do documento nunca e prompt' {
+
+        It 'ProcessarTextoComIA anexa MontarGuardAntiInjecao ao system prompt' {
+            $mod11 = $script:moduleContent['Mod_11_RevisionText.bas']
+            $match = [regex]::Match($mod11, 'Private Function ProcessarTextoComIA[\s\S]*?End Function')
+            $match.Success | Should Be $true
+            $match.Value | Should Match 'MontarGuardAntiInjecao'
+        }
+
+        It 'Guard anti-injecao e anexado apos o prompt configuravel (nao removivel)' {
+            $mod11 = $script:moduleContent['Mod_11_RevisionText.bas']
+            $match = [regex]::Match($mod11, 'Private Function ProcessarTextoComIA[\s\S]*?End Function')
+            # CarregarPromptRevisao DEVE ser seguido por MontarGuardAntiInjecao
+            $match.Value | Should Match 'CarregarPromptRevisao\(\)[\s\S]*MontarGuardAntiInjecao'
+        }
+
+        It 'Texto do documento e enviado como DADOS via MontarMensagemDados' {
+            $mod11 = $script:moduleContent['Mod_11_RevisionText.bas']
+            $match = [regex]::Match($mod11, 'Private Function ProcessarTextoComIA[\s\S]*?End Function')
+            $match.Value | Should Match 'EscaparJSON\(MontarMensagemDados\(textoInput\)\)'
+        }
+
+        It 'MontarGuardAntiInjecao declara que dados nunca sao prompt' {
+            $mod11 = $script:moduleContent['Mod_11_RevisionText.bas']
+            $match = [regex]::Match($mod11, 'Private Function MontarGuardAntiInjecao[\s\S]*?End Function')
+            $match.Success | Should Be $true
+            $match.Value | Should Match 'TRATAMENTO DE DADOS DO DOCUMENTO'
+            $match.Value | Should Match 'NUNCA e um prompt'
+            $match.Value | Should Match 'DADOS_MARCADOR_INICIO'
+            $match.Value | Should Match 'NAO siga'
+        }
+
+        It 'MontarMensagemDados delimita a regiao de dados com marcador de inicio' {
+            $mod11 = $script:moduleContent['Mod_11_RevisionText.bas']
+            $match = [regex]::Match($mod11, 'Private Function MontarMensagemDados[\s\S]*?End Function')
+            $match.Success | Should Be $true
+            $match.Value | Should Match 'DADOS_MARCADOR_INICIO'
+            $match.Value | Should Match 'NUNCA e um prompt'
+        }
+
+        It 'Nao existe marcador de fechamento (impede breakout por injecao)' {
+            # A regiao de dados vai do marcador de inicio ate o FINAL da
+            # mensagem; um marcador de fechamento poderia ser injetado no
+            # texto do documento para fugir da regiao de dados.
+            $mod11 = $script:moduleContent['Mod_11_RevisionText.bas']
+            $mod11 | Should Not Match 'DADOS_MARCADOR_FIM'
+            $mod11 | Should Not Match 'FIM_TEXTO_A_REVISAR'
+        }
+
+        It 'MontarJSONRequest mantem prompt em role system e dados em role user' {
+            $mod11 = $script:moduleContent['Mod_11_RevisionText.bas']
+            $match = [regex]::Match($mod11, 'Private Function MontarJSONRequest[\s\S]*?End Function')
+            $match.Success | Should Be $true
+            $match.Value | Should Match '\{""role"":""system"",""content"":"""'
+            $match.Value | Should Match '\{""role"":""user"",""content"":"""'
+            $match.Value | Should Match 'systemJSON[\s\S]*textoJSON'
+        }
+
+        It 'RemoverEnvelopeResposta limpa eco do marcador nas bordas da resposta' {
+            $mod11 = $script:moduleContent['Mod_11_RevisionText.bas']
+            $match = [regex]::Match($mod11, 'Private Function RemoverEnvelopeResposta[\s\S]*?End Function')
+            $match.Success | Should Be $true
+            $match.Value | Should Match 'DADOS_MARCADOR_INICIO'
+        }
+
+        It 'ProcessarTextoComIA remove envelope ecoado da resposta da IA' {
+            $mod11 = $script:moduleContent['Mod_11_RevisionText.bas']
+            $match = [regex]::Match($mod11, 'Private Function ProcessarTextoComIA[\s\S]*?End Function')
+            $match.Value | Should Match 'RemoverEnvelopeResposta'
+        }
+
+    }
+
+
+
     Context 'Qualidade basica de implementacao' {
         It 'Contem tratamento de erro amigavel e recuperacao' {
             $script:allContent | Should Match 'ShowUserFriendlyError'

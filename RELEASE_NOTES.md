@@ -1,3 +1,29 @@
+## v9.7.0 — Z7 StdProposers
+
+### Seguranca (anti prompt-injection)
+
+- **Texto do documento e SEMPRE DADO, nunca prompt**: os tres fluxos que enviam texto do documento a IA (`CorrigirProposituraComIA`/`TestarRevisaoTextoSelecionado`, `IdentifyDocumentStructureWithAI` e Chat IA) agora garantem estruturalmente que o conteudo extraido do Word seja processado como texto a revisar/segmentar/contextualizar — jamais como prompt, instrucao ou comando
+- **Envelope de dados sem marcador de fechamento** (`MontarMensagemDados`, `AI_MontarMensagemDados`, `_wrap_doc_data`): a regiao de dados vai do marcador `<<<INICIO_...>>>` ate o FINAL da mensagem, impedindo breakout por injecao de marcador dentro do proprio documento
+- **Guard anti-injecao em codigo** (`MontarGuardAntiInjecao`, `AI_MontarGuardAntiInjecao`, `_with_doc_data_guard`): anexado ao system prompt depois do prompt configuravel — vale para qualquer `revision_prompt.txt`/`chat_system_prompt.txt` e nao pode ser removido por eles
+- **`RemoverEnvelopeResposta`** (Mod_11): remove eventual eco do envelope apenas nas bordas da resposta da IA
+- **Chat IA**: marcadores `---INICIO/FIM DO DOCUMENTO---` (com fechamento, passiveis de breakout) substituidos pelo envelope de dados; no fallback `_context_pending`, a mensagem do usuario vai antes e os dados por ultimo
+
+### Testes
+
+- **17 novos testes de contrato**: 7 Pester (`VBA-AIStructure.Tests.ps1`) + 10 pytest (`test_chat_ia.py::TestDocDataPromptIsolation`), incluindo guarda de regressao contra marcadores com fechamento e cenario de injecao que repete o marcador
+
+### Sincronizacao de Versao
+
+- Versao 9.7.0 alinhada em `VERSION`, `Z7_STDPROPOSERS_VERSION` (`Mod_01_Infrastructure.bas`) e `_APP_VERSION` (`config_prompt.py` e `chat_ia.py`)
+
+### Assets
+
+- chat_ia-v9.7.0.zip — Chat IA com contexto do documento
+- config_prompt-v9.7.0.zip — Editor de prompts side-by-side
+- import_bas_to_normal.exe — Importador de modulos VBA
+
+---
+
 ## v9.6.1 — Z7 StdProposers
 
 ### Melhorias

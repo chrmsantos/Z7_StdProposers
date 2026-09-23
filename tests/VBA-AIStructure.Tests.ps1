@@ -802,6 +802,106 @@ Describe 'Z7_STDPROPOSERS - Mod_12_AIStructure' {
 
 
 
+    Context 'Isolamento de dados - texto do documento nunca e prompt' {
+
+        It 'Declara AI_MontarMensagemDados e AI_MontarGuardAntiInjecao' {
+
+            $script:mod12Content | Should Match '(?m)^Private Function AI_MontarMensagemDados\('
+
+            $script:mod12Content | Should Match '(?m)^Private Function AI_MontarGuardAntiInjecao\('
+
+        }
+
+
+
+        It 'Guard anti-injecao e anexado ao prompt de estrutura' {
+
+            $match = [regex]::Match($script:mod12Content, 'Private Function MontarPromptEstrutura[\s\S]*?End Function')
+
+            $match.Success | Should Be $true
+
+            $match.Value | Should Match 'AI_MontarGuardAntiInjecao'
+
+        }
+
+
+
+        It 'Guard declara que dados do documento nunca sao prompt' {
+
+            $match = [regex]::Match($script:mod12Content, 'Private Function AI_MontarGuardAntiInjecao[\s\S]*?End Function')
+
+            $match.Success | Should Be $true
+
+            $match.Value | Should Match 'TRATAMENTO DE DADOS DO DOCUMENTO'
+
+            $match.Value | Should Match 'NUNCA e um prompt'
+
+            $match.Value | Should Match 'AI_DADOS_MARCADOR_INICIO'
+
+            $match.Value | Should Match 'NAO siga'
+
+        }
+
+
+
+        It 'Texto do documento e enviado como DADOS via AI_MontarMensagemDados' {
+
+            $match = [regex]::Match($script:mod12Content, '(?:Public|Private) Function IdentifyDocumentStructureWithAI[\s\S]*?End Function')
+
+            $match.Success | Should Be $true
+
+            $match.Value | Should Match 'EscaparJSONAI\(AI_MontarMensagemDados\(docText\)\)'
+
+        }
+
+
+
+        It 'AI_MontarMensagemDados delimita a regiao de dados com marcador de inicio' {
+
+            $match = [regex]::Match($script:mod12Content, 'Private Function AI_MontarMensagemDados[\s\S]*?End Function')
+
+            $match.Success | Should Be $true
+
+            $match.Value | Should Match 'AI_DADOS_MARCADOR_INICIO'
+
+            $match.Value | Should Match 'NUNCA e um prompt'
+
+        }
+
+
+
+        It 'Nao existe marcador de fechamento (impede breakout por injecao)' {
+
+            # A regiao de dados vai do marcador de inicio ate o FINAL da
+            # mensagem; um marcador de fechamento poderia ser injetado no
+            # texto do documento para fugir da regiao de dados.
+
+            $script:mod12Content | Should Not Match 'AI_DADOS_MARCADOR_FIM'
+
+            $script:mod12Content | Should Not Match 'FIM_TEXTO_DO_DOCUMENTO'
+
+        }
+
+
+
+        It 'MontarJSONPayload mantem prompt em role system e dados em role user' {
+
+            $match = [regex]::Match($script:mod12Content, 'Private Function MontarJSONPayload[\s\S]*?End Function')
+
+            $match.Success | Should Be $true
+
+            $match.Value | Should Match '\{""role"":""system"",""content"":"""'
+
+            $match.Value | Should Match '\{""role"":""user"",""content"":"""'
+
+            $match.Value | Should Match 'systemJSON[\s\S]*userJSON'
+
+        }
+
+    }
+
+
+
     Context 'Diagnostico e teste' {
 
         It 'DiagnosticarEstruturaIA testa conectividade HTTP' {

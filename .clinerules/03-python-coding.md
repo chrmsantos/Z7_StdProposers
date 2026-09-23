@@ -64,4 +64,6 @@ antes de importar código que usa tkinter.
 
 ### 8. Prompt Revision
 - Prompt de revisão em `revision_prompt.txt` (carregado por `CarregarPromptRevisao()`), fallback hardcoded.
+- **Isolamento prompt/dados (anti prompt-injection)**: o texto extraído do documento é SEMPRE DADO a revisar/corrigir, nunca prompt. O guard anti-injeção (`MontarGuardAntiInjecao`) e o envelope de dados (`MontarMensagemDados`) são aplicados em código pelo `Mod_11_RevisionText.bas` e valem para qualquer `revision_prompt.txt` — não dependem do conteúdo do prompt editável.
+- **`chat_ia.py` — mesma regra**: o texto do documento é SEMPRE DADO de contexto, nunca prompt. `_wrap_doc_data` embrulha o texto em envelope de dados (região do marcador `<<<INICIO_TEXTO_DO_DOCUMENTO>>>` até o FINAL da mensagem, sem marcador de fechamento) e `_with_doc_data_guard` anexa o guard anti-injeção em `_call_api` (choke point da API, idempotente) — vale para qualquer `chat_system_prompt.txt`.
 - Preservação de formatação: `SubstituirTextoPreservandoFormatacao` salva/restaura Borders, Shading, KeepWithNext e protege marcas de parágrafo (¶).
