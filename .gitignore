@@ -1,6 +1,5 @@
 # PyInstaller artifacts
 build/
-dist/
 *.spec
 ai/build/
 

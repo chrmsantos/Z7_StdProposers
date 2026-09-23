@@ -1,3 +1,51 @@
+## v9.6.1 — Z7 StdProposers
+
+### Melhorias
+
+- **Corretor IA limitado a um paragrafo por vez**: `CorrigirProposituraComIA` recusa selecoes que abrangem mais de um paragrafo e exibe um aviso gentil (MsgBox) sem alterar o documento; cursor solto ou selecao dentro de um paragrafo continuam funcionando normalmente
+- **Nova funcao `SelecaoAbrangeMultiplosParagrafos`**: conta os paragrafos tocados pela selecao descontando um eventual paragrafo final nao tocado, evitando falso positivo em selecao de paragrafo unico que inclui a propria marca de paragrafo (vbCr)
+
+### Testes
+
+- **Novo teste de contrato (Pester)**: valida que `CorrigirProposituraComIA` contem a validacao de paragrafo unico e o aviso ao usuario dentro do proprio entrypoint
+
+### Sincronizacao de Versao
+
+- Versao 9.6.1 alinhada em `VERSION`, `Z7_STDPROPOSERS_VERSION` (`Mod_01_Infrastructure.bas`) e `_APP_VERSION` (`config_prompt.py` e `chat_ia.py` — este ultimo estava desatualizado em 8.12.4)
+
+### Assets
+
+- chat_ia-v9.6.1.zip — Chat IA com contexto do documento
+- config_prompt-v9.6.1.zip — Editor de prompts side-by-side
+- import_bas_to_normal.exe — Importador de modulos VBA
+
+---
+
+## v9.6.0 — Z7 StdProposers
+
+### Correcoes
+
+- **VBProject.Name estavel apos importacao**: corrigido em `import_bas_to_normal.py` o bug que fazia o `VBProject.Name` mudar para `TemplateProject` ao importar os modulos Z7
+- **Prompts de revisao e Chat IA aprimorados** (`config_prompt`): prompt do Chat IA reformulado com paragrafos separados, instrucoes para ignorar erros de formatacao/datas e indicar localizacao por paragrafo/linha; Corretor de Propositura passa a preservar a palavra 'Indica' (nao substitui por 'Indico')
+
+### Mudancas Estruturais
+
+- **Atalhos de teclado removidos**: `AutoOpen` e `RegistrarAtalhosTeclado` removidos de `Mod_04_Main` (atalhos Alt+P e Alt+C descontinuados)
+- **`NormalTemplate.Save` removido do VBA**: evita gravacao do template durante a padronizacao
+- **`_APP_VERSION` sincronizado** em `config_prompt.py` (8.12.4 → 9.6.0, alinhado com `VERSION`)
+
+### Testes
+
+- **Testes de anti-regressao atualizados**: validam a ausencia dos atalhos removidos e a estabilidade de `VBProject.Name` apos a importacao
+
+### Assets
+
+- chat_ia-v9.6.0.zip — Chat IA com contexto do documento
+- config_prompt-v9.6.0.zip — Editor de prompts side-by-side
+- import_bas_to_normal.exe — Importador de modulos VBA
+
+---
+
 ## v9.5.0 — Z7 StdProposers
 
 ### Correcoes Criticas
