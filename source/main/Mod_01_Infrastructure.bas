@@ -21,6 +21,7 @@ Public Const wdLineSpaceSingle As Long = 0
 Public Const wdLineSpace1pt5 As Long = 1
 Public Const wdLineSpacingMultiple As Long = 5
 Public Const wdStatisticPages As Long = 2
+Public Const wdStatisticLines As Long = 1
 Public Const msoTrue As Long = -1
 Public Const msoFalse As Long = 0
 Public Const msoPicture As Long = 13
@@ -78,7 +79,7 @@ Public undoRecordActive As Boolean
 ' CONSTANTES DE SISTEMA
 '================================================================================
 Public Const MIN_SUPPORTED_VERSION As Long = 14
-Public Const Z7_STDPROPOSERS_VERSION As String = "9.7.0"
+Public Const Z7_STDPROPOSERS_VERSION As String = "9.10.0"
 Public Const REQUIRED_STRING As String = "$NUMERO$/$ANO$"
 Public Const MAX_BACKUP_FILES As Long = 10
 Public Const DEBUG_MODE As Boolean = False
@@ -827,13 +828,37 @@ ErrorHandler:
     LogMessage "Erro ao aplicar fonte: " & Err.Description & " - Range: " & Left(targetRange.text, 20), LOG_LEVEL_WARNING
 End Function
 
+Public Function ParagraphHasMultipleLines(para As Paragraph) As Boolean
+    On Error GoTo ErrorHandler
+
+    ' REGRA MULTI-LINHA: paragrafo com mais de 1 linha (quebra por largura ou Shift+Enter)
+    ' nao pode receber alinhamento centralizado nem recuo esquerdo/primeira linha = 0.
+    ' Fail-closed: se nao for possivel medir, trata como multi-linha (nao aplica a formatacao proibida).
+    ParagraphHasMultipleLines = (para.Range.ComputeStatistics(wdStatisticLines) > 1)
+    Exit Function
+
+ErrorHandler:
+    ParagraphHasMultipleLines = True
+End Function
+
 Public Function SafeSetParagraphFormat(para As Paragraph, alignment As Long, leftIndent As Single, firstLineIndent As Single) As Boolean
     On Error GoTo ErrorHandler
 
+    ' REGRA MULTI-LINHA: nao aplica centralizacao nem recuo esquerdo/primeira linha = 0
+    ' em paragrafo com mais de 1 linha
+    Dim isMultiLine As Boolean
+    isMultiLine = ParagraphHasMultipleLines(para)
+
     With para.Format
-        If alignment >= 0 Then .alignment = alignment
-        If leftIndent >= 0 Then .leftIndent = leftIndent
-        If firstLineIndent >= 0 Then .firstLineIndent = firstLineIndent
+        If alignment >= 0 Then
+            If Not (isMultiLine And alignment = wdAlignParagraphCenter) Then .alignment = alignment
+        End If
+        If leftIndent >= 0 Then
+            If Not (isMultiLine And leftIndent = 0) Then .leftIndent = leftIndent
+        End If
+        If firstLineIndent >= 0 Then
+            If Not (isMultiLine And firstLineIndent = 0) Then .firstLineIndent = firstLineIndent
+        End If
     End With
 
     SafeSetParagraphFormat = True

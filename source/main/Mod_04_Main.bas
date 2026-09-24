@@ -177,6 +177,16 @@ Public Sub PadronizarDocumentoMain()
     RemoverLinhasEmBrancoExtras doc
     EnsureConsideringBlankLines doc
 
+    ' Garantia FINAL de 2 linhas em branco nas zonas especiais (Data: acima;
+    ' Titulo da Justificativa: acima; Ementa: acima e abaixo). Executada DEPOIS
+    ' de toda a padronizacao generalizada de linhas puladas, para nao ser
+    ' desfeita por ela. Ordem de baixo para cima (Data -> Titulo Justificativa
+    ' -> Ementa) para que os deslocamentos de indice nao afetem os elementos
+    ' ja ajustados.
+    ForceDataSpacing doc
+    ForceJustificativaTitleSpacing doc
+    ForceEmentaSpacing doc
+
     ' Formata recuos de paragrafos com imagens (zera recuo a esquerda)
     IncrementProgress "Ajustando layout"
     If Not FormatImageParagraphsIndents(doc) Then

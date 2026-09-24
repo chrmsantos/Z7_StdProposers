@@ -35,7 +35,7 @@ _MAX_CONTEXT_CHARS = 150_000
 _RPC_BUSY_RETRIES = 3
 _RPC_BUSY_RETRY_DELAY = 0.3
 
-_APP_VERSION = "9.7.0"
+_APP_VERSION = "9.10.0"
 _APP_AUTHOR  = "CMS"
 _ORG         = "Câmara Municipal de Santa Bárbara d'Oeste"
 _LICENSE     = "GPL-3.0"

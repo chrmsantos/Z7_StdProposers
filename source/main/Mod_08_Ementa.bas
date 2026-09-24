@@ -12,71 +12,45 @@ Public Sub ForceEmentaSpacing(doc As Document)
     On Error GoTo ErrorHandler
 
     If doc Is Nothing Then Exit Sub
-    If ementaParaIndex <= 0 Or ementaParaIndex > doc.Paragraphs.count Then Exit Sub
+
+    ' Localiza a ementa (preferencia pelo indice estrutural, com fallback heuristico)
+    Dim ementaIdx As Long
+    ementaIdx = FindEmentaParagraphIndex(doc)
+    If ementaIdx <= 0 Or ementaIdx > doc.Paragraphs.count Then Exit Sub
 
     ' Garante que a ementa existe e tem conteudo
     Dim ementaText As String
-    ementaText = Trim(Replace(Replace(doc.Paragraphs(ementaParaIndex).Range.text, vbCr, ""), vbLf, ""))
+    ementaText = Trim(Replace(Replace(doc.Paragraphs(ementaIdx).Range.text, vbCr, ""), vbLf, ""))
     If Len(ementaText) = 0 Then Exit Sub
 
-    Dim idx As Long
-    Dim blankCount As Long
-    Dim insertCount As Long
+    Dim totalBefore As Long
+    Dim idxShift As Long
+    Dim newIdx As Long
+
+    totalBefore = doc.Paragraphs.count
 
     ' =========================================================================
-    ' 1. GARANTE 2 PARAGRAFOS EM BRANCO ABAIXO DA EMENTA
+    ' 1. EXATAMENTE 2 PARAGRAFOS EM BRANCO ABAIXO DA EMENTA
+    ' (remocoes/insercoes abaixo nao deslocam o indice da ementa)
     ' =========================================================================
-    blankCount = 0
-    idx = ementaParaIndex + 1
-    Do While idx <= doc.Paragraphs.count
-        Dim belowText As String
-        belowText = Trim(Replace(Replace(doc.Paragraphs(idx).Range.text, vbCr, ""), vbLf, ""))
-        If belowText = "" And Not HasVisualContent(doc.Paragraphs(idx)) Then
-            blankCount = blankCount + 1
-            idx = idx + 1
-        Else
-            Exit Do
-        End If
-    Loop
-
-    If blankCount < 2 Then
-        insertCount = 2 - blankCount
-        Dim b As Long
-        For b = 1 To insertCount
-            doc.Paragraphs(ementaParaIndex).Range.InsertParagraphAfter
-        Next b
-        LogMessage "ForceEmentaSpacing: " & insertCount & " paragrafo(s) em branco inserido(s) abaixo da Ementa (total garantido: 2)", LOG_LEVEL_INFO
-    End If
+    RemoveBlankLinesAfter doc, ementaIdx
+    InsertBlankLinesAfter doc, ementaIdx, 2
 
     ' =========================================================================
-    ' 2. GARANTE 3 PARAGRAFOS EM BRANCO ACIMA DA EMENTA
-    ' Nota: inserir abaixo primeiro nao altera o indice da ementa,
-    '       mas inserir abaixo desloca os paragrafos posteriores.
-    '       O indice ementaParaIndex permanece o mesmo.
+    ' 2. EXATAMENTE 2 PARAGRAFOS EM BRANCO ACIMA DA EMENTA
+    ' (remocoes/insercoes acima deslocam o indice da ementa)
     ' =========================================================================
-    blankCount = 0
-    idx = ementaParaIndex - 1
-    Do While idx >= 1
-        Dim aboveText As String
-        aboveText = Trim(Replace(Replace(doc.Paragraphs(idx).Range.text, vbCr, ""), vbLf, ""))
-        If aboveText = "" And Not HasVisualContent(doc.Paragraphs(idx)) Then
-            blankCount = blankCount + 1
-            idx = idx - 1
-        Else
-            Exit Do
-        End If
-    Loop
+    newIdx = RemoveBlankLinesBefore(doc, ementaIdx)
+    InsertBlankLinesBefore doc, newIdx, 2
+    ementaIdx = newIdx + 2
 
-    If blankCount < 3 Then
-        insertCount = 3 - blankCount
-        Dim a As Long
-        For a = 1 To insertCount
-            doc.Paragraphs(ementaParaIndex).Range.InsertParagraphBefore
-        Next a
-        ' A ementa deslocou N posicoes para baixo
-        ementaParaIndex = ementaParaIndex + insertCount
-        LogMessage "ForceEmentaSpacing: " & insertCount & " paragrafo(s) em branco inserido(s) acima da Ementa (total garantido: 3)", LOG_LEVEL_INFO
-    End If
+    ' Ajusta indices estruturais conforme o deslocamento liquido de paragrafos
+    idxShift = doc.Paragraphs.count - totalBefore
+    ementaParaIndex = ementaIdx
+    If tituloJustificativaIndex > 0 Then tituloJustificativaIndex = tituloJustificativaIndex + idxShift
+    If dataParaIndex > 0 Then dataParaIndex = dataParaIndex + idxShift
+
+    LogMessage "ForceEmentaSpacing: 2 paragrafos em branco garantidos acima e abaixo da Ementa", LOG_LEVEL_INFO
 
     Exit Sub
 
@@ -85,57 +59,75 @@ ErrorHandler:
 End Sub
 
 '================================================================================
-' FORCE DATA SPACING - Garante 2 paragrafos em branco acima da Data
-' Executada como ULTIMA etapa para nao ser desfeita por processamento posterior.
+' FORCE DATA SPACING - Garante exatamente 2 paragrafos em branco acima da Data
+' Executada como ULTIMA etapa para nao ser desfeita por processamento posterior
+' de padronizacao de linhas puladas.
 '================================================================================
 
 Public Sub ForceDataSpacing(doc As Document)
     On Error GoTo ErrorHandler
 
     If doc Is Nothing Then Exit Sub
-    If dataParaIndex <= 0 Or dataParaIndex > doc.Paragraphs.count Then Exit Sub
+
+    ' Localiza a Data (indice estrutural validado por texto; fallback por varredura)
+    Dim dataIdx As Long
+    dataIdx = dataParaIndex
+    If dataIdx <= 0 Or dataIdx > doc.Paragraphs.count Then
+        dataIdx = FindDataParagraphIndex(doc)
+    ElseIf Not IsDataElement(doc.Paragraphs(dataIdx)) Then
+        dataIdx = FindDataParagraphIndex(doc)
+    End If
+    If dataIdx <= 0 Or dataIdx > doc.Paragraphs.count Then Exit Sub
 
     ' Garante que a data existe e tem conteudo
     Dim dataText As String
-    dataText = Trim(Replace(Replace(doc.Paragraphs(dataParaIndex).Range.text, vbCr, ""), vbLf, ""))
+    dataText = Trim(Replace(Replace(doc.Paragraphs(dataIdx).Range.text, vbCr, ""), vbLf, ""))
     If Len(dataText) = 0 Then Exit Sub
 
-    Dim idx As Long
-    Dim blankCount As Long
-    Dim insertCount As Long
+    Dim newIdx As Long
 
     ' =========================================================================
-    ' GARANTE 2 PARAGRAFOS EM BRANCO ACIMA DA DATA
+    ' EXATAMENTE 2 PARAGRAFOS EM BRANCO ACIMA DA DATA
     ' =========================================================================
-    blankCount = 0
-    idx = dataParaIndex - 1
-    Do While idx >= 1
-        Dim aboveText As String
-        aboveText = Trim(Replace(Replace(doc.Paragraphs(idx).Range.text, vbCr, ""), vbLf, ""))
-        If aboveText = "" And Not HasVisualContent(doc.Paragraphs(idx)) Then
-            blankCount = blankCount + 1
-            idx = idx - 1
-        Else
-            Exit Do
-        End If
-    Loop
+    newIdx = RemoveBlankLinesBefore(doc, dataIdx)
+    InsertBlankLinesBefore doc, newIdx, 2
+    dataIdx = newIdx + 2
+    dataParaIndex = dataIdx
 
-    If blankCount < 2 Then
-        insertCount = 2 - blankCount
-        Dim a As Long
-        For a = 1 To insertCount
-            doc.Paragraphs(dataParaIndex).Range.InsertParagraphBefore
-        Next a
-        ' A data deslocou N posicoes para baixo
-        dataParaIndex = dataParaIndex + insertCount
-        LogMessage "ForceDataSpacing: " & insertCount & " paragrafo(s) em branco inserido(s) acima da Data (total garantido: 2)", LOG_LEVEL_INFO
-    End If
+    LogMessage "ForceDataSpacing: 2 paragrafos em branco garantidos acima da Data", LOG_LEVEL_INFO
 
     Exit Sub
 
 ErrorHandler:
     LogMessage "Erro ao inserir espacamento da Data: " & Err.Description, LOG_LEVEL_WARNING
 End Sub
+
+' Localiza o paragrafo de Data por varredura (fallback quando o indice
+' estrutural esta obsoleto). Procura nos ultimos 12 paragrafos, de baixo
+' para cima, usando os mesmos criterios de IsDataElement.
+Private Function FindDataParagraphIndex(doc As Document) As Long
+    On Error GoTo ErrorHandler
+
+    FindDataParagraphIndex = 0
+
+    Dim i As Long
+    Dim firstIdx As Long
+    firstIdx = doc.Paragraphs.count - 12
+    If firstIdx < 1 Then firstIdx = 1
+
+    For i = doc.Paragraphs.count To firstIdx Step -1
+        If i > doc.Paragraphs.count Then Exit For
+        If IsDataElement(doc.Paragraphs(i)) Then
+            FindDataParagraphIndex = i
+            Exit Function
+        End If
+    Next i
+
+    Exit Function
+
+ErrorHandler:
+    FindDataParagraphIndex = 0
+End Function
 
 '================================================================================
 ' EMENTA - Remove prefixos "EMENTA:" / "ASSUNTO:" quando forem a primeira palavra

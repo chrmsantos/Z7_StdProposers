@@ -102,175 +102,182 @@ A macro executa em sete fases encadeadas:
 21. Normalização de quebras:
     - `ReplaceLineBreaksWithParagraphBreaks doc` — converte quebras de linha em quebras de parágrafo.
 
-22. Limpeza estrutural:
+22. Quebra de parágrafo antes de sufixo de Vereador: `BreakParagraphBeforeVereadorSuffix doc` — parágrafos terminados por `" - vereador"` / `" - vereadora"` (hífen ASCII ou en-dash `–`) que ocupam **no máximo uma linha** são quebrados imediatamente antes do sufixo, colocando o sufixo em parágrafo próprio:
+    - Comparação *case-insensitive*; pontuação final opcional (`.` ou `,`) após a palavra é aceita.
+    - Parágrafos multi-linha não são quebrados (guard `ParagraphHasMultipleLines`, *fail-closed*) e prefixo vazio não gera parágrafo vazio.
+    - Se houver quebras, recarrega a estrutura (`IdentifyDocumentStructure doc`) — índices estruturais invalidados pelas novas marcas de parágrafo.
+
+23. Limpeza estrutural:
     - `RemovePageNumberLines doc` — remove linhas de número de página.
     - `RemoveUnderscoreOnlyParagraphs doc` — remove parágrafos compostos apenas por *underscores*.
     - `CleanDocumentStructure doc` — limpa *debris* estruturais.
     - `RemoveAllTabMarks doc` — remove todas as marcas de tabulação.
 
-23. Limpeza de prefixo da ementa: `RemoveEmentaLeadingLabelPrefix doc`.
+24. Limpeza de prefixo da ementa: `RemoveEmentaLeadingLabelPrefix doc`.
 
-24. Limpeza de sufixo da ementa: `RemoveEmentaTrailingMunicipioSuffix doc`.
+25. Limpeza de sufixo da ementa: `RemoveEmentaTrailingMunicipioSuffix doc`.
 
-25. Remoção de aspas da ementa: `RemoveEmentaQuotes doc`.
+26. Remoção de aspas da ementa: `RemoveEmentaQuotes doc`.
 
-26. Substituição de "DAE" por "Poder Executivo Municipal" na ementa de Indicações: `ProcessEmentaIndicacao doc`.
+27. Substituição de "DAE" por "Poder Executivo Municipal" na ementa de Indicações: `ProcessEmentaIndicacao doc`.
 
-27. Formatação do título: `FormatDocumentTitle doc`.
+28. Formatação do título: `FormatDocumentTitle doc`.
 
-28. Aplicação da fonte padrão:
+29. Aplicação da fonte padrão:
     - Se cache ativo → `ApplyStdFontOptimized(doc)`; em falha, *fallback* para `ApplyStdFont(doc)`.
     - Senão → `ApplyStdFont(doc)` (Arial 12).
 
-29. Formatação de parágrafos: `ApplyStdParagraphs(doc)`.
+30. Formatação de parágrafos: `ApplyStdParagraphs(doc)`.
 
-30. Formatação do parágrafo 2 (ementa): `FormatSecondParagraph doc`.
+31. Formatação do parágrafo 2 (ementa): `FormatSecondParagraph doc`.
 
-31. Formatação dos parágrafos 2–4 após a ementa (justificado, recuo 2,5 cm): `FormatPostEmentaBodyParagraphs doc`.
+32. Formatação dos parágrafos 2–4 após a ementa (justificado, recuo 2,5 cm): `FormatPostEmentaBodyParagraphs doc`.
 
-32. Formatação de considerandos: `FormatConsiderandoParagraphs doc`.
+33. Formatação de considerandos: `FormatConsiderandoParagraphs doc`.
 
-33. Inserção de linhas em branco (justificativa, plenário, prefeito): `InsertJustificativaBlankLines doc`.
+34. Inserção de linhas em branco (justificativa, plenário, prefeito): `InsertJustificativaBlankLines doc`.
 
-34. Aplicação de substituições de texto: `ApplyTextReplacements doc`.
+35. Aplicação de substituições de texto: `ApplyTextReplacements doc`.
 
-35. Capitalização do início dos parágrafos: `CapitalizeFirstLetterOfParagraphs doc`.
+36. Capitalização do início dos parágrafos: `CapitalizeFirstLetterOfParagraphs doc`.
 
-36. Marca d'água e carimbo:
+37. Marca d'água e carimbo:
     - `RemoveWatermark doc` — remove marca d'água.
     - `InsertHeaderstamp doc` — insere carimbo no cabeçalho.
 
-37. Limpeza de espaços múltiplos: `CleanMultipleSpaces doc`.
+38. Limpeza de espaços múltiplos: `CleanMultipleSpaces doc`.
 
-38. Controle de linhas em branco: `LimitSequentialEmptyLines doc`.
+39. Controle de linhas em branco: `LimitSequentialEmptyLines doc`.
 
-39. Substituição de datas do plenário: `ReplacePlenarioDateParagraph doc`.
+40. Substituição de datas do plenário: `ReplacePlenarioDateParagraph doc`.
 
-40. Configuração de visualização: `ConfigureDocumentView doc`.
+41. Configuração de visualização: `ConfigureDocumentView doc`.
 
-41. Inserção de rodapé: `InsertFooterStamp(doc)` (em falha, retorna `False` e aborta a passagem).
+42. Inserção de rodapé: `InsertFooterStamp(doc)` (em falha, retorna `False` e aborta a passagem).
 
-42. Ajustes finais de negrito e formatação:
+43. Ajustes finais de negrito e formatação:
     - `ApplyBoldToSpecialParagraphs doc`.
     - `SubstituiVereadoraPorSenhoraVereadora doc`.
     - `FormatVereadorParagraphs doc`.
 
-43. Formatações especiais:
+44. Formatações especiais:
     - `FormatDianteDoExposto doc`.
     - `FormatRequeiroParagraphs doc`.
     - `FormatPorTodasRazoesParagraphs doc`.
 
-44. Remoção de realces e bordas: `RemoveAllHighlightsAndBorders doc`.
+45. Remoção de realces e bordas: `RemoveAllHighlightsAndBorders doc`.
 
-45. Remoção de páginas vazias no final: `RemoveEmptyPagesAtEnd doc`.
+46. Remoção de páginas vazias no final: `RemoveEmptyPagesAtEnd doc`.
 
-46. Aplicação de formatação final universal: `ApplyUniversalFinalFormatting doc`.
+47. Aplicação de formatação final universal: `ApplyUniversalFinalFormatting doc`.
 
-47. Remoção de dois-pontos da justificativa: `RemoveJustificativaColon doc`.
+48. Remoção de dois-pontos da justificativa: `RemoveJustificativaColon doc`.
 
-48. Adição de espaçamento especial (ementa, justificativa, data): `AddSpecialElementsSpacing doc`.
+49. Adição de espaçamento especial (ementa, justificativa, data): `AddSpecialElementsSpacing doc`.
 
-49. Ajuste final de recuos para Vereador (travessões): `FixHyphenatedVereadorParagraphIndents doc`.
+50. Ajuste final de recuos para Vereador (travessões): `FixHyphenatedVereadorParagraphIndents doc`.
 
-50. Inserção final de parágrafo em branco na ementa (acima e abaixo): `ForceEmentaSpacing doc`.
+51. Garantia final de **2 linhas em branco** na ementa (acima e abaixo): `ForceEmentaSpacing doc`.
 
-51. Inserção final de parágrafo em branco na data (acima): `ForceDataSpacing doc`.
+52. Garantia final de **2 linhas em branco** na data (acima): `ForceDataSpacing doc`.
 
-52. Registra métrica `"Total de paragrafos"` e retorna `True`.
+53. Registra métrica `"Total de paragrafos"` e retorna `True`.
 
 ### 4.2 — `PreviousFormattingPass2` (Passagem 2 — seletiva)
 
 > Executa somente as etapas **index-dependentes**, que podem ter sido invalidadas por inserções/remoções de parágrafos da passagem 1. Etapas idempotentes (limpeza total, fonte padrão, formatação de parágrafos, capitalização, etc.) são omitidas.
 
-53. `RemoveEmentaLeadingLabelPrefix doc` (P2).
+54. `RemoveEmentaLeadingLabelPrefix doc` (P2).
 
-54. `RemoveEmentaTrailingMunicipioSuffix doc` (P2).
+55. `RemoveEmentaTrailingMunicipioSuffix doc` (P2).
 
-55. `RemoveEmentaQuotes doc` (P2).
+56. `RemoveEmentaQuotes doc` (P2).
 
-56. `ProcessEmentaIndicacao doc` (P2).
+57. `ProcessEmentaIndicacao doc` (P2).
 
-57. `FormatDocumentTitle doc` (P2).
+58. `FormatDocumentTitle doc` (P2).
 
-58. `FormatSecondParagraph doc` (P2).
+59. `FormatSecondParagraph doc` (P2).
 
-59. `FormatPostEmentaBodyParagraphs doc` (P2).
+60. `FormatPostEmentaBodyParagraphs doc` (P2).
 
-60. `FormatConsiderandoParagraphs doc` (P2).
+61. `FormatConsiderandoParagraphs doc` (P2).
 
-61. `InsertJustificativaBlankLines doc` (P2).
+62. `InsertJustificativaBlankLines doc` (P2).
 
-62. `ApplyTextReplacements doc` (P2).
+63. `ApplyTextReplacements doc` (P2).
 
-63. `ReplacePlenarioDateParagraph doc` (P2).
+64. `ReplacePlenarioDateParagraph doc` (P2).
 
-64. `InsertFooterStamp(doc)` (P2).
+65. `InsertFooterStamp(doc)` (P2).
 
-65. Ajustes finais de negrito e formatação (P2): `ApplyBoldToSpecialParagraphs`, `SubstituiVereadoraPorSenhoraVereadora`, `FormatVereadorParagraphs`.
+66. Ajustes finais de negrito e formatação (P2): `ApplyBoldToSpecialParagraphs`, `SubstituiVereadoraPorSenhoraVereadora`, `FormatVereadorParagraphs`.
 
-66. Formatações especiais (P2): `FormatDianteDoExposto`, `FormatRequeiroParagraphs`, `FormatPorTodasRazoesParagraphs`.
+67. Formatações especiais (P2): `FormatDianteDoExposto`, `FormatRequeiroParagraphs`, `FormatPorTodasRazoesParagraphs`.
 
-67. Remoção de dois-pontos da justificativa (P2): `RemoveJustificativaColon doc`.
+68. Remoção de dois-pontos da justificativa (P2): `RemoveJustificativaColon doc`.
 
-68. Adição de espaçamento especial (P2): `AddSpecialElementsSpacing doc`.
+69. Adição de espaçamento especial (P2): `AddSpecialElementsSpacing doc`.
 
-69. Ajuste final de recuos para Vereador (P2): `FixHyphenatedVereadorParagraphIndents doc`.
+70. Ajuste final de recuos para Vereador (P2): `FixHyphenatedVereadorParagraphIndents doc`.
 
-70. Inserção final de parágrafo em branco na ementa (P2): `ForceEmentaSpacing doc`.
+71. Garantia final de **2 linhas em branco** na ementa (P2): `ForceEmentaSpacing doc`.
 
-71. Inserção final de parágrafo em branco na data (P2): `ForceDataSpacing doc`.
+72. Garantia final de **2 linhas em branco** na data (P2): `ForceDataSpacing doc`.
 
 ---
 
 ## Fase 5 — Ajustes pós-pipeline
 
-72. Remoção de linhas em branco extras: `RemoverLinhasEmBrancoExtras doc`.
+73. Remoção de linhas em branco extras: `RemoverLinhasEmBrancoExtras doc` — máximo 1 linha vazia consecutiva (máximo **2** nas zonas protegidas: acima/abaixo da ementa, acima do título da justificativa e acima da data).
 
-73. Garantia de linhas em branco após "CONSIDERANDO": `EnsureConsideringBlankLines doc`.
+74. Garantia de linhas em branco após "CONSIDERANDO": `EnsureConsideringBlankLines doc`.
 
-77. Formatação de recuos de imagens: `FormatImageParagraphsIndents(doc)` — zera recuo esquerdo/primeira linha e centraliza parágrafos com imagens inline.
+75. Garantia final de **2 linhas em branco** nas zonas especiais (acima da data, acima do título da justificativa, acima e abaixo da ementa), executada **depois** de toda a padronização generalizada de linhas puladas para não ser desfeita: `ForceDataSpacing doc`, `ForceJustificativaTitleSpacing doc` e `ForceEmentaSpacing doc` (ordem de baixo para cima).
 
-78. Centralização de imagem após o Plenário: `CenterImageAfterPlenario(doc)` — centraliza imagem localizada entre a 5ª e a 7ª linha após o parágrafo "Plenário".
+78. Formatação de recuos de imagens: `FormatImageParagraphsIndents(doc)` — zera recuo esquerdo/primeira linha e centraliza parágrafos com imagens inline.
 
-80. Remoção de numeração de parágrafos em branco: `RemoveNumberingFromBlankParagraphs(doc)`.
+79. Centralização de imagem após o Plenário: `CenterImageAfterPlenario(doc)` — centraliza imagem localizada entre a 5ª e a 7ª linha após o parágrafo "Plenário".
 
-81. Garantia final de fonte: reaplica **Arial 12** em todo o `doc.Range.Font` (corrige trechos que Find/Replace possam ter deixado com a fonte do estilo Normal, ex.: Calibri).
+81. Remoção de numeração de parágrafos em branco: `RemoveNumberingFromBlankParagraphs(doc)`.
 
-82. Restauração das configurações de visualização: `RestoreViewSettings(doc)` — restaura tudo, **exceto o zoom**, que é mantido em 130%.
+82. Garantia final de fonte: reaplica **Arial 12** em todo o `doc.Range.Font` (corrige trechos que Find/Replace possam ter deixado com a fonte do estilo Normal, ex.: Calibri).
+
+83. Restauração das configurações de visualização: `RestoreViewSettings(doc)` — restaura tudo, **exceto o zoom**, que é mantido em 130%.
 
 ---
 
 ## Fase 6 — Finalização e registro de sucesso
 
-83. Se `formattingCancelled = True`, desvia para `CleanUp`.
+84. Se `formattingCancelled = True`, desvia para `CleanUp`.
 
-84. Avança o progresso (`IncrementProgress "Finalizando"`).
+85. Avança o progresso (`IncrementProgress "Finalizando"`).
 
-85. Registra sucesso: `LogMessage "Documento padronizado com sucesso"` e `LogContextSnapshot doc, "FIM"`.
+86. Registra sucesso: `LogMessage "Documento padronizado com sucesso"` e `LogContextSnapshot doc, "FIM"`.
 
-86. Calcula o tempo de execução: `execSeconds = CLng((Now - executionStartTime) * 86400)`.
+87. Calcula o tempo de execução: `execSeconds = CLng((Now - executionStartTime) * 86400)`.
 
-87. Exibe na barra de status: `"Padronizacao concluida em Xs, com Y erros e Z avisos! (z7_stdproposers)"`.
+88. Exibe na barra de status: `"Padronizacao concluida em Xs, com Y erros e Z avisos! (z7_stdproposers)"`.
 
 ---
 
 ## Fase 7 — `CleanUp` (sempre executado) e tratamento de erros
 
-88. **Fecha o `UndoRecord`** se `undoRecordActive = True`: `CallByName(objUndoEnd, "EndCustomRecord", VbMethod)` via late-binding. Esta operação deve vir **antes** de qualquer outra operação no `CleanUp` para garantir que as edições sejam agrupadas como uma única ação de desfazer.
+89. **Fecha o `UndoRecord`** se `undoRecordActive = True`: `CallByName(objUndoEnd, "EndCustomRecord", VbMethod)` via late-binding. Esta operação deve vir **antes** de qualquer outra operação no `CleanUp` para garantir que as edições sejam agrupadas como uma única ação de desfazer.
 
-89. Limpa o cache de parágrafos: `ClearParagraphCache`.
+90. Limpa o cache de parágrafos: `ClearParagraphCache`.
 
-90. Executa `SafeCleanup` (limpeza geral de objetos/temp).
+91. Executa `SafeCleanup` (limpeza geral de objetos/temp).
 
-91. Limpa as variáveis de proteção:
+92. Limpa as variáveis de proteção:
     - `CleanupImageProtection` (imagens).
     - `CleanupViewSettings` (configurações de visualização).
 
-92. Restaura o estado da aplicação: `SetAppState(True, "", True)` — preservando a barra de status (mantém a mensagem final).
+93. Restaura o estado da aplicação: `SetAppState(True, "", True)` — preservando a barra de status (mantém a mensagem final).
 
-93. Atualiza a tela: `Application.ScreenRefresh` (chamado APENAS após `SetAppState` restaurar `ScreenUpdating`).
+94. Atualiza a tela: `Application.ScreenRefresh` (chamado APENAS após `SetAppState` restaurar `ScreenUpdating`).
 
-94. Finaliza o logging: `SafeFinalizeLogging`.
+95. Finaliza o logging: `SafeFinalizeLogging`.
 
 > **`CriticalErrorHandler`:** em caso de erro crítico, registra `"ERRO CRITICO #<número>: <descrição> em <fonte> (Linha: <linha>)"` no log, registra snapshot `"ERRO_CRITICO"` e retoma a execução em `CleanUp`, garantindo que o estado da aplicação seja restaurado.
 
@@ -287,4 +294,6 @@ A macro executa em sete fases encadeadas:
 4. **Backup automático:** antes de qualquer modificação, o documento original é salvo como backup (`.docm` com *timestamp*).
 
 5. **Parágrafos especiais:** "Justificativa", "Anexo(s)", "Vereador/Vereadora", "CONSIDERANDO", "Diante do exposto" e "Requeiro" recebem tratamento diferenciado em várias etapas (negrito, alinhamento, recuos, espaçamento).
+
+6. **Regra de parágrafos multi-linha:** parágrafos com mais de 1 linha (quebra por largura ou Shift+Enter) **não** recebem alinhamento centralizado nem recuo à esquerda/primeira linha igual a zero. O guard `ParagraphHasMultipleLines` (`Mod_01_Infrastructure.bas`, *fail-closed*) é aplicado nas formatações de elementos especiais e centralizações (título, assinatura, imagens, plenário, vereador e rodapé). A normalização/reset (`ClearAllFormatting`), a formatação de corpo/ementa (`ApplyStdParagraphs`, `FormatPostEmentaBodyParagraphs`, `FormatSecondParagraph`) e a normalização de listas com marcadores (`FormatBulletedParagraphsIndent`) continuam zerando recuos normalmente.
 

@@ -842,10 +842,14 @@ Public Function FormatFirstParagraph(doc As Document) As Boolean
         End If
 
         ' Aplicar tambem formatacao de paragrafo - SEMPRE
+        ' REGRA MULTI-LINHA: nao centraliza nem zera recuo esquerdo/1a linha
+        ' em paragrafo com mais de 1 linha
         With para.Format
-            .alignment = wdAlignParagraphCenter       ' Centralizado
-            .leftIndent = 0                           ' Sem recuo a esquerda
-            .firstLineIndent = 0                      ' Sem recuo da primeira linha
+            If Not ParagraphHasMultipleLines(para) Then
+                .alignment = wdAlignParagraphCenter       ' Centralizado
+                .leftIndent = 0                           ' Sem recuo a esquerda
+                .firstLineIndent = 0                      ' Sem recuo da primeira linha
+            End If
             .RightIndent = 0                          ' Sem recuo a direita
         End With
     Else
@@ -983,8 +987,11 @@ Public Function InsertFooterStamp(doc As Document) As Boolean
             Set fTotal = rngNum.Fields.Add(Range:=rngNum, Type:=wdFieldNumPages)
 
             ' Formata todo o paragrafo e centraliza os numeros de pagina
+            ' REGRA MULTI-LINHA: nao centraliza paragrafo com mais de 1 linha
             With footer.Range.Paragraphs.Last.Range
-                .ParagraphFormat.alignment = wdAlignParagraphCenter
+                If Not ParagraphHasMultipleLines(footer.Range.Paragraphs.Last) Then
+                    .ParagraphFormat.alignment = wdAlignParagraphCenter
+                End If
                 .Font.Name = STANDARD_FONT
                 .Font.size = FOOTER_FONT_SIZE
                 .Font.Color = wdColorAutomatic
@@ -2395,34 +2402,59 @@ Public Sub RemoverLinhasEmBrancoExtras(doc As Document)
         On Error GoTo ErrorHandler
     Next p
 
-    ' --- Remove linhas em branco extras e espacos unicos ---
-    For i = doc.Paragraphs.count To 2 Step -1
-        Dim txtAtual As String, txtAnterior As String
-        Dim pRange As Range
-        
+    ' --- Converte paragrafos com espaco unico em paragrafos vazios ---
+    Dim pRange As Range
+    For i = doc.Paragraphs.count To 1 Step -1
         Set pRange = doc.Paragraphs(i).Range
         If pRange.text = " " & vbCr Then
             pRange.MoveEnd wdCharacter, -1
             pRange.Delete
         End If
-        
-        Set pRange = doc.Paragraphs(i - 1).Range
-        If pRange.text = " " & vbCr Then
-            pRange.MoveEnd wdCharacter, -1
-            pRange.Delete
-        End If
-        
-        txtAtual = Trim(Replace(doc.Paragraphs(i).Range.text, vbCr, ""))
-        txtAnterior = Trim(Replace(doc.Paragraphs(i - 1).Range.text, vbCr, ""))
-
-        If txtAtual = "" And txtAnterior = "" Then
-            On Error Resume Next
-            doc.Paragraphs(i).Range.Delete
-            If Err.Number = 0 Then removedCount = removedCount + 1
-            Err.Clear
-            On Error GoTo ErrorHandler
-        End If
     Next i
+
+    ' --- Remove linhas em branco extras ---
+    ' Maximo 1 linha vazia consecutiva; maximo 2 nas zonas protegidas
+    ' (acima/abaixo da Ementa, acima do Titulo da Justificativa e acima da Data),
+    ' preservando a regra das 2 linhas em branco contra a padronizacao
+    ' generalizada de linhas puladas. Blocos processados de baixo para cima
+    ' para manter validos os indices dos elementos ja ajustados.
+    Dim runStart As Long
+    Dim runEnd As Long
+    Dim runLen As Long
+    Dim maxBlank As Long
+
+    i = doc.Paragraphs.count
+    Do While i >= 1
+        If IsBlankParagraphForCleanup(doc.Paragraphs(i)) Then
+            runEnd = i
+            runStart = i
+            Do While runStart > 1
+                If IsBlankParagraphForCleanup(doc.Paragraphs(runStart - 1)) Then
+                    runStart = runStart - 1
+                Else
+                    Exit Do
+                End If
+            Loop
+
+            maxBlank = 1
+            If IsTwoBlankLinesZone(doc, runStart - 1, runEnd + 1) Then maxBlank = 2
+
+            runLen = runEnd - runStart + 1
+            Do While runLen > maxBlank
+                On Error Resume Next
+                doc.Paragraphs(runEnd).Range.Delete
+                If Err.Number = 0 Then removedCount = removedCount + 1
+                Err.Clear
+                On Error GoTo ErrorHandler
+                runEnd = runEnd - 1
+                runLen = runLen - 1
+            Loop
+
+            i = runStart - 1
+        Else
+            i = i - 1
+        End If
+    Loop
 
     ' --- Substituicoes no texto padrao ---
     With doc.Content.Find
@@ -2509,20 +2541,26 @@ Public Sub RemoverLinhasEmBrancoExtras(doc As Document)
                    Or InStr(cleanTxt, "prefeito") > 0 Then
         
                     ' Cargo
+                    ' REGRA MULTI-LINHA: nao centraliza nem zera recuo esquerdo/1a linha
+                    ' em paragrafo com mais de 1 linha
                     With para.Format
-                        .leftIndent = 0
+                        If Not ParagraphHasMultipleLines(para) Then
+                            .leftIndent = 0
+                            .firstLineIndent = 0
+                            .alignment = wdAlignParagraphCenter
+                        End If
                         .RightIndent = 0
-                        .firstLineIndent = 0
-                        .alignment = wdAlignParagraphCenter
                     End With
         
                     ' Nome (paragrafo anterior)
                     If Not para.Previous Is Nothing Then
                         With para.Previous.Format
-                            .leftIndent = 0
+                            If Not ParagraphHasMultipleLines(para.Previous) Then
+                                .leftIndent = 0
+                                .firstLineIndent = 0
+                                .alignment = wdAlignParagraphCenter
+                            End If
                             .RightIndent = 0
-                            .firstLineIndent = 0
-                            .alignment = wdAlignParagraphCenter
                         End With
                         para.Previous.Range.Font.Bold = True
                     End If
@@ -2530,10 +2568,12 @@ Public Sub RemoverLinhasEmBrancoExtras(doc As Document)
                     ' Partido (paragrafo seguinte)
                     If Not para.Next Is Nothing Then
                         With para.Next.Format
-                            .leftIndent = 0
+                            If Not ParagraphHasMultipleLines(para.Next) Then
+                                .leftIndent = 0
+                                .firstLineIndent = 0
+                                .alignment = wdAlignParagraphCenter
+                            End If
                             .RightIndent = 0
-                            .firstLineIndent = 0
-                            .alignment = wdAlignParagraphCenter
                         End With
                     End If
                 End If
@@ -2559,6 +2599,74 @@ Public Sub RemoverLinhasEmBrancoExtras(doc As Document)
 ErrorHandler:
     LogMessage "Erro em RemoverLinhasEmBrancoExtras: " & Err.Description, LOG_LEVEL_WARNING
 End Sub
+
+'================================================================================
+' AUXILIARES DE LIMPEZA DE LINHAS EM BRANCO - ZONAS PROTEGIDAS (2 LINHAS)
+'================================================================================
+
+Private Function IsBlankParagraphForCleanup(para As Paragraph) As Boolean
+    On Error GoTo ErrorHandler
+
+    If para Is Nothing Then Exit Function
+
+    Dim paraText As String
+    paraText = Trim(Replace(Replace(para.Range.text, vbCr, ""), vbLf, ""))
+    IsBlankParagraphForCleanup = (paraText = "" And Not HasVisualContent(para))
+    Exit Function
+
+ErrorHandler:
+    IsBlankParagraphForCleanup = False
+End Function
+
+Private Function IsTwoBlankLinesZone(doc As Document, prevIdx As Long, nextIdx As Long) As Boolean
+    ' Zona protegida com 2 linhas em branco: bloco de vazios acima/abaixo da
+    ' Ementa, acima do Titulo da Justificativa ou acima da Data.
+    On Error GoTo ErrorHandler
+
+    IsTwoBlankLinesZone = False
+
+    If nextIdx >= 1 And nextIdx <= doc.Paragraphs.count Then
+        If IsEmentaLikeParagraph(doc.Paragraphs(nextIdx)) Then
+            IsTwoBlankLinesZone = True
+            Exit Function
+        End If
+        If IsJustificativaTitleElement(doc.Paragraphs(nextIdx)) Then
+            IsTwoBlankLinesZone = True
+            Exit Function
+        End If
+        If IsDataElement(doc.Paragraphs(nextIdx)) Then
+            IsTwoBlankLinesZone = True
+            Exit Function
+        End If
+    End If
+
+    If prevIdx >= 1 And prevIdx <= doc.Paragraphs.count Then
+        If IsEmentaLikeParagraph(doc.Paragraphs(prevIdx)) Then
+            IsTwoBlankLinesZone = True
+        End If
+    End If
+    Exit Function
+
+ErrorHandler:
+    IsTwoBlankLinesZone = False
+End Function
+
+Private Function IsEmentaLikeParagraph(para As Paragraph) As Boolean
+    ' Ementa: paragrafo com texto e recuo a esquerda tipico
+    ' (mesmo criterio do fallback de FindEmentaParagraphIndex).
+    On Error GoTo ErrorHandler
+
+    IsEmentaLikeParagraph = False
+    If para Is Nothing Then Exit Function
+
+    Dim paraText As String
+    paraText = Trim(Replace(Replace(para.Range.text, vbCr, ""), vbLf, ""))
+    IsEmentaLikeParagraph = (Len(paraText) > 1 And para.Format.leftIndent > EMENTA_MIN_LEFT_INDENT)
+    Exit Function
+
+ErrorHandler:
+    IsEmentaLikeParagraph = False
+End Function
 
 '================================================================================
 ' ENHANCED IMAGE PROTECTION - Protecao aprimorada durante formatacao
@@ -2786,10 +2894,14 @@ Public Sub ReplacePlenarioDateParagraph(doc As Document)
                     replaceTarget.Delete
                     replaceTarget.InsertAfter plenarioAcento & " ""Dr. Tancredo Neves"", $DATAATUALEXTENSO$."
                     ' Aplica formatacao: centralizado e sem recuos
+                    ' REGRA MULTI-LINHA: nao centraliza nem zera recuo esquerdo/1a linha
+                    ' em paragrafo com mais de 1 linha
                     With para.Range.ParagraphFormat
-                        .leftIndent = 0
-                        .firstLineIndent = 0
-                        .alignment = wdAlignParagraphCenter
+                        If Not ParagraphHasMultipleLines(para) Then
+                            .leftIndent = 0
+                            .firstLineIndent = 0
+                            .alignment = wdAlignParagraphCenter
+                        End If
                         .SpaceBefore = 0
                         .SpaceAfter = 0
                     End With

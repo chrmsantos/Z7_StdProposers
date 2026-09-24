@@ -1,3 +1,44 @@
+## v9.10.0 — Z7 StdProposers
+
+### Correcoes / Padronizacao de Espacamento
+
+- **2 linhas em branco nas zonas especiais ao final da formatação**: ficam **exatamente 2 linhas em branco** acima da **Data**, acima do **Título da Justificativa** e acima e abaixo da **Ementa** (antes ficava apenas 1 em todos os casos)
+- **`RemoverLinhasEmBrancoExtras` com zonas protegidas**: a padronização generalizada de linhas puladas mantém no máximo 1 linha vazia consecutiva, mas no máximo **2** nas zonas protegidas (acima/abaixo da ementa, acima do título da justificativa, acima da data)
+- **Garantia final pós-padronização** (`PadronizarDocumentoMain`): `ForceDataSpacing`, `ForceJustificativaTitleSpacing` e `ForceEmentaSpacing` rodam **depois** de `RemoverLinhasEmBrancoExtras`/`EnsureConsideringBlankLines` (ordem de baixo para cima), para a regra não ser desfeita por formatação generalizada posterior
+- **`ForceEmentaSpacing` corrigido**: agora garante **exatamente 2** linhas acima (a regra antiga de 3 acima foi removida) e também remove excesso; `ForceDataSpacing` garante exatamente 2 acima da Data (com validação/fallback de localização via `IsDataElement`)
+- **Nova rotina `ForceJustificativaTitleSpacing`** (`Mod_09_SpecialParagraphs.bas`): garante exatamente 2 linhas em branco acima do título "Justificativa"
+
+### Testes
+
+- **6 novos testes de contrato (Pester)** em `VBA.Tests.ps1`: exatamente 2 linhas na ementa/data/título da justificativa, preservação das zonas protegidas em `RemoverLinhasEmBrancoExtras` e ordem da garantia final após a padronização de linhas puladas
+
+### Sincronizacao de Versao
+
+- Versao 9.10.0 alinhada em `VERSION`, `Z7_STDPROPOSERS_VERSION` (`Mod_01_Infrastructure.bas`) e `_APP_VERSION` (`config_prompt.py` e `chat_ia.py`)
+
+---
+
+
+## v9.9.0 — Z7 StdProposers
+
+### Novidades
+
+- **Quebra de parágrafo antes de sufixo de Vereador** (`BreakParagraphBeforeVereadorSuffix`, `Mod_09_SpecialParagraphs.bas`): logo no início das formatações (Passagem 1 de `PreviousFormatting`, logo após a normalização de quebras `^l → ^p`), parágrafos **de uma única linha** terminados por `" - vereador"` / `" - vereadora"` (hífen ASCII ou en-dash `–`) são quebrados imediatamente antes do sufixo, colocando o sufixo em parágrafo próprio
+- Comparação *case-insensitive*; pontuação final opcional (`.` ou `,`) após a palavra é aceita
+- Guard multi-linha (`ParagraphHasMultipleLines`, *fail-closed*): parágrafos que ultrapassam uma linha não são quebrados; prefixo vazio nunca gera parágrafo vazio
+- Após as quebras, a estrutura do documento é recarregada (`IdentifyDocumentStructure doc`) — índices estruturais invalidados pelas novas marcas de parágrafo
+
+### Testes
+
+- **5 novos testes de contrato (Pester)** em `VBA.Tests.ps1`: presença da rotina, cobertura de hífen/en-dash + vereador/vereadora + case-insensitive + pontuação opcional, guard de linha única, proteção de prefixo vazio + refresh de estrutura, e posição da etapa no início do pipeline
+
+### Sincronizacao de Versao
+
+- Versao 9.9.0 alinhada em `VERSION`, `Z7_STDPROPOSERS_VERSION` (`Mod_01_Infrastructure.bas`) e `_APP_VERSION` (`config_prompt.py` e `chat_ia.py` — atualizados de 9.7.0)
+
+---
+
+
 ## v9.7.0 — Z7 StdProposers
 
 ### Seguranca (anti prompt-injection)

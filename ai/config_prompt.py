@@ -23,7 +23,7 @@ LOGGER = configure_component_logger("config_prompt")
 #  Metadata
 # ═════════════════════════════════════════════════════════════════════════════
 
-_APP_VERSION = "9.7.0"
+_APP_VERSION = "9.10.0"
 _APP_AUTHOR  = "CMS"
 _ORG         = "Câmara Municipal de Santa Bárbara d'Oeste"
 _LICENSE     = "GPL-3.0"
@@ -122,7 +122,7 @@ Corrija palavras grudadas, palavras incompletas e erros claros de digitação.
 Identifique frases confusas, truncadas ou mal construídas.
 Quando uma frase estiver sem sentido ou mal construída, reescreva-a de forma clara, natural e coerente.
 
-Reescreva o texto realizando o mínimo possível de alterações em relação ao texto original. 
+PRIORIDADE: Reescreva o texto realizando o mínimo possível de alterações em relação ao texto original. 
 
 A REESCRITA deve preservar o significado original.
 

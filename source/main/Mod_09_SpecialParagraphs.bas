@@ -66,15 +66,23 @@ Public Sub FixHyphenatedVereadorParagraphIndents(doc As Document)
 
             On Error Resume Next
 
+            ' REGRA MULTI-LINHA: nao zera recuo esquerdo/1a linha em paragrafo com mais de 1 linha
+            Dim isMultiLineVereador As Boolean
+            isMultiLineVereador = ParagraphHasMultipleLines(para)
+
             With para.Format
-                .leftIndent = 0
-                .firstLineIndent = 0
+                If Not isMultiLineVereador Then
+                    .leftIndent = 0
+                    .firstLineIndent = 0
+                End If
                 .RightIndent = 0
             End With
 
             With para.Range.ParagraphFormat
-                .leftIndent = 0
-                .firstLineIndent = 0
+                If Not isMultiLineVereador Then
+                    .leftIndent = 0
+                    .firstLineIndent = 0
+                End If
                 .RightIndent = 0
             End With
 
@@ -285,10 +293,13 @@ Public Function FormatDocumentTitle(doc As Document) As Boolean
         .AllCaps = True
     End With
 
+    ' REGRA MULTI-LINHA: nao centraliza nem zera recuo esquerdo/1a linha em titulo com mais de 1 linha
     With firstPara.Format
-        .alignment = wdAlignParagraphCenter
-        .leftIndent = 0
-        .firstLineIndent = 0
+        If Not ParagraphHasMultipleLines(firstPara) Then
+            .alignment = wdAlignParagraphCenter
+            .leftIndent = 0
+            .firstLineIndent = 0
+        End If
         .RightIndent = 0
         .SpaceBefore = 0
         .SpaceAfter = 6  ' Pequeno espaco apos o titulo
@@ -1196,11 +1207,17 @@ Public Sub ApplyBoldToSpecialParagraphs(doc As Document)
 
         ' REFORCO: Garante alinhamento correto baseado no tipo
         pCleanText = GetCleanParagraphText(para)
+        ' REGRA MULTI-LINHA: nao centraliza nem zera recuo esquerdo/1a linha
+        ' em paragrafo com mais de 1 linha
+        Dim pIsMultiLine As Boolean
+        pIsMultiLine = ParagraphHasMultipleLines(para)
         If tituloParaIndex > 0 And para.Range.Start = doc.Paragraphs(tituloParaIndex).Range.Start Then
             ' Titulo: centralizado, caixa alta, sublinhado, sem recuos
-            para.Format.alignment = wdAlignParagraphCenter
-            para.Format.leftIndent = 0
-            para.Format.firstLineIndent = 0
+            If Not pIsMultiLine Then
+                para.Format.alignment = wdAlignParagraphCenter
+                para.Format.leftIndent = 0
+                para.Format.firstLineIndent = 0
+            End If
             para.Format.RightIndent = 0
             para.Format.SpaceBefore = 0
             para.Format.SpaceAfter = 6
@@ -1211,17 +1228,21 @@ Public Sub ApplyBoldToSpecialParagraphs(doc As Document)
             End With
         ElseIf pCleanText = JUSTIFICATIVA_TEXT Then
             ' Justificativa: centralizado (linhas em branco serao inseridas depois)
-            para.Format.alignment = wdAlignParagraphCenter
-            para.Format.leftIndent = 0
-            para.Format.firstLineIndent = 0
+            If Not pIsMultiLine Then
+                para.Format.alignment = wdAlignParagraphCenter
+                para.Format.leftIndent = 0
+                para.Format.firstLineIndent = 0
+            End If
             para.Format.RightIndent = 0
             para.Format.SpaceBefore = 0
             para.Format.SpaceAfter = 0
         ElseIf IsAnexoPattern(pCleanText) Then
             ' Anexo/Anexos: alinhado a esquerda
             para.Format.alignment = wdAlignParagraphLeft
-            para.Format.leftIndent = 0
-            para.Format.firstLineIndent = 0
+            If Not pIsMultiLine Then
+                para.Format.leftIndent = 0
+                para.Format.firstLineIndent = 0
+            End If
             para.Format.RightIndent = 0
         End If
     Next p
@@ -1367,10 +1388,14 @@ Public Sub FormatVereadorParagraphs(doc As Document)
                     End If
 
                     ' Centraliza e zera recuos (seguro mesmo com conteudo visual)
+                    ' REGRA MULTI-LINHA: nao centraliza nem zera recuo esquerdo/1a linha
+                    ' em paragrafo com mais de 1 linha
                     With prevPara.Format
-                        .alignment = wdAlignParagraphCenter
-                        .leftIndent = 0
-                        .firstLineIndent = 0
+                        If Not ParagraphHasMultipleLines(prevPara) Then
+                            .alignment = wdAlignParagraphCenter
+                            .leftIndent = 0
+                            .firstLineIndent = 0
+                        End If
                         .RightIndent = 0
                     End With
                 Else
@@ -1393,9 +1418,11 @@ Public Sub FormatVereadorParagraphs(doc As Document)
                         End With
                     End If
                     With prevPrevPara.Format
-                        .alignment = wdAlignParagraphCenter
-                        .leftIndent = 0
-                        .firstLineIndent = 0
+                        If Not ParagraphHasMultipleLines(prevPrevPara) Then
+                            .alignment = wdAlignParagraphCenter
+                            .leftIndent = 0
+                            .firstLineIndent = 0
+                        End If
                         .RightIndent = 0
                     End With
                 Else
@@ -1407,9 +1434,11 @@ Public Sub FormatVereadorParagraphs(doc As Document)
             If i < doc.Paragraphs.count Then
                 Set NextPara = doc.Paragraphs(i + 1)
                 With NextPara.Format
-                    .alignment = wdAlignParagraphCenter
-                    .leftIndent = 0
-                    .firstLineIndent = 0
+                    If Not ParagraphHasMultipleLines(NextPara) Then
+                        .alignment = wdAlignParagraphCenter
+                        .leftIndent = 0
+                        .firstLineIndent = 0
+                    End If
                     .RightIndent = 0
                 End With
             End If
@@ -1737,17 +1766,25 @@ Public Sub ApplyVereadorParagraphFormatting(para As Paragraph)
     End With
 
     ' Centraliza e zera recuos
+    ' REGRA MULTI-LINHA: nao centraliza nem zera recuo esquerdo/1a linha
+    ' em paragrafo com mais de 1 linha
+    Dim isMultiLinePara As Boolean
+    isMultiLinePara = ParagraphHasMultipleLines(para)
     With para.Format
-        .alignment = wdAlignParagraphCenter
-        .leftIndent = 0
-        .firstLineIndent = 0
+        If Not isMultiLinePara Then
+            .alignment = wdAlignParagraphCenter
+            .leftIndent = 0
+            .firstLineIndent = 0
+        End If
         .RightIndent = 0
     End With
 
     ' Reforco adicional (em alguns casos, para.Format nao vence estilo/lista)
     With para.Range.ParagraphFormat
-        .leftIndent = 0
-        .firstLineIndent = 0
+        If Not isMultiLinePara Then
+            .leftIndent = 0
+            .firstLineIndent = 0
+        End If
         .RightIndent = 0
     End With
 
@@ -1943,6 +1980,205 @@ Public Sub InsertJustificativaBlankLines(doc As Document)
 ErrorHandler:
     LogMessage "Erro ao inserir linhas em branco: " & Err.Description, LOG_LEVEL_WARNING
 End Sub
+
+'================================================================================
+' GARANTIA FINAL DE ESPACAMENTO DO TITULO DA JUSTIFICATIVA
+' Garante exatamente 2 paragrafos em branco ACIMA do titulo "Justificativa".
+' Executada como etapa final para nao ser desfeita pela padronizacao
+' generalizada posterior de linhas puladas.
+'================================================================================
+
+Public Sub ForceJustificativaTitleSpacing(doc As Document)
+    On Error GoTo ErrorHandler
+
+    If doc Is Nothing Then Exit Sub
+
+    Dim justIdx As Long
+    justIdx = FindJustificativaTitleIndex(doc)
+    If justIdx <= 0 Or justIdx > doc.Paragraphs.count Then Exit Sub
+
+    Dim totalBefore As Long
+    Dim idxShift As Long
+    Dim newIdx As Long
+
+    totalBefore = doc.Paragraphs.count
+
+    ' EXATAMENTE 2 PARAGRAFOS EM BRANCO ACIMA DO TITULO DA JUSTIFICATIVA
+    newIdx = RemoveBlankLinesBefore(doc, justIdx)
+    InsertBlankLinesBefore doc, newIdx, 2
+    justIdx = newIdx + 2
+
+    ' Ajusta indices estruturais conforme o deslocamento liquido de paragrafos
+    idxShift = doc.Paragraphs.count - totalBefore
+    tituloJustificativaIndex = justIdx
+    If dataParaIndex > 0 Then dataParaIndex = dataParaIndex + idxShift
+
+    LogMessage "ForceJustificativaTitleSpacing: 2 paragrafos em branco garantidos acima do Titulo da Justificativa", LOG_LEVEL_INFO
+
+    Exit Sub
+
+ErrorHandler:
+    LogMessage "Erro ao garantir espacamento do Titulo da Justificativa: " & Err.Description, LOG_LEVEL_WARNING
+End Sub
+
+Private Function FindJustificativaTitleIndex(doc As Document) As Long
+    On Error GoTo ErrorHandler
+
+    FindJustificativaTitleIndex = 0
+
+    ' Preferencia: indice estrutural, validado pelo texto do titulo
+    If tituloJustificativaIndex > 0 And tituloJustificativaIndex <= doc.Paragraphs.count Then
+        If GetCleanParagraphText(doc.Paragraphs(tituloJustificativaIndex)) = JUSTIFICATIVA_TEXT Then
+            FindJustificativaTitleIndex = tituloJustificativaIndex
+            Exit Function
+        End If
+    End If
+
+    ' Fallback: varredura pelo texto do titulo
+    Dim i As Long
+    For i = 1 To doc.Paragraphs.count
+        If i > doc.Paragraphs.count Then Exit For
+        If GetCleanParagraphText(doc.Paragraphs(i)) = JUSTIFICATIVA_TEXT Then
+            FindJustificativaTitleIndex = i
+            Exit Function
+        End If
+    Next i
+
+    Exit Function
+
+ErrorHandler:
+    FindJustificativaTitleIndex = 0
+End Function
+
+'================================================================================
+' QUEBRA DE PARAGRAFO ANTES DE SUFIXO DE VEREADOR
+' Paragrafos terminados por " - vereador" / " - vereadora" (ou as variantes com
+' en-dash ChrW(8211)) que ocupam no maximo uma linha sao quebrados
+' imediatamente antes do sufixo, colocando o sufixo em paragrafo proprio.
+' Comparacao case-insensitive; pontuacao final opcional ("." ou ",") e aceita.
+'================================================================================
+Public Sub BreakParagraphBeforeVereadorSuffix(doc As Document)
+    On Error GoTo ErrorHandler
+
+    If doc Is Nothing Then Exit Sub
+
+    Const MAX_SPLITS_PER_PARAGRAPH As Long = 5
+
+    Dim para As Paragraph
+    Dim splitRange As Range
+    Dim splitPos As Long
+    Dim splitCount As Long
+    Dim splitsInPara As Long
+    Dim i As Long
+
+    splitCount = 0
+
+    For i = 1 To doc.Paragraphs.count
+        If i > doc.Paragraphs.count Then Exit For
+
+        If Not undoRecordActive Then
+            If i Mod 30 = 0 Then DoEvents
+        End If
+
+        splitsInPara = 0
+        Do
+            Set para = doc.Paragraphs(i)
+            splitPos = GetVereadorSuffixSplitPos(para.Range.text)
+
+            ' Sem sufixo no fim ou prefixo vazio: nada a fazer
+            If splitPos <= 1 Then Exit Do
+
+            ' REGRA MULTI-LINHA: so quebra paragrafo que nao ultrapassa uma linha
+            ' (fail-closed: se nao for possivel medir, nao quebra)
+            If ParagraphHasMultipleLines(para) Then Exit Do
+
+            ' Quebra de paragrafo imediatamente antes do sufixo
+            Set splitRange = para.Range.Duplicate
+            splitRange.SetRange Start:=para.Range.Start + splitPos - 1, _
+                                End:=para.Range.Start + splitPos - 1
+            splitRange.InsertBefore vbCr
+
+            splitCount = splitCount + 1
+            splitsInPara = splitsInPara + 1
+            If splitsInPara >= MAX_SPLITS_PER_PARAGRAPH Then Exit Do
+        Loop
+    Next i
+
+    If splitCount > 0 Then
+        LogMessage "Quebras antes de sufixo de Vereador: " & splitCount & " ocorrencias", LOG_LEVEL_INFO
+        ' Indices estruturais invalidados pelas novas marcas de paragrafo
+        IdentifyDocumentStructure doc
+    End If
+
+    Exit Sub
+
+ErrorHandler:
+    LogMessage "Erro ao quebrar paragrafo antes de sufixo de Vereador: " & Err.Description, LOG_LEVEL_ERROR
+End Sub
+
+Private Function GetVereadorSuffixSplitPos(ByVal rawText As String) As Long
+    ' Retorna a posicao (1-based) em rawText onde comeca o sufixo
+    ' " - vereador" / " - vereadora" (hifen ASCII ou en-dash ChrW(8211))
+    ' que termina o texto, aceitando pontuacao final opcional ("." ou ",").
+    ' Retorna 0 quando nao ha sufixo ou quando o prefixo antes dele e vazio
+    ' (evita criar paragrafo vazio). Comparacao case-insensitive.
+    Dim cleanText As String
+    Dim lowerText As String
+    Dim suffixes(1 To 4) As String
+    Dim prevLen As Long
+    Dim startPos As Long
+    Dim suffixLen As Long
+    Dim i As Long
+
+    cleanText = rawText
+
+    ' Remove marcas de paragrafo/celula e espacos finais
+    Do While Len(cleanText) > 0
+        If InStr(vbCr & vbLf & " " & vbTab & Chr$(7) & Chr$(11), Right$(cleanText, 1)) = 0 Then Exit Do
+        cleanText = Left$(cleanText, Len(cleanText) - 1)
+    Loop
+
+    ' Aceita pontuacao final opcional ("." ou ","), mesmo com espacos entre elas
+    prevLen = -1
+    Do While Len(cleanText) <> prevLen
+        prevLen = Len(cleanText)
+
+        Do While Len(cleanText) > 0
+            If InStr(" " & vbTab, Right$(cleanText, 1)) = 0 Then Exit Do
+            cleanText = Left$(cleanText, Len(cleanText) - 1)
+        Loop
+
+        Do While Len(cleanText) > 0
+            If InStr(".,", Right$(cleanText, 1)) = 0 Then Exit Do
+            cleanText = Left$(cleanText, Len(cleanText) - 1)
+        Loop
+    Loop
+
+    lowerText = LCase$(cleanText)
+
+    ' Variante feminina primeiro (mais longa) para evitar casamento parcial
+    suffixes(1) = " - vereadora"
+    suffixes(2) = " - vereador"
+    suffixes(3) = " " & ChrW(8211) & " vereadora"
+    suffixes(4) = " " & ChrW(8211) & " vereador"
+
+    For i = 1 To 4
+        suffixLen = Len(suffixes(i))
+        If Len(cleanText) >= suffixLen Then
+            If Right$(lowerText, suffixLen) = suffixes(i) Then
+                startPos = Len(cleanText) - suffixLen + 1
+                If Len(Trim$(Left$(cleanText, startPos - 1))) > 0 Then
+                    GetVereadorSuffixSplitPos = startPos
+                Else
+                    GetVereadorSuffixSplitPos = 0
+                End If
+                Exit Function
+            End If
+        End If
+    Next i
+
+    GetVereadorSuffixSplitPos = 0
+End Function
 
 '================================================================================
 ' FUNCOES AUXILIARES PARA DETECCAO DE PADROES

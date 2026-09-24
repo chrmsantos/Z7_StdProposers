@@ -2027,11 +2027,15 @@ Public Function FormatImageParagraphsIndents(doc As Document) As Boolean
         ' Verifica se o paragrafo contem imagens inline
         If para.Range.InlineShapes.count > 0 Then
             ' Zera o recuo a esquerda e centraliza
-            With para.Format
-                .leftIndent = 0
-                .firstLineIndent = 0
-                .alignment = wdAlignParagraphCenter
-            End With
+            ' REGRA MULTI-LINHA: nao centraliza nem zera recuo esquerdo/1a linha
+            ' em paragrafo com mais de 1 linha
+            If Not ParagraphHasMultipleLines(para) Then
+                With para.Format
+                    .leftIndent = 0
+                    .firstLineIndent = 0
+                    .alignment = wdAlignParagraphCenter
+                End With
+            End If
             formattedCount = formattedCount + 1
         End If
     Next para
@@ -2274,9 +2278,12 @@ Public Function CenterImageAfterPlenario(doc As Document) As Boolean
 
             ' Se o paragrafo contem imagem, centraliza
             If para.Range.InlineShapes.count > 0 Then
-                para.alignment = wdAlignParagraphCenter
-                centeredCount = centeredCount + 1
-                LogMessage "Imagem centralizada na linha " & lineCount & " apos Plenario", LOG_LEVEL_INFO
+                ' REGRA MULTI-LINHA: nao centraliza paragrafo com mais de 1 linha
+                If Not ParagraphHasMultipleLines(para) Then
+                    para.alignment = wdAlignParagraphCenter
+                    centeredCount = centeredCount + 1
+                    LogMessage "Imagem centralizada na linha " & lineCount & " apos Plenario", LOG_LEVEL_INFO
+                End If
             End If
         End If
 
@@ -2472,13 +2479,17 @@ Public Function RestoreCenteredParagraphs(doc As Document) As Boolean
         End If
 
         ' Aplica centralizacao e zeragem de recuo
+        ' REGRA MULTI-LINHA: nao centraliza nem zera recuo esquerdo/1a linha
+        ' em paragrafo com mais de 1 linha
         If matched Then
-            With para.Format
-                .alignment = wdAlignParagraphCenter
-                .leftIndent = 0
-                .firstLineIndent = 0
-            End With
-            restoredCount = restoredCount + 1
+            If Not ParagraphHasMultipleLines(para) Then
+                With para.Format
+                    .alignment = wdAlignParagraphCenter
+                    .leftIndent = 0
+                    .firstLineIndent = 0
+                End With
+                restoredCount = restoredCount + 1
+            End If
         End If
 
         If Err.Number <> 0 Then Err.Clear
