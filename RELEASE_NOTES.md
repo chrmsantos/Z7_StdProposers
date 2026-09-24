@@ -1,3 +1,21 @@
+## v10.0.0 — Z7 StdProposers
+
+### Correcoes / Padronizacao de Espacamento
+
+- **2 linhas em branco também abaixo do Título da Justificativa**: a zona entre o título "Justificativa:" e o seu corpo agora fica com **exatamente 2 linhas em branco** (as demais zonas permanecem como na v9.10.0: acima/abaixo da ementa, acima do título da justificativa e acima da data)
+- `ForceJustificativaTitleSpacing` agora garante 2 linhas **acima e abaixo** do título; `RemoverLinhasEmBrancoExtras` passa a proteger também o bloco de vazios abaixo do título da justificativa
+
+### Testes
+
+- Testes de contrato atualizados: `ForceJustificativaTitleSpacing` valida acima **e** abaixo; zona protegida abaixo do título validada em `RemoverLinhasEmBrancoExtras`
+
+### Sincronizacao de Versao
+
+- Versao 10.0.0 alinhada em `VERSION`, `Z7_STDPROPOSERS_VERSION` (`Mod_01_Infrastructure.bas`) e `_APP_VERSION` (`config_prompt.py` e `chat_ia.py`)
+
+---
+
+
 ## v9.10.0 — Z7 StdProposers
 
 ### Correcoes / Padronizacao de Espacamento

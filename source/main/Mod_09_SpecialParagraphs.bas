@@ -1983,9 +1983,9 @@ End Sub
 
 '================================================================================
 ' GARANTIA FINAL DE ESPACAMENTO DO TITULO DA JUSTIFICATIVA
-' Garante exatamente 2 paragrafos em branco ACIMA do titulo "Justificativa".
-' Executada como etapa final para nao ser desfeita pela padronizacao
-' generalizada posterior de linhas puladas.
+' Garante exatamente 2 paragrafos em branco ACIMA e ABAIXO do titulo
+' "Justificativa". Executada como etapa final para nao ser desfeita pela
+' padronizacao generalizada posterior de linhas puladas.
 '================================================================================
 
 Public Sub ForceJustificativaTitleSpacing(doc As Document)
@@ -2008,12 +2008,17 @@ Public Sub ForceJustificativaTitleSpacing(doc As Document)
     InsertBlankLinesBefore doc, newIdx, 2
     justIdx = newIdx + 2
 
+    ' EXATAMENTE 2 PARAGRAFOS EM BRANCO ABAIXO DO TITULO DA JUSTIFICATIVA
+    ' (remocoes/insercoes abaixo nao deslocam o indice do titulo)
+    RemoveBlankLinesAfter doc, justIdx
+    InsertBlankLinesAfter doc, justIdx, 2
+
     ' Ajusta indices estruturais conforme o deslocamento liquido de paragrafos
     idxShift = doc.Paragraphs.count - totalBefore
     tituloJustificativaIndex = justIdx
     If dataParaIndex > 0 Then dataParaIndex = dataParaIndex + idxShift
 
-    LogMessage "ForceJustificativaTitleSpacing: 2 paragrafos em branco garantidos acima do Titulo da Justificativa", LOG_LEVEL_INFO
+    LogMessage "ForceJustificativaTitleSpacing: 2 paragrafos em branco garantidos acima e abaixo do Titulo da Justificativa", LOG_LEVEL_INFO
 
     Exit Sub
 

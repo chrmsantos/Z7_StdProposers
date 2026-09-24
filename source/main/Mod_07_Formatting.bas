@@ -2620,7 +2620,7 @@ End Function
 
 Private Function IsTwoBlankLinesZone(doc As Document, prevIdx As Long, nextIdx As Long) As Boolean
     ' Zona protegida com 2 linhas em branco: bloco de vazios acima/abaixo da
-    ' Ementa, acima do Titulo da Justificativa ou acima da Data.
+    ' Ementa, acima/abaixo do Titulo da Justificativa ou acima da Data.
     On Error GoTo ErrorHandler
 
     IsTwoBlankLinesZone = False
@@ -2642,6 +2642,10 @@ Private Function IsTwoBlankLinesZone(doc As Document, prevIdx As Long, nextIdx A
 
     If prevIdx >= 1 And prevIdx <= doc.Paragraphs.count Then
         If IsEmentaLikeParagraph(doc.Paragraphs(prevIdx)) Then
+            IsTwoBlankLinesZone = True
+            Exit Function
+        End If
+        If IsJustificativaTitleElement(doc.Paragraphs(prevIdx)) Then
             IsTwoBlankLinesZone = True
         End If
     End If

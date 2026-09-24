@@ -229,11 +229,11 @@ A macro executa em sete fases encadeadas:
 
 ## Fase 5 — Ajustes pós-pipeline
 
-73. Remoção de linhas em branco extras: `RemoverLinhasEmBrancoExtras doc` — máximo 1 linha vazia consecutiva (máximo **2** nas zonas protegidas: acima/abaixo da ementa, acima do título da justificativa e acima da data).
+73. Remoção de linhas em branco extras: `RemoverLinhasEmBrancoExtras doc` — máximo 1 linha vazia consecutiva (máximo **2** nas zonas protegidas: acima/abaixo da ementa, acima/abaixo do título da justificativa e acima da data).
 
 74. Garantia de linhas em branco após "CONSIDERANDO": `EnsureConsideringBlankLines doc`.
 
-75. Garantia final de **2 linhas em branco** nas zonas especiais (acima da data, acima do título da justificativa, acima e abaixo da ementa), executada **depois** de toda a padronização generalizada de linhas puladas para não ser desfeita: `ForceDataSpacing doc`, `ForceJustificativaTitleSpacing doc` e `ForceEmentaSpacing doc` (ordem de baixo para cima).
+75. Garantia final de **2 linhas em branco** nas zonas especiais (acima e abaixo da ementa, acima e abaixo do título da justificativa, acima da data), executada **depois** de toda a padronização generalizada de linhas puladas para não ser desfeita: `ForceDataSpacing doc`, `ForceJustificativaTitleSpacing doc` e `ForceEmentaSpacing doc` (ordem de baixo para cima).
 
 78. Formatação de recuos de imagens: `FormatImageParagraphsIndents(doc)` — zera recuo esquerdo/primeira linha e centraliza parágrafos com imagens inline.
 

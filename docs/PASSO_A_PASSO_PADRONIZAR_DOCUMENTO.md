@@ -376,7 +376,7 @@ Para cada parágrafo que contenha apenas "Vereador" (com ou sem hífens/travess�
 ### 6.2 Remoção de Linhas em Branco Extras (`RemoverLinhasEmBrancoExtras`)
 
 - **Espaçamento simples** em todos os parágrafos (entre linhas = 12pt, espaço antes/depois = 0).
-- Remove parágrafos vazios consecutivos (mantém no máximo 1 — e no máximo **2** nas **zonas protegidas**: acima/abaixo da ementa, acima do título da justificativa e acima da data, preservando a regra das 2 linhas em branco).
+- Remove parágrafos vazios consecutivos (mantém no máximo 1 — e no máximo **2** nas **zonas protegidas**: acima/abaixo da ementa, acima/abaixo do título da justificativa e acima da data, preservando a regra das 2 linhas em branco).
 - Remove parágrafos que contenham apenas um espaço (`" "`).
 - **Substituições de texto adicionais:**
   - `"por intermedio do Setor,"` → `"por intermédio do Setor competente,"`.
@@ -395,7 +395,7 @@ Para cada parágrafo que contenha apenas "Vereador" (com ou sem hífens/travess�
 ### 6.4 Garantia Final de 2 Linhas em Branco nas Zonas Especiais (`ForceDataSpacing` / `ForceJustificativaTitleSpacing` / `ForceEmentaSpacing`)
 
 - Executada **depois** de toda a padronização generalizada de linhas puladas (`RemoverLinhasEmBrancoExtras` e `EnsureConsideringBlankLines`), para que a regra de **2 linhas em branco** não seja desfeita por elas.
-- Garante **exatamente 2 linhas em branco**: acima da **Data**, acima do **Título da Justificativa** e acima e abaixo da **Ementa**.
+- Garante **exatamente 2 linhas em branco**: acima e abaixo da **Ementa**, acima e abaixo do **Título da Justificativa** e acima da **Data**.
 - Ordem de baixo para cima (Data → Título da Justificativa → Ementa) para que os deslocamentos de índice não afetem os elementos já ajustados.
 
 ### 6.5 Formatação de Recuos de Imagens (`FormatImageParagraphsIndents`)

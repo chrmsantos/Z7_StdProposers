@@ -1026,7 +1026,7 @@ Describe 'Z7_STDPROPOSERS - VBA Modular Architecture' {
 
         }
 
-        It 'ForceJustificativaTitleSpacing garante exatamente 2 linhas acima do titulo da Justificativa' {
+        It 'ForceJustificativaTitleSpacing garante exatamente 2 linhas acima e abaixo do titulo da Justificativa' {
 
             $mod09 = $script:moduleContent['Mod_09_SpecialParagraphs.bas']
 
@@ -1037,6 +1037,11 @@ Describe 'Z7_STDPROPOSERS - VBA Modular Architecture' {
             $fn.Value | Should Match 'RemoveBlankLinesBefore'
 
             $fn.Value | Should Match 'InsertBlankLinesBefore'
+
+            # Abaixo do titulo: remove excesso e re-insere 2
+            $fn.Value | Should Match 'RemoveBlankLinesAfter'
+
+            $fn.Value | Should Match 'InsertBlankLinesAfter'
 
             $mod09 | Should Match '(?m)^Private Function FindJustificativaTitleIndex\(doc As Document\) As Long'
 
@@ -1057,6 +1062,9 @@ Describe 'Z7_STDPROPOSERS - VBA Modular Architecture' {
             $fn.Value | Should Match 'maxBlank = 2'
 
             $mod07 | Should Match 'Private Function IsTwoBlankLinesZone\(doc As Document, prevIdx As Long, nextIdx As Long\) As Boolean'
+
+            # Zona abaixo do titulo da Justificativa tambem e protegida (ancora anterior)
+            $mod07 | Should Match 'IsJustificativaTitleElement\(doc\.Paragraphs\(prevIdx\)\)'
 
         }
 
