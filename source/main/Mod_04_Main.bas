@@ -792,6 +792,8 @@ Public Sub NormalizarLinhasEmBranco(doc As Document)
     Dim nextIdx As Long
     Dim maxBlank As Long
     Dim removedCount As Long
+    Dim excess As Long
+    Dim deleteErr As Long
 
     removedCount = 0
     i = doc.Paragraphs.count
@@ -819,12 +821,27 @@ Public Sub NormalizarLinhasEmBranco(doc As Document)
                 If IsDataElement(doc.Paragraphs(nextIdx)) Then maxBlank = 2
             End If
 
-            ' Apaga o excedente (sempre a primeira do bloco)
-            Do While (runEnd - runStart + 1) > maxBlank
-                doc.Paragraphs(runStart).Range.Delete
-                removedCount = removedCount + 1
-                runEnd = runEnd - 1
-            Loop
+            ' Apaga o excedente (sempre as primeiras do bloco) em uma unica
+            ' delecao de range - uma unica repaginacao do Word, em vez de uma
+            ' por paragrafo. Fallback: loop original em caso de erro.
+            excess = (runEnd - runStart + 1) - maxBlank
+            If excess > 0 Then
+                On Error Resume Next
+                doc.Range(doc.Paragraphs(runStart).Range.Start, _
+                          doc.Paragraphs(runStart + excess - 1).Range.End).Delete
+                deleteErr = Err.Number
+                Err.Clear
+                On Error GoTo ErrorHandler
+                If deleteErr = 0 Then
+                    removedCount = removedCount + excess
+                Else
+                    Do While (runEnd - runStart + 1) > maxBlank
+                        doc.Paragraphs(runStart).Range.Delete
+                        removedCount = removedCount + 1
+                        runEnd = runEnd - 1
+                    Loop
+                End If
+            End If
 
             i = runStart - 1
         Else
@@ -846,7 +863,13 @@ Private Function EhLinhaVaziaZ7(para As Paragraph) As Boolean
     On Error GoTo ErrorHandler
     Dim t As String
     t = Trim(Replace(Replace(para.Range.Text, vbCr, ""), vbLf, ""))
-    EhLinhaVaziaZ7 = (t = "" And Not HasVisualContent(para))
+    ' Evita HasVisualContent (COM) quando o paragrafo tem texto: o resultado
+    ' so depende dele quando o texto e vazio (And do VBA nao faz curto-circuito)
+    If Len(t) = 0 Then
+        EhLinhaVaziaZ7 = Not HasVisualContent(para)
+    Else
+        EhLinhaVaziaZ7 = False
+    End If
     Exit Function
 ErrorHandler:
     EhLinhaVaziaZ7 = False

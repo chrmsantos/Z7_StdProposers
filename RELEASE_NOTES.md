@@ -1,3 +1,22 @@
+## v10.2.2 — Z7 StdProposers
+
+### Performance do Pipeline (equivalente, sem mudanca funcional)
+
+- **Espacamento de paragrafos em lote** (`RemoverLinhasEmBrancoExtras`): `doc.Content.ParagraphFormat` aplica as 4 propriedades de espacamento em 1 range (4 chamadas COM no total, em vez de 4 por paragrafo). Fallback por paragrafo em caso de erro, preservando o comportamento original
+- **Remocao de blocos de linhas vazias em uma unica delecao de range** (`RemoverLinhasEmBrancoExtras` e `NormalizarLinhasEmBranco`): 1 repaginacao do Word por bloco excedente, em vez de 1 por paragrafo; loop original mantido como fallback. Semantica preservada (mesmos paragrafos removidos, mesmas zonas protegidas de 2 linhas)
+- **Checagem de conteudo visual apenas quando o texto e vazio** (`IsBlankParagraphForCleanup`, `EhLinhaVaziaZ7`, `RemoveBlankLinesBefore/After`): o `And` do VBA nao faz curto-circuito e a funcao percorria `ShapeRange` (com excecao COM) ate para paragrafos com texto
+- **Identificacao de estrutura (IA) sem duplicacao**: `BuildParagraphCache` ganhou `Optional refreshStructure`; o rebuild de cache apos delecoes usa `refreshStructure:=False` (a estrutura ja foi identificada para o mesmo texto), eliminando 1 chamada de IA por execucao do pipeline
+
+### Testes
+
+- Novos contratos em `VBA.Tests.ps1`: espacamento em lote com fallback, remocao em bloco unico e ausencia de re-identificacao redundante
+
+### Sincronizacao de Versao
+
+- Versao 10.2.2 alinhada em `VERSION`, `Z7_STDPROPOSERS_VERSION` (`Mod_01_Infrastructure.bas`) e `_APP_VERSION` (`config_prompt.py` e `chat_ia.py`)
+
+---
+
 ## v10.2.1 — Z7 StdProposers
 
 ### Correcoes

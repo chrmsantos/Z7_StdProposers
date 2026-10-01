@@ -1078,6 +1078,42 @@ Describe 'Z7_STDPROPOSERS - VBA Modular Architecture' {
 
         }
 
+        It 'RemoverLinhasEmBrancoExtras otimiza COM com fallbacks equivalentes' {
+
+            $mod07 = $script:moduleContent['Mod_07_Formatting.bas']
+
+            $fn = [regex]::Match($mod07, '(?s)Public Sub RemoverLinhasEmBrancoExtras\(.*?End Sub')
+
+            $fn.Success | Should Be $true
+
+            # Espacamento em lote no conteudo inteiro (4 sets COM no total)
+
+            $fn.Value | Should Match 'doc\.Content\.ParagraphFormat'
+
+            # Fallback por paragrafo preservado (comportamento original)
+
+            $fn.Value | Should Match 'For Each p In doc\.Paragraphs'
+
+            # Bloco excedente de linhas vazias removido em uma unica delecao
+
+            $fn.Value | Should Match 'doc\.Range\(doc\.Paragraphs'
+
+        }
+
+        It 'Rebuild de cache pos-delecoes nao repete a identificacao de estrutura' {
+
+            $mod02 = $script:moduleContent['Mod_02_Engine.bas']
+
+            $mod07 = $script:moduleContent['Mod_07_Formatting.bas']
+
+            $mod02 | Should Match 'Optional ByVal refreshStructure As Boolean = True'
+
+            $fn = [regex]::Match($mod07, '(?s)Public Sub RemoverLinhasEmBrancoExtras\(.*?End Sub')
+
+            $fn.Value | Should Match 'BuildParagraphCache doc, refreshStructure:=False'
+
+        }
+
         It 'Normalizacao generalizada de linhas roda ANTES das garantias zonais' {
 
             $mod04 = $script:moduleContent['Mod_04_Main.bas']

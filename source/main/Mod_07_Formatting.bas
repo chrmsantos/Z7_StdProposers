@@ -377,7 +377,7 @@ Public Function ApplyStdParagraphs(doc As Document) As Boolean
                         .leftIndent = CentimetersToPoints(9)
                     ElseIf firstIndent < CentimetersToPoints(5) Then
                         .leftIndent = CentimetersToPoints(0)
-                        .firstLineIndent = CentimetersToPoints(2.5)
+                        .firstLineIndent = CentimetersToPoints(2)
                     End If
                 End If
             End With
@@ -2390,17 +2390,31 @@ Public Sub RemoverLinhasEmBrancoExtras(doc As Document)
     LogMessage "Removendo linhas em branco extras e aplicando ajustes...", LOG_LEVEL_INFO
 
     ' --- Espacamento simples em todos os paragrafos ---
+    ' OTIMIZACAO: aplicacao em lote sobre o conteudo inteiro (4 propriedades
+    ' em 1 range = 4 chamadas COM no total, em vez de 4 por paragrafo).
+    ' Fallback por paragrafo em caso de erro (ex.: secoes protegidas),
+    ' preservando o comportamento original do loop.
     Dim p As Paragraph
-    For Each p In doc.Paragraphs
-        On Error Resume Next
-        With p.Format
-            .LineSpacingRule = wdLineSpaceSingle
-            .LineSpacing = 12
-            .SpaceBefore = 0
-            .SpaceAfter = 0
-        End With
-        On Error GoTo ErrorHandler
-    Next p
+    On Error Resume Next
+    With doc.Content.ParagraphFormat
+        .LineSpacingRule = wdLineSpaceSingle
+        .LineSpacing = 12
+        .SpaceBefore = 0
+        .SpaceAfter = 0
+    End With
+    If Err.Number <> 0 Then
+        Err.Clear
+        For Each p In doc.Paragraphs
+            With p.Format
+                .LineSpacingRule = wdLineSpaceSingle
+                .LineSpacing = 12
+                .SpaceBefore = 0
+                .SpaceAfter = 0
+            End With
+            If Err.Number <> 0 Then Err.Clear
+        Next p
+    End If
+    On Error GoTo ErrorHandler
 
     ' --- Converte paragrafos com espaco unico em paragrafos vazios ---
     Dim pRange As Range
@@ -2422,6 +2436,8 @@ Public Sub RemoverLinhasEmBrancoExtras(doc As Document)
     Dim runEnd As Long
     Dim runLen As Long
     Dim maxBlank As Long
+    Dim excess As Long
+    Dim deleteErr As Long
 
     i = doc.Paragraphs.count
     Do While i >= 1
@@ -2440,15 +2456,31 @@ Public Sub RemoverLinhasEmBrancoExtras(doc As Document)
             If IsTwoBlankLinesZone(doc, runStart - 1, runEnd + 1) Then maxBlank = 2
 
             runLen = runEnd - runStart + 1
-            Do While runLen > maxBlank
+            If runLen > maxBlank Then
+                ' OTIMIZACAO: remove o bloco excedente em uma unica delecao de
+                ' range (uma unica repaginacao do Word, em vez de uma por
+                ' paragrafo). Equivalente ao loop original, que removia de
+                ' baixo para cima preservando os maxBlank primeiros do bloco.
+                excess = runLen - maxBlank
                 On Error Resume Next
-                doc.Paragraphs(runEnd).Range.Delete
-                If Err.Number = 0 Then removedCount = removedCount + 1
+                doc.Range(doc.Paragraphs(runStart + maxBlank).Range.Start, _
+                          doc.Paragraphs(runEnd).Range.End).Delete
+                deleteErr = Err.Number
                 Err.Clear
+                If deleteErr = 0 Then
+                    removedCount = removedCount + excess
+                Else
+                    ' Fallback: remocao paragrafo a paragrafo (comportamento original)
+                    Do While runLen > maxBlank
+                        doc.Paragraphs(runEnd).Range.Delete
+                        If Err.Number = 0 Then removedCount = removedCount + 1
+                        Err.Clear
+                        runEnd = runEnd - 1
+                        runLen = runLen - 1
+                    Loop
+                End If
                 On Error GoTo ErrorHandler
-                runEnd = runEnd - 1
-                runLen = runLen - 1
-            Loop
+            End If
 
             i = runStart - 1
         Else
@@ -2586,12 +2618,14 @@ Public Sub RemoverLinhasEmBrancoExtras(doc As Document)
     LogMessage "Linhas em branco removidas: " & removedCount & ", substituicoes: " & replacedCount, LOG_LEVEL_INFO
     
     ' CORRECAO CRITICA (Index Staleness):
-    ' Como linhas em branco foram deletadas fisicamente, os indices globais (titulo, ementa, justificativa) 
-    ' agora apontam para o limbo (desalinhados). For�amos a reconstru��o do cache antes de prosseguir.
+    ' Como linhas em branco foram deletadas fisicamente, os indices dos
+    ' paragrafos do cache deslocaram e precisam ser reconstruidos antes de
+    ' prosseguir. A estrutura (indices globais) ja foi re-identificada apos as
+    ' delecoes (bloco acima) para o MESMO texto, entao refreshStructure:=False
+    ' evita uma segunda chamada de IA redundante.
     If removedCount > 0 Then
         LogMessage "Reconstruindo cache arquitetural devido as delecoes fisicas...", LOG_LEVEL_INFO
-        ClearParagraphCache
-        BuildParagraphCache doc
+        BuildParagraphCache doc, refreshStructure:=False
     End If
     
     Exit Sub
@@ -2611,7 +2645,14 @@ Private Function IsBlankParagraphForCleanup(para As Paragraph) As Boolean
 
     Dim paraText As String
     paraText = Trim(Replace(Replace(para.Range.text, vbCr, ""), vbLf, ""))
-    IsBlankParagraphForCleanup = (paraText = "" And Not HasVisualContent(para))
+
+    ' Evita HasVisualContent (COM) quando o paragrafo tem texto: o resultado
+    ' so depende dele quando o texto e vazio (And do VBA nao faz curto-circuito)
+    If Len(paraText) = 0 Then
+        IsBlankParagraphForCleanup = Not HasVisualContent(para)
+    Else
+        IsBlankParagraphForCleanup = False
+    End If
     Exit Function
 
 ErrorHandler:

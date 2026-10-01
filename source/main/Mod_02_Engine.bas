@@ -1050,7 +1050,7 @@ End Sub
 '================================================================================
 ' CONSTRUCAO DO CACHE DE PARAGRAFOS - Otimizacao principal
 '================================================================================
-Public Sub BuildParagraphCache(doc As Document)
+Public Sub BuildParagraphCache(doc As Document, Optional ByVal refreshStructure As Boolean = True)
     On Error GoTo ErrorHandler
 
     Dim startTime As Double
@@ -1101,8 +1101,10 @@ Public Sub BuildParagraphCache(doc As Document)
 
     LogMessage "Cache construido: " & cacheSize & " paragrafos em " & Format(elapsed, "0.00") & "s", LOG_LEVEL_INFO
 
-    ' Identifica a estrutura do documento apos construir o cache
-    IdentifyDocumentStructure doc
+    ' Identifica a estrutura do documento apos construir o cache.
+    ' refreshStructure:=False quando a estrutura ja foi identificada para o
+    ' mesmo texto (evita chamada de IA redundante por execucao do pipeline).
+    If refreshStructure Then IdentifyDocumentStructure doc
 
     Exit Sub
 

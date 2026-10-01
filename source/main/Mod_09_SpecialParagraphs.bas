@@ -1817,13 +1817,13 @@ Public Function RemoveBlankLinesBefore(doc As Document, ByVal targetIndex As Lon
         Set para = doc.Paragraphs(i)
         paraText = Trim(Replace(Replace(para.Range.text, vbCr, ""), vbLf, ""))
 
-        If paraText = "" And Not HasVisualContent(para) Then
-            para.Range.Delete
-            targetIndex = targetIndex - 1
-            i = i - 1
-        Else
-            Exit Do
-        End If
+        ' Evita HasVisualContent (COM) quando o paragrafo tem texto
+        If paraText <> "" Then Exit Do
+        If HasVisualContent(para) Then Exit Do
+
+        para.Range.Delete
+        targetIndex = targetIndex - 1
+        i = i - 1
     Loop
 
     RemoveBlankLinesBefore = targetIndex
@@ -1847,11 +1847,11 @@ Public Sub RemoveBlankLinesAfter(doc As Document, ByVal targetIndex As Long)
         Set para = doc.Paragraphs(i)
         paraText = Trim(Replace(Replace(para.Range.text, vbCr, ""), vbLf, ""))
 
-        If paraText = "" And Not HasVisualContent(para) Then
-            para.Range.Delete
-        Else
-            Exit Do
-        End If
+        ' Evita HasVisualContent (COM) quando o paragrafo tem texto
+        If paraText <> "" Then Exit Do
+        If HasVisualContent(para) Then Exit Do
+
+        para.Range.Delete
     Loop
 
     Exit Sub
