@@ -8,7 +8,7 @@ paths:
 
 ## Estrutura dos Módulos
 
-O projeto usa 12 módulos VBA com responsabilidades BEM definidas:
+O projeto usa 13 módulos VBA com responsabilidades BEM definidas:
 
 | Módulo | Responsabilidade |
 |--------|-----------------|
@@ -24,8 +24,9 @@ O projeto usa 12 módulos VBA com responsabilidades BEM definidas:
 | `Mod_10_Validation.bas` | Validações pós-formatação |
 | `Mod_11_RevisionText.bas` | Revisão de texto via OpenRouter API. Entrypoints: `TestarRevisaoTextoSelecionado`, `CorrigirProposituraComIA`, `DiagnosticarOpenRouter`. Preserva formatação (Borders, Shading, KeepWithNext) durante substituição. |
 | `Mod_12_AIStructure.bas` | Identificação de estrutura via AI (OpenRouter). Entrypoint: `IdentifyDocumentStructureWithAI`. Envia texto com marcadores de parágrafo, parseia JSON com ranges para cada elemento estrutural. |
+| `Mod_13_EmentaCoherence.bas` | Coerência Ementa x Corpo (somente leitura, sem IA/rede). Avisa divergências de endereço, número e assunto entre ementa e dispositivo. Entrypoints: `CheckEmentaCoherence`, `ShowEmentaCoherenceWarning`, `VerificarCoerenciaEmenta`, `TestarCoerenciaEmenta`. |
 
-**NÃO adicione novos módulos.** Modifique apenas os existentes, respeitando responsabilidades.
+**NÃO adicione novos módulos além dos 13 existentes.** Modifique apenas os existentes, respeitando responsabilidades.
 
 ## Padrões de Código
 

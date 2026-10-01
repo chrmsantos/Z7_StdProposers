@@ -19,6 +19,7 @@ paths:
 | **Python** | `Run-Tests.ps1 -TestSuite Python` | `Python.Tests.ps1` + pytest |
 | **VBA-Logging** | `Run-Tests.ps1 -TestSuite VBA-Logging` | `VBA-Logging.Tests.ps1` |
 | **VBA-AIStructure** | `Run-Tests.ps1 -TestSuite VBA-AIStructure` | `VBA-AIStructure.Tests.ps1` |
+| **VBA-EmentaCoherence** | `Run-Tests.ps1 -TestSuite VBA-EmentaCoherence` | `VBA-EmentaCoherence.Tests.ps1` |
 
 ### Arquivos de Teste Individuais
 
@@ -29,6 +30,7 @@ paths:
 | `tests/VBA-IdentifierFunctions.Tests.ps1` | Segurança de ranges identificadores em `Mod_04_Main.bas` |
 | `tests/VBA-Logging.Tests.ps1` | Observabilidade (session/op IDs, snapshots, primitivas) |
 | `tests/VBA-AIStructure.Tests.ps1` | Identificação de estrutura via AI |
+| `tests/VBA-EmentaCoherence.Tests.ps1` | Coerência Ementa x Corpo (Mod_13) e integração no pipeline |
 | `tests/Python.Tests.ps1` | Integração Python + invocação unittest |
 | `tests/Encoding.Tests.ps1` | Encoding, line-endings (UTF-8 safe, CRLF, sem UTF-16) |
 | `tests/python/test_z7_logging.py` | Unit tests para `z7_logging.py` |

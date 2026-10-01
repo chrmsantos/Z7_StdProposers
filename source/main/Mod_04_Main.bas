@@ -56,14 +56,14 @@ Public Sub PadronizarDocumentoMain()
 
     IncrementProgress "Verificando documento"
     If Not PreviousChecking(doc) Then
-        GoTo CleanUp
+        GoTo Cleanup
     End If
 
     If doc.Path = "" Then
         If Not SaveDocumentFirst(doc) Then
             Application.StatusBar = "Cancelado: documento nao salvo"
             LogMessage "Operacao cancelada - documento nao foi salvo", LOG_LEVEL_INFO
-            GoTo CleanUp
+            GoTo Cleanup
         End If
     End If
 
@@ -128,6 +128,9 @@ Public Sub PadronizarDocumentoMain()
     IncrementProgress "Indexando paragrafos"
     BuildParagraphCache doc
 
+    ' Executa verificacao de coerencia da Ementa x Corpo (Modulo 13)
+    CheckEmentaCoherence doc
+
     ' Executa formatacao em 2 passagens para garantir estabilidade
     ' Segunda passagem so executa se primeira fez alteracoes (flag dirty)
     Dim pipelinePass As Integer
@@ -156,12 +159,12 @@ Public Sub PadronizarDocumentoMain()
         IncrementProgress "Formatando documento (" & pipelinePass & " passagem)"
         If pipelinePass = 1 Then
             If Not PreviousFormatting(doc) Then
-                GoTo CleanUp
+                GoTo Cleanup
             End If
         Else
             LogMessage "=== PASSAGEM 2: FORMATACAO SELETIVA (ETAPAS INDEX-DEPENDENT) ===", LOG_LEVEL_INFO
             If Not PreviousFormattingPass2(doc) Then
-                GoTo CleanUp
+                GoTo Cleanup
             End If
         End If
 
@@ -177,16 +180,23 @@ Public Sub PadronizarDocumentoMain()
     RemoverLinhasEmBrancoExtras doc
     EnsureConsideringBlankLines doc
 
+    ' Normalizacao generalizada de linhas puladas (maximo 1 linha em branco
+    ' seguida; maximo 2 em volta da Data) e garantia de 2 linhas abaixo da Data.
+    ' Executadas ANTES das garantias zonais abaixo, para nao desfazer os
+    ' espacamentos de 2 linhas das zonas especiais.
+    NormalizarLinhasEmBranco doc
+    GarantirEspacoAbaixoDaData doc
+
     ' Garantia FINAL de 2 linhas em branco nas zonas especiais (Data: acima;
-    ' Titulo da Justificativa: acima; Ementa: acima e abaixo). Executada DEPOIS
-    ' de toda a padronizacao generalizada de linhas puladas, para nao ser
-    ' desfeita por ela. Ordem de baixo para cima (Data -> Titulo Justificativa
-    ' -> Ementa) para que os deslocamentos de indice nao afetem os elementos
-    ' ja ajustados.
+    ' Titulo da Justificativa: acima e abaixo; Ementa: acima e abaixo).
+    ' Executada DEPOIS de toda a padronizacao generalizada de linhas puladas,
+    ' para nao ser desfeita por ela. Ordem de baixo para cima (Data -> Titulo
+    ' Justificativa -> Ementa) para que os deslocamentos de indice nao afetem
+    ' os elementos ja ajustados.
     ForceDataSpacing doc
     ForceJustificativaTitleSpacing doc
     ForceEmentaSpacing doc
-
+    IdentifyDocumentStructure doc   ' atualiza os indices, que mudaram com as remocoes
     ' Formata recuos de paragrafos com imagens (zera recuo a esquerda)
     IncrementProgress "Ajustando layout"
     If Not FormatImageParagraphsIndents(doc) Then
@@ -224,8 +234,11 @@ Public Sub PadronizarDocumentoMain()
         LogMessage "Aviso: Algumas configuracoes de visualizacao podem nao ter sido restauradas", LOG_LEVEL_WARNING
     End If
 
+    ' Exibe eventuais avisos de divergencia entre Ementa e Corpo (Modulo 13)
+    ShowEmentaCoherenceWarning
+
     If formattingCancelled Then
-        GoTo CleanUp
+        GoTo Cleanup
     End If
 
     IncrementProgress "Finalizando"
@@ -239,7 +252,7 @@ Public Sub PadronizarDocumentoMain()
     ' Mostra mensagem final na barra de status
     Application.StatusBar = RenderProgressBar(100, "Padronizacao concluida em " & execSeconds & "s, " & errorCount & " erros, " & warningCount & " avisos")
 
-CleanUp:
+Cleanup:
 
     ClearParagraphCache ' Limpa cache de paragrafos
     SafeCleanup
@@ -255,10 +268,10 @@ CleanUp:
     End If
 
     ' Atualiza tela DENTRO do grupo de undo (undoRecordActive=True).
-    ' Se executassem ScreenRefresh apos EndCustomRecord, o recálculo de
+    ' Se executassem ScreenRefresh apos EndCustomRecord, o recalculo de
     ' layout do Word criaria uma entrada fantasma na pilha de undo,
     ' resultando em Access Violation no segundo Ctrl+Z.
-    ' 
+    '
     ' CRITICO: Consolidamos On Error Resume Next para cobrir tanto
     ' ScreenRefresh quanto EndCustomRecord em um unico bloco protegido,
     ' eliminando riscos de trocas indevidas de handler no meio do processo.
@@ -284,10 +297,11 @@ CleanUp:
     On Error GoTo 0
 
     SafeFinalizeLogging
-    
+
     ' NOTA: Suporte a "Repetir" (F4) nao implementado intencionalmente.
-    ' O risco de instabilidade da pilha de undo e alto (ver v9.0.0 do projeto), e o ganho e baixo.
-    ' O foco e garantir a integridade da pilha de Desfazer, nao implementar Repetir.
+    ' O risco de instabilidade da pilha de undo e alto (ver v9.0.0 do projeto),
+    ' e o ganho e baixo. O foco e garantir a integridade da pilha de Desfazer,
+    ' nao implementar Repetir.
     Exit Sub
 
 CriticalErrorHandler:
@@ -304,271 +318,185 @@ CriticalErrorHandler:
     ShowUserFriendlyError Err.Number, Err.Description
     EmergencyRecovery
 
-    ' CRITICO: Fluxo para CleanUp garante fechamento do UndoRecord mesmo em erro
-    GoTo CleanUp
+    ' CRITICO: Fluxo para Cleanup garante fechamento do UndoRecord mesmo em erro
+    GoTo Cleanup
 End Sub
 
 '================================================================================
 ' FUNCOES PUBLICAS DE ACESSO AOS ELEMENTOS ESTRUTURAIS
 '================================================================================
 
-'--------------------------------------------------------------------------------
-' GetTituloRange - Retorna o Range do titulo
-'--------------------------------------------------------------------------------
 Public Function GetTituloRange(doc As Document) As Range
     On Error GoTo ErrorHandler
-
     Set GetTituloRange = Nothing
-
     If tituloParaIndex <= 0 Or tituloParaIndex > doc.Paragraphs.count Then Exit Function
     Set GetTituloRange = doc.Paragraphs(tituloParaIndex).Range
     Exit Function
-
 ErrorHandler:
     Set GetTituloRange = Nothing
 End Function
 
-'--------------------------------------------------------------------------------
-' GetEmentaRange - Retorna o Range da ementa
-'--------------------------------------------------------------------------------
 Public Function GetEmentaRange(doc As Document) As Range
     On Error GoTo ErrorHandler
-
     Set GetEmentaRange = Nothing
-
     If ementaParaIndex <= 0 Or ementaParaIndex > doc.Paragraphs.count Then Exit Function
     Set GetEmentaRange = doc.Paragraphs(ementaParaIndex).Range
     Exit Function
-
 ErrorHandler:
     Set GetEmentaRange = Nothing
 End Function
 
-'--------------------------------------------------------------------------------
-' GetVocativoRange - Retorna o Range do vocativo (um ou mais paragrafos)
-'--------------------------------------------------------------------------------
 Public Function GetVocativoRange(doc As Document) As Range
     On Error GoTo ErrorHandler
-
     Set GetVocativoRange = Nothing
-
     If vocativoStartIndex <= 0 Or vocativoEndIndex <= 0 Then Exit Function
     If vocativoStartIndex > vocativoEndIndex Then Exit Function
     If vocativoStartIndex > doc.Paragraphs.count Then Exit Function
     If vocativoEndIndex > doc.Paragraphs.count Then Exit Function
 
-    Dim startPos As Long
-    Dim endPos As Long
-
+    Dim startPos As Long, endPos As Long
     startPos = doc.Paragraphs(vocativoStartIndex).Range.Start
     endPos = doc.Paragraphs(vocativoEndIndex).Range.End
 
     Set GetVocativoRange = doc.Range(startPos, endPos)
     Exit Function
-
 ErrorHandler:
     Set GetVocativoRange = Nothing
 End Function
 
-'--------------------------------------------------------------------------------
-' GetCorpoRange - Retorna o Range do corpo (conjunto de paragrafos)
-'--------------------------------------------------------------------------------
 Public Function GetCorpoRange(doc As Document) As Range
     On Error GoTo ErrorHandler
-
     Set GetCorpoRange = Nothing
-
     If corpoStartIndex <= 0 Or corpoEndIndex <= 0 Then Exit Function
     If corpoStartIndex > corpoEndIndex Then Exit Function
     If corpoStartIndex > doc.Paragraphs.count Then Exit Function
     If corpoEndIndex > doc.Paragraphs.count Then Exit Function
 
-    Dim startPos As Long
-    Dim endPos As Long
-
+    Dim startPos As Long, endPos As Long
     startPos = doc.Paragraphs(corpoStartIndex).Range.Start
     endPos = doc.Paragraphs(corpoEndIndex).Range.End
 
     Set GetCorpoRange = doc.Range(startPos, endPos)
     Exit Function
-
 ErrorHandler:
     Set GetCorpoRange = Nothing
 End Function
 
-'--------------------------------------------------------------------------------
-' GetTituloJustificativaRange - Retorna o Range do titulo "Justificativa"
-'--------------------------------------------------------------------------------
 Public Function GetTituloJustificativaRange(doc As Document) As Range
     On Error GoTo ErrorHandler
-
     Set GetTituloJustificativaRange = Nothing
-
     If tituloJustificativaIndex <= 0 Or tituloJustificativaIndex > doc.Paragraphs.count Then Exit Function
     Set GetTituloJustificativaRange = doc.Paragraphs(tituloJustificativaIndex).Range
     Exit Function
-
 ErrorHandler:
     Set GetTituloJustificativaRange = Nothing
 End Function
 
-'--------------------------------------------------------------------------------
-' GetJustificativaRange - Retorna o Range da justificativa (conjunto de paragrafos)
-'--------------------------------------------------------------------------------
 Public Function GetJustificativaRange(doc As Document) As Range
     On Error GoTo ErrorHandler
-
     Set GetJustificativaRange = Nothing
-
     If justificativaStartIndex <= 0 Or justificativaEndIndex <= 0 Then Exit Function
     If justificativaStartIndex > justificativaEndIndex Then Exit Function
     If justificativaStartIndex > doc.Paragraphs.count Then Exit Function
     If justificativaEndIndex > doc.Paragraphs.count Then Exit Function
 
-    Dim startPos As Long
-    Dim endPos As Long
-
+    Dim startPos As Long, endPos As Long
     startPos = doc.Paragraphs(justificativaStartIndex).Range.Start
     endPos = doc.Paragraphs(justificativaEndIndex).Range.End
 
     Set GetJustificativaRange = doc.Range(startPos, endPos)
     Exit Function
-
 ErrorHandler:
     Set GetJustificativaRange = Nothing
 End Function
 
-'--------------------------------------------------------------------------------
-' GetDataRange - Retorna o Range da data (Plenario)
-'--------------------------------------------------------------------------------
 Public Function GetDataRange(doc As Document) As Range
     On Error GoTo ErrorHandler
-
     Set GetDataRange = Nothing
-
     If dataParaIndex <= 0 Or dataParaIndex > doc.Paragraphs.count Then Exit Function
     Set GetDataRange = doc.Paragraphs(dataParaIndex).Range
     Exit Function
-
 ErrorHandler:
     Set GetDataRange = Nothing
 End Function
 
-'--------------------------------------------------------------------------------
-' GetAssinaturaRange - Retorna o Range da assinatura (3 paragrafos + imagens)
-'--------------------------------------------------------------------------------
 Public Function GetAssinaturaRange(doc As Document) As Range
     On Error GoTo ErrorHandler
-
     Set GetAssinaturaRange = Nothing
-
     If assinaturaStartIndex <= 0 Or assinaturaEndIndex <= 0 Then Exit Function
     If assinaturaStartIndex > assinaturaEndIndex Then Exit Function
     If assinaturaStartIndex > doc.Paragraphs.count Then Exit Function
     If assinaturaEndIndex > doc.Paragraphs.count Then Exit Function
 
-    Dim startPos As Long
-    Dim endPos As Long
-
+    Dim startPos As Long, endPos As Long
     startPos = doc.Paragraphs(assinaturaStartIndex).Range.Start
     endPos = doc.Paragraphs(assinaturaEndIndex).Range.End
 
     Set GetAssinaturaRange = doc.Range(startPos, endPos)
     Exit Function
-
 ErrorHandler:
     Set GetAssinaturaRange = Nothing
 End Function
 
-'--------------------------------------------------------------------------------
-' GetTituloAnexoRange - Retorna o Range do titulo "Anexo" ou "Anexos"
-'--------------------------------------------------------------------------------
 Public Function GetTituloAnexoRange(doc As Document) As Range
     On Error GoTo ErrorHandler
-
     Set GetTituloAnexoRange = Nothing
-
     If tituloAnexoIndex <= 0 Or tituloAnexoIndex > doc.Paragraphs.count Then Exit Function
     Set GetTituloAnexoRange = doc.Paragraphs(tituloAnexoIndex).Range
     Exit Function
-
 ErrorHandler:
     Set GetTituloAnexoRange = Nothing
 End Function
 
-'--------------------------------------------------------------------------------
-' GetAnexoRange - Retorna o Range do anexo (todo conteudo abaixo do titulo)
-'--------------------------------------------------------------------------------
 Public Function GetAnexoRange(doc As Document) As Range
     On Error GoTo ErrorHandler
-
     Set GetAnexoRange = Nothing
-
     If anexoStartIndex <= 0 Or anexoEndIndex <= 0 Then Exit Function
     If anexoStartIndex > anexoEndIndex Then Exit Function
     If anexoStartIndex > doc.Paragraphs.count Then Exit Function
     If anexoEndIndex > doc.Paragraphs.count Then Exit Function
 
-    Dim startPos As Long
-    Dim endPos As Long
-
+    Dim startPos As Long, endPos As Long
     startPos = doc.Paragraphs(anexoStartIndex).Range.Start
     endPos = doc.Paragraphs(anexoEndIndex).Range.End
 
     Set GetAnexoRange = doc.Range(startPos, endPos)
     Exit Function
-
 ErrorHandler:
     Set GetAnexoRange = Nothing
 End Function
 
-'--------------------------------------------------------------------------------
-' GetProposituraRange - Retorna o Range de toda a propositura (documento completo)
-'--------------------------------------------------------------------------------
 Public Function GetProposituraRange(doc As Document) As Range
     On Error GoTo ErrorHandler
-
     Set GetProposituraRange = Nothing
-
     If doc Is Nothing Then Exit Function
     Set GetProposituraRange = doc.Range
     Exit Function
-
 ErrorHandler:
     Set GetProposituraRange = Nothing
 End Function
 
-'--------------------------------------------------------------------------------
-' GetElementInfo - Retorna informacoes sobre todos os elementos identificados
-' REFATORADO: Usa funcoes identificadoras ao inves de acesso direto as variaveis
-'--------------------------------------------------------------------------------
 Public Function GetElementInfo(doc As Document) As String
     On Error Resume Next
-
     Dim info As String
     Dim rng As Range
 
     info = "=== INFORMACOES DOS ELEMENTOS ESTRUTURAIS ===" & vbCrLf
 
-    ' Titulo - usa GetTituloRange
     Set rng = GetTituloRange(doc)
     If Not rng Is Nothing Then
         info = info & "Titulo: Paragrafo " & tituloParaIndex & vbCrLf
     Else
         info = info & "Titulo: Nao identificado" & vbCrLf
     End If
-    Set rng = Nothing
 
-    ' Ementa - usa GetEmentaRange
     Set rng = GetEmentaRange(doc)
     If Not rng Is Nothing Then
         info = info & "Ementa: Paragrafo " & ementaParaIndex & vbCrLf
     Else
         info = info & "Ementa: Nao identificado" & vbCrLf
     End If
-    Set rng = Nothing
 
-    ' Vocativo - usa GetVocativoRange
     Set rng = GetVocativoRange(doc)
     If Not rng Is Nothing Then
         info = info & "Vocativo: Paragrafos " & vocativoStartIndex & " a " & vocativoEndIndex & _
@@ -576,9 +504,7 @@ Public Function GetElementInfo(doc As Document) As String
     Else
         info = info & "Vocativo: Nao identificado" & vbCrLf
     End If
-    Set rng = Nothing
 
-    ' Proposicao - usa GetCorpoRange
     Set rng = GetCorpoRange(doc)
     If Not rng Is Nothing Then
         info = info & "Proposicao: Paragrafos " & corpoStartIndex & " a " & corpoEndIndex & _
@@ -586,16 +512,13 @@ Public Function GetElementInfo(doc As Document) As String
     Else
         info = info & "Proposicao: Nao identificado" & vbCrLf
     End If
-    Set rng = Nothing
 
-    ' Titulo Justificativa - ainda usa variavel direta (nao tem funcao Get especifica)
     If tituloJustificativaIndex > 0 Then
         info = info & "Titulo Justificativa: Paragrafo " & tituloJustificativaIndex & vbCrLf
     Else
         info = info & "Titulo Justificativa: Nao identificado" & vbCrLf
     End If
 
-    ' Justificativa - usa GetJustificativaRange
     Set rng = GetJustificativaRange(doc)
     If Not rng Is Nothing Then
         info = info & "Justificativa: Paragrafos " & justificativaStartIndex & " a " & justificativaEndIndex & _
@@ -603,18 +526,14 @@ Public Function GetElementInfo(doc As Document) As String
     Else
         info = info & "Justificativa: Nao identificado" & vbCrLf
     End If
-    Set rng = Nothing
 
-    ' Data - usa GetDataRange
     Set rng = GetDataRange(doc)
     If Not rng Is Nothing Then
         info = info & "Data (Plenario): Paragrafo " & dataParaIndex & vbCrLf
     Else
         info = info & "Data (Plenario): Nao identificado" & vbCrLf
     End If
-    Set rng = Nothing
 
-    ' Assinatura - usa GetAssinaturaRange
     Set rng = GetAssinaturaRange(doc)
     If Not rng Is Nothing Then
         info = info & "Assinatura: Paragrafos " & assinaturaStartIndex & " a " & assinaturaEndIndex & _
@@ -622,7 +541,6 @@ Public Function GetElementInfo(doc As Document) As String
     Else
         info = info & "Assinatura: Nao identificado" & vbCrLf
     End If
-    Set rng = Nothing
 
     If tituloAnexoIndex > 0 Then
         info = info & "Titulo Anexo: Paragrafo " & tituloAnexoIndex & vbCrLf
@@ -635,205 +553,97 @@ Public Function GetElementInfo(doc As Document) As String
     End If
 
     info = info & "============================================="
-
     GetElementInfo = info
 End Function
 
 '================================================================================
-' SUBROTINA PUBLICA: ABRIR REPOSITORIO DO GITHUB
+' SUBROTINAS PUBLICAS E AUXILIARES
 '================================================================================
+
 Public Sub AbrirReadme()
     On Error GoTo ErrorHandler
-
     Const GITHUB_REPO_URL As String = "https://github.com/chrmsantos/Z7_StdProposers"
-
-    ' Abre o repositorio do GitHub no navegador padrao
     Application.StatusBar = RenderProgressBar(50, "Abrindo repositorio do GitHub")
-
-    ' Usa o comando Shell com o protocolo http:// para abrir no navegador padrao
     CreateObject("WScript.Shell").Run GITHUB_REPO_URL, 1, False
-
-    ' Log da operacao se sistema de log estiver ativo
-    If loggingEnabled Then
-        LogMessage "Repositorio do GitHub aberto pelo usuario: " & GITHUB_REPO_URL, LOG_LEVEL_INFO
-    End If
-
+    If loggingEnabled Then LogMessage "Repositorio do GitHub aberto pelo usuario: " & GITHUB_REPO_URL, LOG_LEVEL_INFO
     Application.StatusBar = "Repositorio aberto no navegador"
-
     Exit Sub
-
 ErrorHandler:
     Application.StatusBar = "Erro ao abrir repositorio"
     LogMessage "Erro ao abrir repositorio do GitHub: " & Err.Description, LOG_LEVEL_ERROR
-
-    ' Tenta metodo alternativo
     On Error Resume Next
-    shell "explorer.exe """ & GITHUB_REPO_URL & """", vbNormalFocus
+    Shell "explorer.exe """ & GITHUB_REPO_URL & """", vbNormalFocus
 End Sub
 
-'================================================================================
-' SUBROTINA PUBLICA: CONFIRMAR DESFAZIMENTO DA PADRONIZACAO
-'================================================================================
 Public Sub ConfirmarDesfazerPadronizacao()
     On Error GoTo ErrorHandler
-
-    ' Verifica se ha um documento ativo
     Dim doc As Document
-    Set doc = Nothing
-
-    On Error Resume Next
     Set doc = ActiveDocument
-    On Error GoTo ErrorHandler
+    If doc Is Nothing Then Exit Sub
 
-    If doc Is Nothing Then
-        Exit Sub
-    End If
-
-    ' Verifica o numero de acoes disponiveis para desfazer
-    Dim canUndo As Boolean
-    canUndo = False
-
-    On Error Resume Next
-    canUndo = Application.CommandBars.ActionControl.enabled
-    If Err.Number <> 0 Then canUndo = False
-    On Error GoTo ErrorHandler
-
-    ' Armazena informacoes antes do desfazer
-    Dim beforeUndoCount As Long
-    Dim docName As String
-    Dim docPath As String
-
+    Dim beforeUndoCount As Long, docName As String
     beforeUndoCount = doc.Paragraphs.count
     docName = doc.Name
-    docPath = doc.Path
 
-    ' Executa o comando Desfazer (Undo)
     Application.StatusBar = RenderProgressBar(40, "Desfazendo padronizacao")
     On Error Resume Next
     doc.Undo
     On Error GoTo ErrorHandler
-
-    ' Aguarda o Word processar o desfazer
     DoEvents
 
-    ' Verifica se houve mudanca no documento
-    Dim afterUndoCount As Long
+    Dim afterUndoCount As Long, changeCount As Long
     afterUndoCount = doc.Paragraphs.count
-
-    ' Calcula a diferenca
-    Dim changeCount As Long
     changeCount = Abs(beforeUndoCount - afterUndoCount)
 
-    ' Cria mensagem informativa
     Dim undoMsg As String
-
     If changeCount > 0 Then
         undoMsg = "[<<] Padronizacao desfeita com sucesso!" & vbCrLf & vbCrLf & _
                   "[CHART] Alteracoes revertidas:" & vbCrLf & _
                   "    Paragrafos afetados: " & changeCount & vbCrLf & vbCrLf & _
-                  "[DIR] Documento:" & vbCrLf & _
-                  "   " & docName & vbCrLf & vbCrLf & _
-                  "[i] DICA: O backup da padronizacao permanece disponivel." & vbCrLf & _
-                  "   Use 'Abrir Pasta de Logs e Backups' para acessa-lo."
+                  "[DIR] Documento: " & docName
     Else
         undoMsg = "[<<] Desfazer executado!" & vbCrLf & vbCrLf & _
                   "[i] O documento foi revertido para o estado anterior." & vbCrLf & vbCrLf & _
-                  "[DIR] Documento:" & vbCrLf & _
-                  "   " & docName & vbCrLf & vbCrLf & _
-                  "[i] DICA: O backup da padronizacao permanece disponivel." & vbCrLf & _
-                  "   Use 'Abrir Pasta de Logs e Backups' para acessa-lo."
+                  "[DIR] Documento: " & docName
     End If
 
-    ' Exibe mensagem de confirmacao
     MsgBox undoMsg, vbInformation, "Z7_STDPROPOSERS - Desfazer Padronizacao"
-
-    ' Registra no log se estiver ativo
-    If loggingEnabled Then
-        LogMessage "Padronizacao desfeita pelo usuario - documento: " & docName, LOG_LEVEL_INFO
-    End If
-
+    If loggingEnabled Then LogMessage "Padronizacao desfeita pelo usuario - documento: " & docName, LOG_LEVEL_INFO
     Application.StatusBar = "Padronizacao desfeita"
-
     Exit Sub
 
 ErrorHandler:
     Application.StatusBar = "Erro ao desfazer"
-
-    ' Mensagem de erro generica
-    MsgBox "Nao foi possivel desfazer a operacao." & vbCrLf & vbCrLf & _
-           "[!] Possiveis causas:" & vbCrLf & _
-           "    Nao ha operacoes para desfazer" & vbCrLf & _
-           "    O documento foi fechado e reaberto" & vbCrLf & _
-           "    Limite de desfazer atingido" & vbCrLf & vbCrLf & _
-           "[i] SOLUCAO: Restaure manualmente a partir do backup." & vbCrLf & _
-           "   Use 'Abrir Pasta de Logs e Backups' para acessar os backups.", _
-           vbExclamation, "Z7_STDPROPOSERS - Erro ao Desfazer"
-
-    If loggingEnabled Then
-        LogMessage "Erro ao desfazer padronizacao: " & Err.Description, LOG_LEVEL_WARNING
-    End If
+    MsgBox "Nao foi possivel desfazer a operacao.", vbExclamation, "Z7_STDPROPOSERS - Erro ao Desfazer"
+    If loggingEnabled Then LogMessage "Erro ao desfazer padronizacao: " & Err.Description, LOG_LEVEL_WARNING
 End Sub
 
-'================================================================================
-' SUBROTINA PUBLICA: DESFAZER COM CONFIRMACAO AUTOMATICA
-' Esta sub pode ser chamada diretamente ou apos o usuario usar Ctrl+Z
-'================================================================================
 Public Sub NotificarDesfazerPadronizacao()
     On Error Resume Next
-
-    ' Verifica se ha um documento ativo
     Dim doc As Document
     Set doc = ActiveDocument
-
     If doc Is Nothing Then Exit Sub
 
-    ' Cria mensagem de confirmacao simplificada
     Dim msg As String
     msg = "[<<] Padronizacao desfeita!" & vbCrLf & vbCrLf & _
           "[OK] Todas as alteracoes da ultima padronizacao foram revertidas." & vbCrLf & vbCrLf & _
-          "[DIR] Documento: " & doc.Name & vbCrLf & vbCrLf & _
-          "[SAVE] O backup continua disponivel na pasta de backups." & vbCrLf & _
-          "   Use 'Abrir Pasta de Logs e Backups' para acessa-lo."
-
-    ' Exibe notificacao
+          "[DIR] Documento: " & doc.Name
     MsgBox msg, vbInformation, "Z7_STDPROPOSERS - Operacao Desfeita"
-
-    ' Log se disponivel
-    If loggingEnabled Then
-        LogMessage "Notificacao de desfazer exibida para: " & doc.Name, LOG_LEVEL_INFO
-    End If
+    If loggingEnabled Then LogMessage "Notificacao de desfazer exibida para: " & doc.Name, LOG_LEVEL_INFO
 End Sub
 
-'================================================================================
-' SUBROTINA PUBLICA: CONFIGURAR PROMPT GEMINI
-'================================================================================
 Public Sub ConfigurarPromptGemini()
-    ' Macro para abrir a interface em Python e editar o prompt da IA
     Dim objShell As Object
-    Dim comandoExecucao As String
-    Dim caminhoScript As String
-    Dim caminhoPython As String
-    
+    Dim comandoExecucao As String, caminhoScript As String
     On Error GoTo ErrorHandler
     
-    ' Obtem o caminho do executavel usando o caminho relativo configurado em Mod1Infrastructure
     caminhoScript = Environ("USERPROFILE") & PROMPT_CONFIG_SCRIPT_RELATIVE_PATH
-    
-    ' Monta o comando completo com aspas em volta do caminho do executavel
     comandoExecucao = """" & caminhoScript & """"
     
-    ' Cria o objeto WScript.Shell
     Set objShell = CreateObject("WScript.Shell")
-    
-    ' Muda o ponteiro do mouse para indicar carregamento
     System.Cursor = wdCursorWait
-    
-    ' Executa o comando SEM aguardar a conclusao, pois e uma janela interativa
     objShell.Run comandoExecucao, 0, False
-    
-    ' Retorna o ponteiro do mouse ao normal
     System.Cursor = wdCursorNormal
-    
     Exit Sub
     
 ErrorHandler:
@@ -843,44 +653,25 @@ ErrorHandler:
     MsgBox "Erro ao tentar abrir configuracoes do prompt Gemini: " & Err.Description, vbCritical, "Z7_StdProposers"
 End Sub
 
-
-'================================================================================
-' SUBROTINA PUBLICA: CHAT COM A L�IA
-'================================================================================
 Public Sub ChatComGemini()
-    ' Macro para abrir a interface em Python do Chat Interativo com a L�IA
     Dim objShell As Object
-    Dim comandoExecucao As String
-    Dim caminhoScript As String
-    
+    Dim comandoExecucao As String, caminhoScript As String
     On Error GoTo ErrorHandler
     
-    ' Obtem o caminho do executavel usando o caminho relativo configurado em Mod1Infrastructure
     caminhoScript = Environ("USERPROFILE") & CHAT_IA_SCRIPT_RELATIVE_PATH
-    
     If Dir(caminhoScript) = "" Then
-        MsgBox "Executavel do Chat IA nao encontrado em:" & vbCrLf & caminhoScript & vbCrLf & vbCrLf & "Por favor, recompile o projeto ou verifique a instalacao.", vbCritical, "Erro de Arquivo"
+        MsgBox "Executavel do Chat IA nao encontrado.", vbCritical, "Erro de Arquivo"
         Exit Sub
     End If
     
-    ' Monta o comando completo com aspas em volta do caminho do executavel
     comandoExecucao = """" & caminhoScript & """"
-    
-    ' Cria o objeto WScript.Shell
     Set objShell = CreateObject("WScript.Shell")
-    
-    ' Muda o ponteiro do mouse para indicar carregamento
     System.Cursor = wdCursorWait
-    
     Application.StatusBar = RenderProgressBar(15, "Carregando chat IA")
     DoEvents
     
-    ' Executa o comando SEM aguardar a conclusao, pois e uma janela interativa
     objShell.Run comandoExecucao, 0, False
-    
-    ' Retorna o ponteiro do mouse ao normal
     System.Cursor = wdCursorNormal
-    
     Exit Sub
     
 ErrorHandler:
@@ -890,119 +681,90 @@ ErrorHandler:
     MsgBox "Erro ao tentar abrir o Chat da IA Gemini: " & Err.Description, vbCritical, "Z7_StdProposers"
 End Sub
 
-'================================================================================
-' MACRO: COMENTAR ELEMENTOS DA PROPOSITURA
-' Adiciona comentarios do Word identificando cada parte da propositura
-'================================================================================
 Public Sub ComentarElementosPropositura()
     On Error GoTo ErrorHandler
 
     Dim doc As Document
     Set doc = ActiveDocument
-    
     If doc Is Nothing Then
         MsgBox "Nenhum documento ativo.", vbExclamation, "Z7"
         Exit Sub
     End If
 
-    ' Cria backup do documento antes de qualquer modificacao
     If Not CreateDocumentBackup(doc) Then
         LogMessage "Falha ao criar backup - continuando sem backup", LOG_LEVEL_WARNING
     End If
 
-    ' Indexa os paragrafos primeiro para garantir a identificacao dos indices
     BuildParagraphCache doc
-
     Dim rng As Range
     Dim commentAddedCount As Long
     commentAddedCount = 0
 
-    ' 1. Titulo
     Set rng = GetTituloRange(doc)
     If Not rng Is Nothing Then
-        doc.Comments.Add Range:=rng, text:="[Z7] T" & ChrW(237) & "tulo"
+        doc.Comments.Add Range:=rng, Text:="[Z7] T" & ChrW(237) & "tulo"
         commentAddedCount = commentAddedCount + 1
     End If
-    Set rng = Nothing
 
-    ' 2. Ementa
     Set rng = GetEmentaRange(doc)
     If Not rng Is Nothing Then
-        doc.Comments.Add Range:=rng, text:="[Z7] Ementa"
+        doc.Comments.Add Range:=rng, Text:="[Z7] Ementa"
         commentAddedCount = commentAddedCount + 1
     End If
-    Set rng = Nothing
 
-    ' Vocativo
     Set rng = GetVocativoRange(doc)
     If Not rng Is Nothing Then
-        doc.Comments.Add Range:=rng, text:="[Z7] Vocativo"
+        doc.Comments.Add Range:=rng, Text:="[Z7] Vocativo"
         commentAddedCount = commentAddedCount + 1
     End If
-    Set rng = Nothing
 
-    ' 3. Corpo
     Set rng = GetCorpoRange(doc)
     If Not rng Is Nothing Then
-        doc.Comments.Add Range:=rng, text:="[Z7] Corpo"
+        doc.Comments.Add Range:=rng, Text:="[Z7] Corpo"
         commentAddedCount = commentAddedCount + 1
     End If
-    Set rng = Nothing
 
-    ' 4. Titulo Justificativa
     Set rng = GetTituloJustificativaRange(doc)
     If Not rng Is Nothing Then
-        doc.Comments.Add Range:=rng, text:="[Z7] T" & ChrW(237) & "tulo da Justificativa"
+        doc.Comments.Add Range:=rng, Text:="[Z7] T" & ChrW(237) & "tulo da Justificativa"
         commentAddedCount = commentAddedCount + 1
     End If
-    Set rng = Nothing
 
-    ' 5. Justificativa
     Set rng = GetJustificativaRange(doc)
     If Not rng Is Nothing Then
-        doc.Comments.Add Range:=rng, text:="[Z7] Justificativa"
+        doc.Comments.Add Range:=rng, Text:="[Z7] Justificativa"
         commentAddedCount = commentAddedCount + 1
     End If
-    Set rng = Nothing
 
-    ' 6. Data
     Set rng = GetDataRange(doc)
     If Not rng Is Nothing Then
-        doc.Comments.Add Range:=rng, text:="[Z7] Data (Plen" & ChrW(225) & "rio)"
+        doc.Comments.Add Range:=rng, Text:="[Z7] Data (Plen" & ChrW(225) & "rio)"
         commentAddedCount = commentAddedCount + 1
     End If
-    Set rng = Nothing
 
-    ' 7. Assinatura
     Set rng = GetAssinaturaRange(doc)
     If Not rng Is Nothing Then
-        doc.Comments.Add Range:=rng, text:="[Z7] Assinatura"
+        doc.Comments.Add Range:=rng, Text:="[Z7] Assinatura"
         commentAddedCount = commentAddedCount + 1
     End If
-    Set rng = Nothing
 
-    ' 8. Titulo Anexo
     Set rng = GetTituloAnexoRange(doc)
     If Not rng Is Nothing Then
-        doc.Comments.Add Range:=rng, text:="[Z7] T" & ChrW(237) & "tulo do Anexo"
+        doc.Comments.Add Range:=rng, Text:="[Z7] T" & ChrW(237) & "tulo do Anexo"
         commentAddedCount = commentAddedCount + 1
     End If
-    Set rng = Nothing
 
-    ' 9. Anexo
     Set rng = GetAnexoRange(doc)
     If Not rng Is Nothing Then
-        doc.Comments.Add Range:=rng, text:="[Z7] Anexo"
+        doc.Comments.Add Range:=rng, Text:="[Z7] Anexo"
         commentAddedCount = commentAddedCount + 1
     End If
-    Set rng = Nothing
 
-    ' Limpa o cache apos a execucao
     ClearParagraphCache
 
     If commentAddedCount > 0 Then
         Application.StatusBar = RenderProgressBar(100, commentAddedCount & " partes comentadas com sucesso")
-        MsgBox "Identificacao concluida! " & commentAddedCount & " partes estruturais foram marcadas com comentarios no documento.", vbInformation, "Z7 - Comentar Propositura"
+        MsgBox "Identificacao concluida! " & commentAddedCount & " partes estruturais foram marcadas.", vbInformation, "Z7 - Comentar Propositura"
     Else
         MsgBox "Nenhuma parte estrutural da propositura foi identificada.", vbExclamation, "Z7 - Comentar Propositura"
     End If
@@ -1014,6 +776,181 @@ ErrorHandler:
     MsgBox "Erro ao comentar elementos: " & Err.Description, vbCritical, "Erro de Execucao"
 End Sub
 
+'================================================================================
+' NORMALIZACAO E REGRAS DE ESPACAMENTO DAS LINHAS EM BRANCO
+'================================================================================
 
+Public Sub NormalizarLinhasEmBranco(doc As Document)
+    On Error GoTo ErrorHandler
 
+    If doc Is Nothing Then Exit Sub
 
+    Dim i As Long
+    Dim runStart As Long
+    Dim runEnd As Long
+    Dim prevIdx As Long
+    Dim nextIdx As Long
+    Dim maxBlank As Long
+    Dim removedCount As Long
+
+    removedCount = 0
+    i = doc.Paragraphs.count
+    Do While i >= 1
+        If EhLinhaVaziaZ7(doc.Paragraphs(i)) Then
+            ' Localiza o bloco de linhas vazias consecutivas
+            runEnd = i
+            runStart = i
+            Do While runStart > 1
+                If EhLinhaVaziaZ7(doc.Paragraphs(runStart - 1)) Then
+                    runStart = runStart - 1
+                Else
+                    Exit Do
+                End If
+            Loop
+
+            ' Padrao: 1 linha. Ao lado da Data (acima ou abaixo): 2 linhas
+            maxBlank = 1
+            prevIdx = runStart - 1
+            nextIdx = runEnd + 1
+            If prevIdx >= 1 Then
+                If IsDataElement(doc.Paragraphs(prevIdx)) Then maxBlank = 2
+            End If
+            If nextIdx <= doc.Paragraphs.count Then
+                If IsDataElement(doc.Paragraphs(nextIdx)) Then maxBlank = 2
+            End If
+
+            ' Apaga o excedente (sempre a primeira do bloco)
+            Do While (runEnd - runStart + 1) > maxBlank
+                doc.Paragraphs(runStart).Range.Delete
+                removedCount = removedCount + 1
+                runEnd = runEnd - 1
+            Loop
+
+            i = runStart - 1
+        Else
+            i = i - 1
+        End If
+    Loop
+
+    ' Regra de seguranca: indices estruturais ficam invalidos apos delecoes
+    If removedCount > 0 Then IdentifyDocumentStructure doc
+
+    LogMessage "NormalizarLinhasEmBranco: 1 linha em branco em todo o documento, 2 em volta da Data", LOG_LEVEL_INFO
+    Exit Sub
+
+ErrorHandler:
+    LogMessage "Erro em NormalizarLinhasEmBranco: " & Err.Description, LOG_LEVEL_WARNING
+End Sub
+
+Private Function EhLinhaVaziaZ7(para As Paragraph) As Boolean
+    On Error GoTo ErrorHandler
+    Dim t As String
+    t = Trim(Replace(Replace(para.Range.Text, vbCr, ""), vbLf, ""))
+    EhLinhaVaziaZ7 = (t = "" And Not HasVisualContent(para))
+    Exit Function
+ErrorHandler:
+    EhLinhaVaziaZ7 = False
+End Function
+
+Public Sub GarantirEspacoAbaixoDaData(doc As Document)
+    On Error GoTo ErrorHandler
+
+    Const LINHAS_ABAIXO As Long = 2
+
+    Dim i As Long
+    Dim firstIdx As Long
+    Dim dataIdx As Long
+    Dim belowIdx As Long
+    Dim blankCount As Long
+    Dim faltam As Long
+    Dim n As Long
+
+    If doc Is Nothing Then Exit Sub
+
+    ' 1. Usa o indice da Data se ele ainda estiver valido
+    dataIdx = 0
+    If dataParaIndex > 0 And dataParaIndex <= doc.Paragraphs.count Then
+        If IsDataElement(doc.Paragraphs(dataParaIndex)) Then dataIdx = dataParaIndex
+    End If
+
+    ' 2. Senao, procura a Data de baixo para cima nos ultimos 15 paragrafos
+    If dataIdx = 0 Then
+        firstIdx = doc.Paragraphs.count - 15
+        If firstIdx < 1 Then firstIdx = 1
+        For i = doc.Paragraphs.count To firstIdx Step -1
+            If IsDataElement(doc.Paragraphs(i)) Then
+                dataIdx = i
+                Exit For
+            End If
+        Next i
+    End If
+
+    If dataIdx = 0 Then
+        LogMessage "GarantirEspacoAbaixoDaData: Data nao localizada", LOG_LEVEL_WARNING
+        Exit Sub
+    End If
+
+    ' 3. Conta as linhas em branco que ja existem abaixo da Data
+    blankCount = 0
+    belowIdx = dataIdx + 1
+    Do While belowIdx <= doc.Paragraphs.count
+        If EhLinhaVaziaZ7(doc.Paragraphs(belowIdx)) Then
+            blankCount = blankCount + 1
+            belowIdx = belowIdx + 1
+        Else
+            Exit Do
+        End If
+    Loop
+
+    ' 4. Insere se houver conteudo depois da Data e se faltarem linhas
+    If belowIdx <= doc.Paragraphs.count And blankCount < LINHAS_ABAIXO Then
+        faltam = LINHAS_ABAIXO - blankCount
+        For n = 1 To faltam
+            doc.Paragraphs(dataIdx).Range.InsertParagraphAfter
+        Next n
+        LogMessage "GarantirEspacoAbaixoDaData: " & faltam & " linha(s) inserida(s) abaixo da Data", LOG_LEVEL_INFO
+    End If
+
+    Exit Sub
+
+ErrorHandler:
+    LogMessage "Erro em GarantirEspacoAbaixoDaData: " & Err.Description, LOG_LEVEL_WARNING
+End Sub
+
+Public Sub TesteEspacoData()
+    Dim doc As Document
+    Dim i As Long, idx As Long
+    Dim proximo As String
+
+    Set doc = ActiveDocument
+    idx = 0
+
+    For i = doc.Paragraphs.count To 1 Step -1
+        If IsDataElement(doc.Paragraphs(i)) Then
+            idx = i
+            Exit For
+        End If
+    Next i
+
+    If idx = 0 Then
+        MsgBox "Data NAO localizada pelo IsDataElement.", vbExclamation
+        Exit Sub
+    End If
+
+    If idx < doc.Paragraphs.count Then
+        proximo = Left(doc.Paragraphs(idx + 1).Range.Text, 60)
+    Else
+        proximo = "(nao ha paragrafo depois)"
+    End If
+
+    Dim resposta As VbMsgBoxResult
+    resposta = MsgBox("Data no paragrafo " & idx & " de " & doc.Paragraphs.count & ":" & vbCrLf & _
+           Left(doc.Paragraphs(idx).Range.Text, 80) & vbCrLf & vbCrLf & _
+           "Paragrafo seguinte: [" & proximo & "]" & vbCrLf & vbCrLf & _
+           "Inserir uma linha em branco de teste apos a Data?", _
+           vbYesNo + vbQuestion, "Z7 - Teste Espaco da Data")
+
+    If resposta = vbYes Then
+        doc.Paragraphs(idx).Range.InsertParagraphAfter
+    End If
+End Sub

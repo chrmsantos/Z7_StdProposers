@@ -214,6 +214,7 @@ class TestZ7ModulePrefix(unittest.TestCase):
             "Mod_04_Main", "Mod_05_Logging", "Mod_06_WordMacro",
             "Mod_07_Formatting", "Mod_08_Ementa", "Mod_09_SpecialParagraphs",
             "Mod_10_Validation", "Mod_11_RevisionText", "Mod_12_AIStructure",
+            "Mod_13_EmentaCoherence",
         ]
         for name in modules:
             self.assertTrue(

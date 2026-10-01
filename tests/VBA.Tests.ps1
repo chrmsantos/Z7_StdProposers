@@ -68,6 +68,8 @@ Describe 'Z7_STDPROPOSERS - VBA Modular Architecture' {
 
             ($script:moduleNames -contains 'Mod_12_AIStructure.bas') | Should Be $true
 
+            ($script:moduleNames -contains 'Mod_13_EmentaCoherence.bas') | Should Be $true
+
         }
 
 
@@ -1073,6 +1075,19 @@ Describe 'Z7_STDPROPOSERS - VBA Modular Architecture' {
             $mod04 = $script:moduleContent['Mod_04_Main.bas']
 
             $mod04 | Should Match 'RemoverLinhasEmBrancoExtras doc[\s\S]*?EnsureConsideringBlankLines doc[\s\S]*?ForceDataSpacing doc[\s\S]*?ForceJustificativaTitleSpacing doc[\s\S]*?ForceEmentaSpacing doc'
+
+        }
+
+        It 'Normalizacao generalizada de linhas roda ANTES das garantias zonais' {
+
+            $mod04 = $script:moduleContent['Mod_04_Main.bas']
+
+            # NormalizarLinhasEmBranco e GarantirEspacoAbaixoDaData sao padronizacao
+            # generalizada: se rodassem depois do trio Force*, desfariam as zonas
+            # protegidas de 2 linhas (ementa, titulo da justificativa, data)
+            $mod04 | Should Match 'EnsureConsideringBlankLines doc[\s\S]*?NormalizarLinhasEmBranco doc[\s\S]*?GarantirEspacoAbaixoDaData doc[\s\S]*?ForceDataSpacing doc'
+
+            $mod04 | Should Match 'GarantirEspacoAbaixoDaData doc[\s\S]*?ForceJustificativaTitleSpacing doc[\s\S]*?ForceEmentaSpacing doc'
 
         }
 

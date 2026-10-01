@@ -1,3 +1,32 @@
+## v10.1.0 — Z7 StdProposers
+
+### Novos Recursos
+
+- **Nova rotina `Mod_13_EmentaCoherence.bas` — Coerência Ementa x Corpo**: compara a ementa com o corpo (dispositivo) e avisa sobre divergências de **endereço** (logradouro da ementa ausente no corpo), **número** (2+ dígitos ausentes no corpo) e **assunto** (ementa e corpo tratam de assuntos diferentes). Somente leitura, comparação local (sem IA/rede). Entrypoints: `CheckEmentaCoherence`, `ShowEmentaCoherenceWarning`, `VerificarCoerenciaEmenta` (manual) e `TestarCoerenciaEmenta` (autoteste)
+- **`PadronizarDocumentoMain` integra o Mod_13**: `CheckEmentaCoherence` roda após a construção do cache de parágrafos; o aviso pendente é exibido uma única vez ao final do pipeline (`ShowEmentaCoherenceWarning`)
+- **2 linhas em branco abaixo da Data** (`GarantirEspacoAbaixoDaData`): garante exatamente 2 linhas entre a Data e o bloco de assinatura, quando há conteúdo depois dela
+
+### Correcoes / Padronizacao de Espacamento
+
+- **`NormalizarLinhasEmBranco` (nova) roda ANTES das garantias zonais** (`ForceDataSpacing` / `ForceJustificativaTitleSpacing` / `ForceEmentaSpacing`): a normalização generalizada de linhas puladas (máx. 1; máx. 2 em volta da Data) não desfaz mais os espaçamentos de 2 linhas das zonas especiais (ementa, título da justificativa e data)
+- `NormalizarLinhasEmBranco` recarrega a estrutura (`IdentifyDocumentStructure`) quando remove parágrafos (regra de invalidação de índices)
+
+### Seguranca / Undo
+
+- Comentários críticos de segurança do `Cleanup` restaurados (ScreenRefresh dentro do grupo de undo; `EndCustomRecord` como última operação possível; suporte a "Repetir" (F4) intencionalmente não implementado)
+- `TesteEspacoData` deixa de inserir parágrafo silenciosamente: a mutação de teste agora pede confirmação
+
+### Testes
+
+- Nova suite `VBA-EmentaCoherence.Tests.ps1` (registrada como `Run-Tests.ps1 -TestSuite VBA-EmentaCoherence`)
+- Contratos atualizados: presença do `Mod_13_EmentaCoherence.bas` nos módulos esperados e ordem da normalização de linhas antes das garantias zonais
+
+### Sincronizacao de Versao
+
+- Versao 10.1.0 alinhada em `VERSION`, `Z7_STDPROPOSERS_VERSION` (`Mod_01_Infrastructure.bas`) e `_APP_VERSION` (`config_prompt.py` e `chat_ia.py`)
+
+---
+
 ## v10.0.0 — Z7 StdProposers
 
 ### Correcoes / Padronizacao de Espacamento

@@ -8,7 +8,7 @@
 Este é um projeto de automação Microsoft Word para padronização de documentos legislativos brasileiros.
 
 Duas partes coordenadas:
-- **VBA** (`source/main/`): 12 módulos (`Mod_01` a `Mod_12`) — engine de formatação no Word.
+- **VBA** (`source/main/`): 13 módulos (`Mod_01` a `Mod_13`) — engine de formatação no Word.
 - **Python** (`ai/`): Integração Gemini/OpenRouter via `chat_ia.py`, `config_prompt.py`, `z7_logging.py`, `z7_api_key.py`, `z7_theme.py`.
 
 ## 2. Encoding — REGRA CRÍTICA
@@ -24,7 +24,7 @@ Duas partes coordenadas:
 
 ## 3. Limites de Módulo
 
-- NÃO crie novos módulos VBA. Os 12 existentes são o limite.
+- NÃO crie novos módulos VBA. Os 13 existentes são o limite.
 - NÃO reintroduza monólitos. Cada módulo tem responsabilidade clara.
 - Preserve `Option Explicit` em todo `.bas` (linha 2, após `Attribute VB_Name`).
 - Preserve `Attribute VB_Name = "..."` na linha 1 de todo `.bas`.

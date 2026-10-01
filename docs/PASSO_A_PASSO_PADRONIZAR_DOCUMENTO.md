@@ -392,36 +392,49 @@ Para cada parágrafo que contenha apenas "Vereador" (com ou sem hífens/travess�
 
 - Para cada parágrafo que começa com `"CONSIDERANDO"`: se não houver parágrafo vazio logo abaixo, **insere um**.
 
-### 6.4 Garantia Final de 2 Linhas em Branco nas Zonas Especiais (`ForceDataSpacing` / `ForceJustificativaTitleSpacing` / `ForceEmentaSpacing`)
+### 6.4 Normalização Generalizada de Linhas em Branco (`NormalizarLinhasEmBranco` / `GarantirEspacoAbaixoDaData`)
 
-- Executada **depois** de toda a padronização generalizada de linhas puladas (`RemoverLinhasEmBrancoExtras` e `EnsureConsideringBlankLines`), para que a regra de **2 linhas em branco** não seja desfeita por elas.
+- `NormalizarLinhasEmBranco`: mantém no máximo **1 linha em branco seguida** em todo o documento (no máximo **2** em volta da Data). Recarrega a estrutura (`IdentifyDocumentStructure`) quando remove parágrafos (regra de invalidação de índices).
+- `GarantirEspacoAbaixoDaData`: garante **2 linhas em branco abaixo da Data** (antes do bloco de assinatura), quando há conteúdo depois dela.
+- Ambas rodam **antes** das garantias zonais da seção 6.5 — são padronização generalizada e não podem desfazer os espaçamentos de 2 linhas das zonas especiais.
+
+### 6.5 Garantia Final de 2 Linhas em Branco nas Zonas Especiais (`ForceDataSpacing` / `ForceJustificativaTitleSpacing` / `ForceEmentaSpacing`)
+
+- Executada **depois** de toda a padronização generalizada de linhas puladas (`RemoverLinhasEmBrancoExtras`, `EnsureConsideringBlankLines`, `NormalizarLinhasEmBranco` e `GarantirEspacoAbaixoDaData`), para que a regra de **2 linhas em branco** não seja desfeita por elas.
 - Garante **exatamente 2 linhas em branco**: acima e abaixo da **Ementa**, acima e abaixo do **Título da Justificativa** e acima da **Data**.
 - Ordem de baixo para cima (Data → Título da Justificativa → Ementa) para que os deslocamentos de índice não afetem os elementos já ajustados.
 
-### 6.5 Formatação de Recuos de Imagens (`FormatImageParagraphsIndents`)
+### 6.6 Formatação de Recuos de Imagens (`FormatImageParagraphsIndents`)
 
 - Parágrafos com imagens inline:
   - **Recuo esquerda:** 0.
   - **Primeira linha:** 0.
   - **Alinhamento:** centralizado.
 
-### 6.6 Centralização de Imagem após Plenário (`CenterImageAfterPlenario`)
+### 6.7 Centralização de Imagem após Plenário (`CenterImageAfterPlenario`)
 
 - Localiza o parágrafo `"Plenário Dr. Tancredo Neves"`.
 - Nas **linhas 5 a 7** após o Plenário: se houver imagem, **centraliza**.
 
-### 6.7 Remoção de Numeração de Parágrafos em Branco (`RemoveNumberingFromBlankParagraphs`)
+### 6.8 Remoção de Numeração de Parágrafos em Branco (`RemoveNumberingFromBlankParagraphs`)
 
 - Parágrafos vazios que tenham formatação de lista: **remove a numeração/marcador**.
 
-### 6.8 Garantia Final de Fonte
+### 6.9 Garantia Final de Fonte
 
 - Reaplica **Arial 12** em **todo** o documento (range completo) como garantia final, pois operações Find/Replace podem ter deixado trechos com fonte do estilo Normal (Calibri).
 
-### 6.9 Restauração de Configurações de Visualização (`RestoreViewSettings`)
+### 6.10 Restauração de Configurações de Visualização (`RestoreViewSettings`)
 
 - Restaura **todas** as configurações de visualização originais (tipo de vista, régua, marcadores, etc.).
 - **Exceção:** o zoom é mantido em **130%**.
+
+### 6.11 Verificação de Coerência Ementa x Corpo (`CheckEmentaCoherence` / `ShowEmentaCoherenceWarning` — Mod_13)
+
+- `CheckEmentaCoherence` roda **uma vez, logo após a construção do cache de parágrafos** (antes das passagens), comparando a ementa com o corpo (dispositivo).
+- Avisa sobre divergências de **endereço** (logradouro citado na ementa ausente no corpo), **número** (2+ dígitos ausentes no corpo) e **assunto** (ementa e corpo tratam de assuntos distintos, ex.: ementa "vagas de estacionamento" x corpo "tapa-buracos").
+- Verificação **somente leitura**, local (sem IA/rede); falha na verificação nunca interrompe a padronização (*fail-open*).
+- `ShowEmentaCoherenceWarning` exibe o aviso pendente **uma única vez** ao final do pipeline (após a restauração das configurações de visualização).
 
 ---
 

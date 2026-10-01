@@ -42,6 +42,7 @@ Describe 'Z7_STDPROPOSERS - Testes de Integridade' {
             ($basFiles.Name -contains 'Mod_10_Validation.bas') | Should Be $true
             ($basFiles.Name -contains 'Mod_11_RevisionText.bas') | Should Be $true
             ($basFiles.Name -contains 'Mod_12_AIStructure.bas') | Should Be $true
+            ($basFiles.Name -contains 'Mod_13_EmentaCoherence.bas') | Should Be $true
         }
 
         It 'Nao existam backups duplicados com mesmo tamanho' {
