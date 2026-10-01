@@ -131,7 +131,7 @@ A macro executa em sete fases encadeadas:
 
 31. Formatação do parágrafo 2 (ementa): `FormatSecondParagraph doc`.
 
-32. Formatação dos parágrafos 2–4 após a ementa (justificado, recuo 2,5 cm): `FormatPostEmentaBodyParagraphs doc`.
+32. Formatação dos parágrafos 2–4 após a ementa (justificado, recuo 2 cm): `FormatPostEmentaBodyParagraphs doc`.
 
 33. Formatação de considerandos: `FormatConsiderandoParagraphs doc`.
 
@@ -177,7 +177,7 @@ A macro executa em sete fases encadeadas:
 
 50. Ajuste final de recuos para Vereador (travessões): `FixHyphenatedVereadorParagraphIndents doc`.
 
-51. Garantia final de **2 linhas em branco** na ementa (acima e abaixo): `ForceEmentaSpacing doc`.
+51. Garantia final de **1 linha em branco** na ementa (acima e abaixo): `ForceEmentaSpacing doc`.
 
 52. Garantia final de **2 linhas em branco** na data (acima): `ForceDataSpacing doc`.
 
@@ -221,7 +221,7 @@ A macro executa em sete fases encadeadas:
 
 70. Ajuste final de recuos para Vereador (P2): `FixHyphenatedVereadorParagraphIndents doc`.
 
-71. Garantia final de **2 linhas em branco** na ementa (P2): `ForceEmentaSpacing doc`.
+71. Garantia final de **1 linha em branco** na ementa (P2): `ForceEmentaSpacing doc`.
 
 72. Garantia final de **2 linhas em branco** na data (P2): `ForceDataSpacing doc`.
 
@@ -233,7 +233,7 @@ A macro executa em sete fases encadeadas:
 
 74. Garantia de linhas em branco após "CONSIDERANDO": `EnsureConsideringBlankLines doc`.
 
-75. Garantia final de **2 linhas em branco** nas zonas especiais (acima e abaixo da ementa, acima e abaixo do título da justificativa, acima da data), executada **depois** de toda a padronização generalizada de linhas puladas para não ser desfeita: `ForceDataSpacing doc`, `ForceJustificativaTitleSpacing doc` e `ForceEmentaSpacing doc` (ordem de baixo para cima).
+75. Garantia final de linhas em branco nas zonas especiais (**1** acima e abaixo da ementa, **1** acima e abaixo do título da justificativa, **2** acima da data), executada **depois** de toda a padronização generalizada de linhas puladas para não ser desfeita: `ForceDataSpacing doc`, `ForceJustificativaTitleSpacing doc` e `ForceEmentaSpacing doc` (ordem de baixo para cima).
 
 78. Formatação de recuos de imagens: `FormatImageParagraphsIndents(doc)` — zera recuo esquerdo/primeira linha e centraliza parágrafos com imagens inline.
 

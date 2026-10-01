@@ -30,19 +30,19 @@ Public Sub ForceEmentaSpacing(doc As Document)
     totalBefore = doc.Paragraphs.count
 
     ' =========================================================================
-    ' 1. EXATAMENTE 2 PARAGRAFOS EM BRANCO ABAIXO DA EMENTA
+    ' 1. EXATAMENTE 1 PARAGRAFO EM BRANCO ABAIXO DA EMENTA
     ' (remocoes/insercoes abaixo nao deslocam o indice da ementa)
     ' =========================================================================
     RemoveBlankLinesAfter doc, ementaIdx
-    InsertBlankLinesAfter doc, ementaIdx, 2
+    InsertBlankLinesAfter doc, ementaIdx, 1
 
     ' =========================================================================
-    ' 2. EXATAMENTE 2 PARAGRAFOS EM BRANCO ACIMA DA EMENTA
+    ' 2. EXATAMENTE 1 PARAGRAFO EM BRANCO ACIMA DA EMENTA
     ' (remocoes/insercoes acima deslocam o indice da ementa)
     ' =========================================================================
     newIdx = RemoveBlankLinesBefore(doc, ementaIdx)
-    InsertBlankLinesBefore doc, newIdx, 2
-    ementaIdx = newIdx + 2
+    InsertBlankLinesBefore doc, newIdx, 1
+    ementaIdx = newIdx + 1
 
     ' Ajusta indices estruturais conforme o deslocamento liquido de paragrafos
     idxShift = doc.Paragraphs.count - totalBefore
@@ -50,7 +50,7 @@ Public Sub ForceEmentaSpacing(doc As Document)
     If tituloJustificativaIndex > 0 Then tituloJustificativaIndex = tituloJustificativaIndex + idxShift
     If dataParaIndex > 0 Then dataParaIndex = dataParaIndex + idxShift
 
-    LogMessage "ForceEmentaSpacing: 2 paragrafos em branco garantidos acima e abaixo da Ementa", LOG_LEVEL_INFO
+    LogMessage "ForceEmentaSpacing: 1 paragrafo em branco garantido acima e abaixo da Ementa", LOG_LEVEL_INFO
 
     Exit Sub
 

@@ -156,7 +156,7 @@ Para **cada parágrafo** (preservando imagens e parágrafos especiais):
 - **Recuos condicionais:**
   - Parágrafos centralizados: recuo esquerda e primeira linha = 0.
   - Parágrafos com recuo esquerda ≥ 5cm: recuo esquerda = 9cm (ementa).
-  - Demais parágrafos com recuo < 5cm: recuo esquerda = 0, primeira linha = 2,5cm.
+  - Demais parágrafos com recuo < 5cm: recuo esquerda = 0, primeira linha = 2cm.
 - **Alinhamento:** parágrafos alinhados à esquerda passam para justificado.
 
 ### 5.16 Formatação do 2º Parágrafo — Ementa (`FormatSecondParagraph`)
@@ -169,15 +169,15 @@ Para **cada parágrafo** (preservando imagens e parágrafos especiais):
   - `"Pede"` → `"Requer"` (mantendo o restante).
   - `"Sugere"` → `"Indica"` (mantendo o restante).
 - Remove `", neste município"` do final, se presente.
-- **Insere 2 linhas em branco ANTES** do parágrafo.
+- **Insere 1 linha em branco ANTES** do parágrafo.
 - **Formatação:** recuo esquerda = 9cm, primeira linha = 0, recuo direito = 0, justificado.
-- **Insere 2 linhas em branco DEPOIS** do parágrafo.
+- **Insere 1 linha em branco DEPOIS** do parágrafo.
 
 ### 5.17 Formatação do Corpo após a Ementa (`FormatPostEmentaBodyParagraphs`)
 
 - Para parágrafos do corpo da Corpo (após a ementa, antes da justificativa):
   - Remove linhas em branco extras entre parágrafos (mantém no máximo 1).
-  - **Recuo da primeira linha:** 2,5cm.
+  - **Recuo da primeira linha:** 2cm.
   - **Fonte:** Arial 12, negrito.
 
 ### 5.18 Formatação de "CONSIDERANDO" e "ANTE O EXPOSTO" (`FormatConsiderandoParagraphs`)
@@ -328,10 +328,10 @@ Para cada parágrafo que contenha apenas "Vereador" (com ou sem hífens/travess�
 
 ### 5.39 Espaçamento Especial (`AddSpecialElementsSpacing`)
 
-- **Garante 1 linha em branco** entre o Título e a Ementa (se não existir).
-- **Zera espaço antes/depois** da Ementa.
-- **Zera espaço antes/depois** do Título da Justificativa.
-- **Zera espaço antes/depois** da Data.
+- **Garante 1 linha em branco** acima e abaixo da Ementa.
+- **Garante 1 linha em branco** acima e abaixo do Título da Justificativa.
+- **Garante 2 linhas em branco** acima da Data.
+- **Zera espaço antes/depois** da Ementa, do Título da Justificativa e da Data.
 
 ### 5.40 Ajuste Final de Recuos para Vereador (`FixHyphenatedVereadorParagraphIndents`)
 
@@ -354,8 +354,8 @@ Para cada parágrafo que contenha apenas "Vereador" (com ou sem hífens/travess�
 ### 5.44 Garantia Final de Espaçamento da Ementa (`ForceEmentaSpacing`)
 
 - Localiza o parágrafo da ementa via `FindEmentaParagraphIndex`.
-- **Garante exatamente 2 linhas em branco antes** da ementa (remove o bloco de vazios existente e reinsere 2 — nem mais, nem menos).
-- **Garante exatamente 2 linhas em branco depois** da ementa (idem).
+- **Garante exatamente 1 linha em branco antes** da ementa (remove o bloco de vazios existente e reinsere 1 — nem mais, nem menos).
+- **Garante exatamente 1 linha em branco depois** da ementa (idem).
 - Ajusta os índices estruturais (`ementaParaIndex`, `tituloJustificativaIndex`, `dataParaIndex`) conforme o deslocamento líquido de parágrafos.
 
 ### 5.45 Garantia Final de Espaçamento da Data (`ForceDataSpacing`)
@@ -376,7 +376,7 @@ Para cada parágrafo que contenha apenas "Vereador" (com ou sem hífens/travess�
 ### 6.2 Remoção de Linhas em Branco Extras (`RemoverLinhasEmBrancoExtras`)
 
 - **Espaçamento simples** em todos os parágrafos (entre linhas = 12pt, espaço antes/depois = 0).
-- Remove parágrafos vazios consecutivos (mantém no máximo 1 — e no máximo **2** nas **zonas protegidas**: acima/abaixo da ementa, acima/abaixo do título da justificativa e acima da data, preservando a regra das 2 linhas em branco).
+- Remove parágrafos vazios consecutivos (mantém no máximo 1 — e no máximo **2** nas **zonas protegidas**: acima/abaixo da data, preservando a regra das 2 linhas em branco em volta da data).
 - Remove parágrafos que contenham apenas um espaço (`" "`).
 - **Substituições de texto adicionais:**
   - `"por intermedio do Setor,"` → `"por intermédio do Setor competente,"`.
@@ -396,12 +396,12 @@ Para cada parágrafo que contenha apenas "Vereador" (com ou sem hífens/travess�
 
 - `NormalizarLinhasEmBranco`: mantém no máximo **1 linha em branco seguida** em todo o documento (no máximo **2** em volta da Data). Recarrega a estrutura (`IdentifyDocumentStructure`) quando remove parágrafos (regra de invalidação de índices).
 - `GarantirEspacoAbaixoDaData`: garante **2 linhas em branco abaixo da Data** (antes do bloco de assinatura), quando há conteúdo depois dela.
-- Ambas rodam **antes** das garantias zonais da seção 6.5 — são padronização generalizada e não podem desfazer os espaçamentos de 2 linhas das zonas especiais.
+- Ambas rodam **antes** das garantias zonais da seção 6.5 — são padronização generalizada e não podem desfazer os espaçamentos das zonas especiais.
 
-### 6.5 Garantia Final de 2 Linhas em Branco nas Zonas Especiais (`ForceDataSpacing` / `ForceJustificativaTitleSpacing` / `ForceEmentaSpacing`)
+### 6.5 Garantia Final de Linhas em Branco nas Zonas Especiais (`ForceDataSpacing` / `ForceJustificativaTitleSpacing` / `ForceEmentaSpacing`)
 
-- Executada **depois** de toda a padronização generalizada de linhas puladas (`RemoverLinhasEmBrancoExtras`, `EnsureConsideringBlankLines`, `NormalizarLinhasEmBranco` e `GarantirEspacoAbaixoDaData`), para que a regra de **2 linhas em branco** não seja desfeita por elas.
-- Garante **exatamente 2 linhas em branco**: acima e abaixo da **Ementa**, acima e abaixo do **Título da Justificativa** e acima da **Data**.
+- Executada **depois** de toda a padronização generalizada de linhas puladas (`RemoverLinhasEmBrancoExtras`, `EnsureConsideringBlankLines`, `NormalizarLinhasEmBranco` e `GarantirEspacoAbaixoDaData`), para que as regras de linhas em branco não sejam desfeitas por elas.
+- Garante **exatamente 1 linha em branco** acima e abaixo da **Ementa** e acima e abaixo do **Título da Justificativa**; **exatamente 2 linhas em branco** acima da **Data**.
 - Ordem de baixo para cima (Data → Título da Justificativa → Ementa) para que os deslocamentos de índice não afetem os elementos já ajustados.
 
 ### 6.6 Formatação de Recuos de Imagens (`FormatImageParagraphsIndents`)

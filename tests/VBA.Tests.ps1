@@ -987,9 +987,9 @@ Describe 'Z7_STDPROPOSERS - VBA Modular Architecture' {
 
     }
 
-    Context 'Duas linhas em branco nas zonas especiais (ementa, titulo justificativa, data)' {
+    Context 'Linhas em branco nas zonas especiais (1 na ementa/titulo da justificativa, 2 na data)' {
 
-        It 'ForceEmentaSpacing garante exatamente 2 linhas acima e abaixo da Ementa' {
+        It 'ForceEmentaSpacing garante exatamente 1 linha acima e abaixo da Ementa' {
 
             $mod08 = $script:moduleContent['Mod_08_Ementa.bas']
 
@@ -1001,11 +1001,14 @@ Describe 'Z7_STDPROPOSERS - VBA Modular Architecture' {
 
             $fn.Value | Should Match 'RemoveBlankLinesAfter'
 
-            $fn.Value | Should Match 'InsertBlankLinesAfter'
+            $fn.Value | Should Match 'InsertBlankLinesAfter doc, ementaIdx, 1'
 
             $fn.Value | Should Match 'RemoveBlankLinesBefore'
 
-            $fn.Value | Should Match 'InsertBlankLinesBefore'
+            $fn.Value | Should Match 'InsertBlankLinesBefore doc, newIdx, 1'
+
+            # Nenhuma insercao de 2 linhas (regra antiga) pode voltar
+            $fn.Value | Should Not Match 'InsertBlankLines\w+ doc, \w+, 2'
 
             # Regra antiga de 3 linhas acima nao pode voltar
             $fn.Value | Should Not Match 'blankCount < 3'
@@ -1024,11 +1027,11 @@ Describe 'Z7_STDPROPOSERS - VBA Modular Architecture' {
 
             $fn.Value | Should Match 'RemoveBlankLinesBefore'
 
-            $fn.Value | Should Match 'InsertBlankLinesBefore'
+            $fn.Value | Should Match 'InsertBlankLinesBefore doc, newIdx, 2'
 
         }
 
-        It 'ForceJustificativaTitleSpacing garante exatamente 2 linhas acima e abaixo do titulo da Justificativa' {
+        It 'ForceJustificativaTitleSpacing garante exatamente 1 linha acima e abaixo do titulo da Justificativa' {
 
             $mod09 = $script:moduleContent['Mod_09_SpecialParagraphs.bas']
 
@@ -1038,12 +1041,15 @@ Describe 'Z7_STDPROPOSERS - VBA Modular Architecture' {
 
             $fn.Value | Should Match 'RemoveBlankLinesBefore'
 
-            $fn.Value | Should Match 'InsertBlankLinesBefore'
+            $fn.Value | Should Match 'InsertBlankLinesBefore doc, newIdx, 1'
 
-            # Abaixo do titulo: remove excesso e re-insere 2
+            # Abaixo do titulo: remove excesso e re-insere 1
             $fn.Value | Should Match 'RemoveBlankLinesAfter'
 
-            $fn.Value | Should Match 'InsertBlankLinesAfter'
+            $fn.Value | Should Match 'InsertBlankLinesAfter doc, justIdx, 1'
+
+            # Nenhuma insercao de 2 linhas (regra antiga) pode voltar
+            $fn.Value | Should Not Match 'InsertBlankLines\w+ doc, \w+, 2'
 
             $mod09 | Should Match '(?m)^Private Function FindJustificativaTitleIndex\(doc As Document\) As Long'
 
@@ -1051,7 +1057,7 @@ Describe 'Z7_STDPROPOSERS - VBA Modular Architecture' {
 
         }
 
-        It 'RemoverLinhasEmBrancoExtras preserva 2 linhas nas zonas protegidas' {
+        It 'RemoverLinhasEmBrancoExtras preserva 2 linhas apenas nas zonas da Data' {
 
             $mod07 = $script:moduleContent['Mod_07_Formatting.bas']
 
@@ -1065,8 +1071,17 @@ Describe 'Z7_STDPROPOSERS - VBA Modular Architecture' {
 
             $mod07 | Should Match 'Private Function IsTwoBlankLinesZone\(doc As Document, prevIdx As Long, nextIdx As Long\) As Boolean'
 
-            # Zona abaixo do titulo da Justificativa tambem e protegida (ancora anterior)
-            $mod07 | Should Match 'IsJustificativaTitleElement\(doc\.Paragraphs\(prevIdx\)\)'
+            # Zona protegida de 2 linhas e apenas a volta da Data: ementa e
+            # titulo da Justificativa usam 1 linha (regra padrao)
+            $zone = [regex]::Match($mod07, '(?s)Private Function IsTwoBlankLinesZone\(.*?End Function')
+
+            $zone.Success | Should Be $true
+
+            $zone.Value | Should Match 'IsDataElement'
+
+            $zone.Value | Should Not Match 'IsJustificativaTitleElement'
+
+            $zone.Value | Should Not Match 'IsEmentaLikeParagraph'
 
         }
 
@@ -1120,10 +1135,38 @@ Describe 'Z7_STDPROPOSERS - VBA Modular Architecture' {
 
             # NormalizarLinhasEmBranco e GarantirEspacoAbaixoDaData sao padronizacao
             # generalizada: se rodassem depois do trio Force*, desfariam as zonas
-            # protegidas de 2 linhas (ementa, titulo da justificativa, data)
+            # especiais (1 linha na ementa/titulo da justificativa, 2 em volta da data)
             $mod04 | Should Match 'EnsureConsideringBlankLines doc[\s\S]*?NormalizarLinhasEmBranco doc[\s\S]*?GarantirEspacoAbaixoDaData doc[\s\S]*?ForceDataSpacing doc'
 
             $mod04 | Should Match 'GarantirEspacoAbaixoDaData doc[\s\S]*?ForceJustificativaTitleSpacing doc[\s\S]*?ForceEmentaSpacing doc'
+
+        }
+
+    }
+
+    Context 'Recuo de primeira linha do corpo (2 cm)' {
+
+        It 'FormatPostEmentaBodyParagraphs aplica recuo de primeira linha de 2 cm' {
+
+            $mod07 = $script:moduleContent['Mod_07_Formatting.bas']
+
+            $fn = [regex]::Match($mod07, '(?s)Public Sub FormatPostEmentaBodyParagraphs\(.*?End Sub')
+
+            $fn.Success | Should Be $true
+
+            $fn.Value | Should Match '\.firstLineIndent = CentimetersToPoints\(2\)'
+
+            $fn.Value | Should Not Match 'CentimetersToPoints\(2\.5\)'
+
+        }
+
+        It 'Nenhum modulo aplica recuo de primeira linha de 2,5 cm' {
+
+            foreach ($name in $script:moduleContent.Keys) {
+
+                $script:moduleContent[$name] | Should Not Match 'CentimetersToPoints\(2\.5\)'
+
+            }
 
         }
 

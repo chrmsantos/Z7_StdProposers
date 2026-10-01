@@ -1,3 +1,22 @@
+## v10.2.4 — Z7 StdProposers
+
+### Padronizacao de Espacamento e Recuos
+
+- **1 linha em branco acima e abaixo da Ementa e do Titulo da Justificativa** (antes 2): `ForceEmentaSpacing`, `ForceJustificativaTitleSpacing`, `InsertJustificativaBlankLines`, `AddSpecialElementsSpacing` e `FormatSecondParagraph` ajustados; a regra de 2 linhas permanece apenas em volta da Data (`ForceDataSpacing`, `GarantirEspacoAbaixoDaData`, `NormalizarLinhasEmBranco`) e do Plenario
+- **Zonas protegidas de 2 linhas** (`IsTwoBlankLinesZone` em `RemoverLinhasEmBrancoExtras`) agora cobrem apenas os blocos acima/abaixo da Data (ementa e titulo da justificativa usam a regra padrao de 1 linha)
+- **Recuo de primeira linha dos paragrafos 2-4 apos a Ementa: 2 cm** (antes 2,5 cm) em `FormatPostEmentaBodyParagraphs`
+
+### Testes
+
+- Contratos atualizados em `VBA.Tests.ps1` para as contagens exatas (1 linha na ementa/titulo da justificativa; 2 em volta da Data), com guardas contra regressao para a regra antiga de 2 linhas
+- Novos contratos de recuo de primeira linha de 2 cm (inclusive ausencia de `CentimetersToPoints(2.5)` em todos os modulos)
+
+### Sincronizacao de Versao
+
+- Versao 10.2.4 alinhada em `VERSION`, `Z7_STDPROPOSERS_VERSION` (`Mod_01_Infrastructure.bas`) e `_APP_VERSION` (`config_prompt.py` e `chat_ia.py`)
+
+---
+
 ## v10.2.3 — Z7 StdProposers
 
 ### Release Estavel

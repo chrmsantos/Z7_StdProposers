@@ -1934,13 +1934,13 @@ Public Sub InsertJustificativaBlankLines(doc As Document)
         Exit Sub ' Nao encontrou "Justificativa"
     End If
 
-    ' FASE 2-5: Remove linhas vazias e insere exatamente 2 antes e 2 depois
+    ' FASE 2-5: Remove linhas vazias e insere exatamente 1 antes e 1 depois
     justificativaIndex = RemoveBlankLinesBefore(doc, justificativaIndex)
     RemoveBlankLinesAfter doc, justificativaIndex
-    InsertBlankLinesBefore doc, justificativaIndex, 2
-    InsertBlankLinesAfter doc, justificativaIndex + 2, 2  ' +2 por causa das insercoes anteriores
+    InsertBlankLinesBefore doc, justificativaIndex, 1
+    InsertBlankLinesAfter doc, justificativaIndex + 1, 1  ' +1 por causa da insercao anterior
 
-    LogMessage "Linhas em branco ajustadas: 2 antes e 2 depois de 'Justificativa'", LOG_LEVEL_INFO
+    LogMessage "Linhas em branco ajustadas: 1 antes e 1 depois de 'Justificativa'", LOG_LEVEL_INFO
 
     ' FASE 6: Processa "Plenario Dr. Tancredo Neves"
     Dim plenarioIndex As Long
@@ -1983,7 +1983,7 @@ End Sub
 
 '================================================================================
 ' GARANTIA FINAL DE ESPACAMENTO DO TITULO DA JUSTIFICATIVA
-' Garante exatamente 2 paragrafos em branco ACIMA e ABAIXO do titulo
+' Garante exatamente 1 paragrafo em branco ACIMA e ABAIXO do titulo
 ' "Justificativa". Executada como etapa final para nao ser desfeita pela
 ' padronizacao generalizada posterior de linhas puladas.
 '================================================================================
@@ -2003,22 +2003,22 @@ Public Sub ForceJustificativaTitleSpacing(doc As Document)
 
     totalBefore = doc.Paragraphs.count
 
-    ' EXATAMENTE 2 PARAGRAFOS EM BRANCO ACIMA DO TITULO DA JUSTIFICATIVA
+    ' EXATAMENTE 1 PARAGRAFO EM BRANCO ACIMA DO TITULO DA JUSTIFICATIVA
     newIdx = RemoveBlankLinesBefore(doc, justIdx)
-    InsertBlankLinesBefore doc, newIdx, 2
-    justIdx = newIdx + 2
+    InsertBlankLinesBefore doc, newIdx, 1
+    justIdx = newIdx + 1
 
-    ' EXATAMENTE 2 PARAGRAFOS EM BRANCO ABAIXO DO TITULO DA JUSTIFICATIVA
+    ' EXATAMENTE 1 PARAGRAFO EM BRANCO ABAIXO DO TITULO DA JUSTIFICATIVA
     ' (remocoes/insercoes abaixo nao deslocam o indice do titulo)
     RemoveBlankLinesAfter doc, justIdx
-    InsertBlankLinesAfter doc, justIdx, 2
+    InsertBlankLinesAfter doc, justIdx, 1
 
     ' Ajusta indices estruturais conforme o deslocamento liquido de paragrafos
     idxShift = doc.Paragraphs.count - totalBefore
     tituloJustificativaIndex = justIdx
     If dataParaIndex > 0 Then dataParaIndex = dataParaIndex + idxShift
 
-    LogMessage "ForceJustificativaTitleSpacing: 2 paragrafos em branco garantidos acima e abaixo do Titulo da Justificativa", LOG_LEVEL_INFO
+    LogMessage "ForceJustificativaTitleSpacing: 1 paragrafo em branco garantido acima e abaixo do Titulo da Justificativa", LOG_LEVEL_INFO
 
     Exit Sub
 

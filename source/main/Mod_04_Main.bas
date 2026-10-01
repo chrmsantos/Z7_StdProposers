@@ -183,12 +183,12 @@ Public Sub PadronizarDocumentoMain()
     ' Normalizacao generalizada de linhas puladas (maximo 1 linha em branco
     ' seguida; maximo 2 em volta da Data) e garantia de 2 linhas abaixo da Data.
     ' Executadas ANTES das garantias zonais abaixo, para nao desfazer os
-    ' espacamentos de 2 linhas das zonas especiais.
+    ' espacamentos das zonas especiais.
     NormalizarLinhasEmBranco doc
     GarantirEspacoAbaixoDaData doc
 
-    ' Garantia FINAL de 2 linhas em branco nas zonas especiais (Data: acima;
-    ' Titulo da Justificativa: acima e abaixo; Ementa: acima e abaixo).
+    ' Garantia FINAL de linhas em branco nas zonas especiais (Data: 2 acima;
+    ' Titulo da Justificativa: 1 acima e abaixo; Ementa: 1 acima e abaixo).
     ' Executada DEPOIS de toda a padronizacao generalizada de linhas puladas,
     ' para nao ser desfeita por ela. Ordem de baixo para cima (Data -> Titulo
     ' Justificativa -> Ementa) para que os deslocamentos de indice nao afetem

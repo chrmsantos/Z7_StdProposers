@@ -267,9 +267,9 @@ Public Function PreviousFormatting(doc As Document) As Boolean
     FormatSecondParagraph doc
     LogStepComplete "Formatacao do paragrafo 2 (ementa)"
 
-    LogStepStart "Formatacao dos paragrafos 2-4 apos Ementa (justificado, recuo 2,5 cm)"
+    LogStepStart "Formatacao dos paragrafos 2-4 apos Ementa (justificado, recuo 2 cm)"
     FormatPostEmentaBodyParagraphs doc
-    LogStepComplete "Formatacao dos paragrafos 2-4 apos Ementa (justificado, recuo 2,5 cm)"
+    LogStepComplete "Formatacao dos paragrafos 2-4 apos Ementa (justificado, recuo 2 cm)"
 
     LogStepStart "Formatacao de considerandos"
     FormatConsiderandoParagraphs doc

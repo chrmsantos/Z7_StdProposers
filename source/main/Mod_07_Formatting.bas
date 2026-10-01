@@ -496,7 +496,7 @@ Public Function FormatSecondParagraph(doc As Document) As Boolean
             End If
         End If
 
-        ' PRIMEIRO: Adiciona 2 linhas em branco ANTES do 2 paragrafo
+        ' PRIMEIRO: Adiciona 1 linha em branco ANTES do 2 paragrafo
         Dim insertionPoint As Range
         Set insertionPoint = para.Range
         insertionPoint.Collapse wdCollapseStart
@@ -505,10 +505,10 @@ Public Function FormatSecondParagraph(doc As Document) As Boolean
         Dim blankLinesBefore As Long
         blankLinesBefore = CountBlankLinesBefore(doc, secondParaIndex)
 
-        ' Adiciona linhas em branco conforme necessario para chegar a 2
-        If blankLinesBefore < 2 Then
+        ' Adiciona linhas em branco conforme necessario para chegar a 1
+        If blankLinesBefore < 1 Then
             Dim linesToAdd As Long
-            linesToAdd = 2 - blankLinesBefore
+            linesToAdd = 1 - blankLinesBefore
 
             Dim newLines As String
             newLines = String(linesToAdd, vbCrLf)
@@ -527,7 +527,7 @@ Public Function FormatSecondParagraph(doc As Document) As Boolean
             .alignment = wdAlignParagraphJustify      ' Justificado
         End With
 
-        ' SEGUNDO: Adiciona 2 linhas em branco DEPOIS do 2 paragrafo
+        ' SEGUNDO: Adiciona 1 linha em branco DEPOIS do 2 paragrafo
         Dim insertionPointAfter As Range
         Set insertionPointAfter = para.Range
         insertionPointAfter.Collapse wdCollapseEnd
@@ -536,10 +536,10 @@ Public Function FormatSecondParagraph(doc As Document) As Boolean
         Dim blankLinesAfter As Long
         blankLinesAfter = CountBlankLinesAfter(doc, secondParaIndex)
 
-        ' Adiciona linhas em branco conforme necessario para chegar a 2
-        If blankLinesAfter < 2 Then
+        ' Adiciona linhas em branco conforme necessario para chegar a 1
+        If blankLinesAfter < 1 Then
             Dim linesToAddAfter As Long
-            linesToAddAfter = 2 - blankLinesAfter
+            linesToAddAfter = 1 - blankLinesAfter
 
             Dim newLinesAfter As String
             newLinesAfter = String(linesToAddAfter, vbCrLf)
@@ -550,7 +550,7 @@ Public Function FormatSecondParagraph(doc As Document) As Boolean
         If HasVisualContent(para) Then
             LogMessage "2 paragrafo formatado com protecao de imagem e linhas em branco (posicao: " & secondParaIndex & ")", LOG_LEVEL_INFO
         Else
-            LogMessage "2 paragrafo formatado com 2 linhas em branco antes e depois (posicao: " & secondParaIndex & ")", LOG_LEVEL_INFO
+            LogMessage "2 paragrafo formatado com 1 linha em branco antes e depois (posicao: " & secondParaIndex & ")", LOG_LEVEL_INFO
         End If
     Else
         LogMessage "2 paragrafo nao encontrado para formatacao", LOG_LEVEL_WARNING
@@ -565,12 +565,12 @@ ErrorHandler:
 End Function
 
 '================================================================================
-' FORMATACAO DO VOCATIVO - Recuo 1a linha 2,5 cm + Texto Justificado
+' FORMATACAO DO VOCATIVO - Recuo 1a linha 2 cm + Texto Justificado
 '================================================================================
 
 '================================================================================
 ' FORMAT POST-EMENTA BODY PARAGRAPHS (2o ao 4o paragrafo apos Ementa)
-' Recuo 1a linha 2,5 cm + Texto Justificado
+' Recuo 1a linha 2 cm + Texto Justificado
 '================================================================================
 
 Public Sub FormatPostEmentaBodyParagraphs(doc As Document)
@@ -606,7 +606,7 @@ Public Sub FormatPostEmentaBodyParagraphs(doc As Document)
         If nonBlankCount >= 2 And nonBlankCount <= 4 Then
             With para.Range.ParagraphFormat
                 .leftIndent = CentimetersToPoints(0)
-                .firstLineIndent = CentimetersToPoints(2.5)
+                .firstLineIndent = CentimetersToPoints(2)
                 .RightIndent = 0
                 .Alignment = wdAlignParagraphJustify
             End With
@@ -620,7 +620,7 @@ NextPara:
     Next i
 
     If formattedCount > 0 Then
-        LogMessage "Paragrafos 2-4 apos Ementa formatados: " & formattedCount & " (justificado, recuo 2,5 cm)", LOG_LEVEL_INFO
+        LogMessage "Paragrafos 2-4 apos Ementa formatados: " & formattedCount & " (justificado, recuo 2 cm)", LOG_LEVEL_INFO
     End If
 
     Exit Sub
@@ -2428,10 +2428,11 @@ Public Sub RemoverLinhasEmBrancoExtras(doc As Document)
 
     ' --- Remove linhas em branco extras ---
     ' Maximo 1 linha vazia consecutiva; maximo 2 nas zonas protegidas
-    ' (acima/abaixo da Ementa, acima do Titulo da Justificativa e acima da Data),
-    ' preservando a regra das 2 linhas em branco contra a padronizacao
-    ' generalizada de linhas puladas. Blocos processados de baixo para cima
-    ' para manter validos os indices dos elementos ja ajustados.
+    ' (acima/abaixo da Data), preservando a regra das 2 linhas em branco em
+    ' volta da Data contra a padronizacao generalizada de linhas puladas.
+    ' Ementa e Titulo da Justificativa usam 1 linha em branco (regra padrao).
+    ' Blocos processados de baixo para cima para manter validos os indices
+    ' dos elementos ja ajustados.
     Dim runStart As Long
     Dim runEnd As Long
     Dim runLen As Long
@@ -2661,20 +2662,14 @@ End Function
 
 Private Function IsTwoBlankLinesZone(doc As Document, prevIdx As Long, nextIdx As Long) As Boolean
     ' Zona protegida com 2 linhas em branco: bloco de vazios acima/abaixo da
-    ' Ementa, acima/abaixo do Titulo da Justificativa ou acima da Data.
+    ' Data. Ementa e Titulo da Justificativa usam 1 linha em branco (regra
+    ' padrao do cleanup); as contagens finais sao impostas por
+    ' ForceEmentaSpacing / ForceJustificativaTitleSpacing / ForceDataSpacing.
     On Error GoTo ErrorHandler
 
     IsTwoBlankLinesZone = False
 
     If nextIdx >= 1 And nextIdx <= doc.Paragraphs.count Then
-        If IsEmentaLikeParagraph(doc.Paragraphs(nextIdx)) Then
-            IsTwoBlankLinesZone = True
-            Exit Function
-        End If
-        If IsJustificativaTitleElement(doc.Paragraphs(nextIdx)) Then
-            IsTwoBlankLinesZone = True
-            Exit Function
-        End If
         If IsDataElement(doc.Paragraphs(nextIdx)) Then
             IsTwoBlankLinesZone = True
             Exit Function
@@ -2682,11 +2677,7 @@ Private Function IsTwoBlankLinesZone(doc As Document, prevIdx As Long, nextIdx A
     End If
 
     If prevIdx >= 1 And prevIdx <= doc.Paragraphs.count Then
-        If IsEmentaLikeParagraph(doc.Paragraphs(prevIdx)) Then
-            IsTwoBlankLinesZone = True
-            Exit Function
-        End If
-        If IsJustificativaTitleElement(doc.Paragraphs(prevIdx)) Then
+        If IsDataElement(doc.Paragraphs(prevIdx)) Then
             IsTwoBlankLinesZone = True
         End If
     End If
@@ -2694,23 +2685,6 @@ Private Function IsTwoBlankLinesZone(doc As Document, prevIdx As Long, nextIdx A
 
 ErrorHandler:
     IsTwoBlankLinesZone = False
-End Function
-
-Private Function IsEmentaLikeParagraph(para As Paragraph) As Boolean
-    ' Ementa: paragrafo com texto e recuo a esquerda tipico
-    ' (mesmo criterio do fallback de FindEmentaParagraphIndex).
-    On Error GoTo ErrorHandler
-
-    IsEmentaLikeParagraph = False
-    If para Is Nothing Then Exit Function
-
-    Dim paraText As String
-    paraText = Trim(Replace(Replace(para.Range.text, vbCr, ""), vbLf, ""))
-    IsEmentaLikeParagraph = (Len(paraText) > 1 And para.Format.leftIndent > EMENTA_MIN_LEFT_INDENT)
-    Exit Function
-
-ErrorHandler:
-    IsEmentaLikeParagraph = False
 End Function
 
 '================================================================================
@@ -3123,14 +3097,14 @@ Public Sub AddSpecialElementsSpacing(doc As Document)
     Dim elementsProcessed As Long
     elementsProcessed = 0
 
-    LogMessage "Adicionando espacamento especial (2 paragrafos em branco) para ementa, justificativa e data...", LOG_LEVEL_INFO
+    LogMessage "Adicionando espacamento especial (1 paragrafo em branco na ementa e no titulo da justificativa; 2 acima da data)...", LOG_LEVEL_INFO
 
     Dim idx As Long
     Dim deletedCount As Long
     Dim newParaIdx As Long
 
     ' =========================================================================
-    ' REGRA 1: EMENTA - 2 paragrafos em branco acima e abaixo
+    ' REGRA 1: EMENTA - 1 paragrafo em branco acima e abaixo
     ' Ajusta indices em ordem reversa (de baixo para cima): Data, Justificativa, Ementa
     ' para que ajustes em elementos posteriores nao afetem indices anteriores
     ' =========================================================================
@@ -3173,21 +3147,19 @@ Public Sub AddSpecialElementsSpacing(doc As Document)
     Dim ementaIdx As Long
     ementaIdx = ementaParaIndex
 
-    ' 1d. Insere 2 paragrafos em branco ACIMA da Ementa
+    ' 1d. Insere 1 paragrafo em branco ACIMA da Ementa
     If ementaIdx > 0 And ementaIdx <= doc.Paragraphs.count Then
         Dim j As Long
-        For j = 1 To 2
-            doc.Paragraphs(ementaIdx).Range.InsertParagraphBefore
-        Next j
-        ementaIdx = ementaIdx + 2
-        ementaParaIndex = ementaParaIndex + 2
+        doc.Paragraphs(ementaIdx).Range.InsertParagraphBefore
+        ementaIdx = ementaIdx + 1
+        ementaParaIndex = ementaParaIndex + 1
 
         ' Ajusta indices posteriores pelas insercoes antes da Ementa
         If tituloJustificativaIndex >= 1 Then
-            tituloJustificativaIndex = tituloJustificativaIndex + 2
+            tituloJustificativaIndex = tituloJustificativaIndex + 1
         End If
         If dataParaIndex >= 1 Then
-            dataParaIndex = dataParaIndex + 2
+            dataParaIndex = dataParaIndex + 1
         End If
     End If
 
@@ -3202,10 +3174,9 @@ Public Sub AddSpecialElementsSpacing(doc As Document)
         On Error GoTo ErrorHandler
     End If
 
-    ' 1f. Insere 2 paragrafos em branco ABAIXO da Ementa
+    ' 1f. Insere 1 paragrafo em branco ABAIXO da Ementa
     If ementaParaIndex > 0 And ementaParaIndex <= doc.Paragraphs.count Then
         On Error Resume Next
-        doc.Paragraphs(ementaParaIndex).Range.InsertParagraphAfter
         doc.Paragraphs(ementaParaIndex).Range.InsertParagraphAfter
         Err.Clear
         On Error GoTo ErrorHandler
@@ -3213,7 +3184,7 @@ Public Sub AddSpecialElementsSpacing(doc As Document)
     End If
 
     ' =========================================================================
-    ' REGRA 2: TITULO DA JUSTIFICATIVA - 2 paragrafos em branco acima e abaixo
+    ' REGRA 2: TITULO DA JUSTIFICATIVA - 1 paragrafo em branco acima e abaixo
     ' Processo deve rodar DEPOIS de ajustar a Ementa (para capturar os indices)
     ' =========================================================================
 
@@ -3246,14 +3217,12 @@ Public Sub AddSpecialElementsSpacing(doc As Document)
         RemoveBlankLinesAfter doc, tituloJustificativaIndex
     End If
 
-    ' 2c. Insere 2 paragrafos em branco ACIMA do Titulo da Justificativa
+    ' 2c. Insere 1 paragrafo em branco ACIMA do Titulo da Justificativa
     If tituloJustificativaIndex > 0 And tituloJustificativaIndex <= doc.Paragraphs.count Then
-        For j = 1 To 2
-            doc.Paragraphs(tituloJustificativaIndex).Range.InsertParagraphBefore
-        Next j
-        tituloJustificativaIndex = tituloJustificativaIndex + 2
+        doc.Paragraphs(tituloJustificativaIndex).Range.InsertParagraphBefore
+        tituloJustificativaIndex = tituloJustificativaIndex + 1
         If dataParaIndex >= 1 Then
-            dataParaIndex = dataParaIndex + 2
+            dataParaIndex = dataParaIndex + 1
         End If
     End If
 
@@ -3268,10 +3237,9 @@ Public Sub AddSpecialElementsSpacing(doc As Document)
         On Error GoTo ErrorHandler
     End If
 
-    ' 2e. Insere 2 paragrafos em branco ABAIXO do Titulo da Justificativa
+    ' 2e. Insere 1 paragrafo em branco ABAIXO do Titulo da Justificativa
     If tituloJustificativaIndex > 0 And tituloJustificativaIndex <= doc.Paragraphs.count Then
         On Error Resume Next
-        doc.Paragraphs(tituloJustificativaIndex).Range.InsertParagraphAfter
         doc.Paragraphs(tituloJustificativaIndex).Range.InsertParagraphAfter
         Err.Clear
         On Error GoTo ErrorHandler
@@ -3322,8 +3290,8 @@ Public Sub AddSpecialElementsSpacing(doc As Document)
     End If
 
     LogMessage "Espacamento especial aplicado a " & elementsProcessed & " elementos", LOG_LEVEL_INFO
-    LogMessage "  Ementa: 2 paragrafos em branco acima e abaixo", LOG_LEVEL_INFO
-    LogMessage "  Titulo Justificativa: 2 paragrafos em branco acima e abaixo", LOG_LEVEL_INFO
+    LogMessage "  Ementa: 1 paragrafo em branco acima e abaixo", LOG_LEVEL_INFO
+    LogMessage "  Titulo Justificativa: 1 paragrafo em branco acima e abaixo", LOG_LEVEL_INFO
     LogMessage "  Data: 2 paragrafos em branco acima", LOG_LEVEL_INFO
     Exit Sub
 
