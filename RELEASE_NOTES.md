@@ -1,3 +1,16 @@
+## v10.2.3 — Z7 StdProposers
+
+### Release Estavel
+
+- Consolidacao estavel de tudo desde a v10.0.0 (ultima release publica): coerencia Ementa x Corpo (Mod_13), normalizacao de linhas em branco, novos modelos de IA padrao, botoes inferiores do config_prompt sempre visiveis e performance do pipeline
+- Build dos executaveis via PyInstaller (`chat_ia`, `config_prompt`, `import_bas_to_normal`) e publicacao dos artefatos no GitHub Releases
+
+### Sincronizacao de Versao
+
+- Versao 10.2.3 alinhada em `VERSION`, `Z7_STDPROPOSERS_VERSION` (`Mod_01_Infrastructure.bas`) e `_APP_VERSION` (`config_prompt.py` e `chat_ia.py`)
+
+---
+
 ## v10.2.2 — Z7 StdProposers
 
 ### Performance do Pipeline (equivalente, sem mudanca funcional)
