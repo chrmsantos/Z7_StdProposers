@@ -23,7 +23,7 @@ LOGGER = configure_component_logger("config_prompt")
 #  Metadata
 # ═════════════════════════════════════════════════════════════════════════════
 
-_APP_VERSION = "10.2.0"
+_APP_VERSION = "10.2.1"
 _APP_AUTHOR  = "CMS"
 _ORG         = "Câmara Municipal de Santa Bárbara d'Oeste"
 _LICENSE     = "GPL-3.0"
@@ -588,7 +588,7 @@ def open_ai_api_dialog(
     ).pack(fill=tk.X, padx=22, pady=(14, 2))
 
     output_frame = tk.Frame(dialog, bg=border)
-    output_frame.pack(fill=tk.BOTH, expand=True, padx=22)
+    # O pack e feito depois dos botoes (ver comentario na secao de botoes).
 
     output_box = tk.Text(
         output_frame, wrap=tk.WORD, font=("Consolas", 10),
@@ -621,7 +621,7 @@ def open_ai_api_dialog(
 
     # ── Buttons ───────────────────────────────────────────────────────────────
     btn_row = tk.Frame(dialog, bg=bg)
-    btn_row.pack(fill=tk.X, padx=22, pady=(14, 0))
+    # O pack e feito depois da criacao do web_btn (ver comentario abaixo).
 
     clear_btn = tk.Button(
         btn_row, text="🗑  Limpar", font=("Segoe UI", 9),
@@ -655,7 +655,15 @@ def open_ai_api_dialog(
         activebackground=bg, activeforeground=fg,
         command=lambda: webbrowser.open("https://openrouter.ai/keys"),
     )
-    web_btn.pack(fill=tk.X, padx=22, pady=(0, 16))
+    # CRITICO: o pack aloca espaco na ordem das chamadas. Os botoes (altura
+    # fixa) vao para o rodape PRIMEIRO, reservando espaco; a area de saida
+    # expansivel vai por ULTIMO e encolhe (com scrollbar) se necessario.
+    # Garante que os botoes fiquem sempre visiveis mesmo quando o conteudo
+    # nao couber na altura fixa do dialogo (520x620, nao redimensionavel).
+    # side=BOTTOM mantem a disposicao visual: btn_row acima de web_btn.
+    web_btn.pack(side=tk.BOTTOM, fill=tk.X, padx=22, pady=(0, 16))
+    btn_row.pack(side=tk.BOTTOM, fill=tk.X, padx=22, pady=(14, 0))
+    output_frame.pack(side=tk.TOP, fill=tk.BOTH, expand=True, padx=22)
 
     # ── Validation ────────────────────────────────────────────────────────────
     def _validate_inputs() -> "tuple[str, str, str] | None":
@@ -951,7 +959,8 @@ def main() -> None:
 
     # ── Container para as duas colunas de texto ──────────────────────────
     text_container = tk.Frame(root)
-    text_container.pack(side=tk.TOP, expand=True, fill=tk.BOTH, padx=25, pady=(4, 10))
+    # O pack e feito no fim de main(), DEPOIS do rodape e da barra de botoes
+    # (ver comentario de ordem de pack la embaixo).
 
     _select_bg = "#8b5cf6" if theme.mode == "dark" else "#7c3aed"
     _select_fg = "#ffffff"
@@ -1109,9 +1118,22 @@ def main() -> None:
     # Aplica o tema inicial
     theme.apply()
 
-    # Pack order: footer and buttons fixed at bottom, text area fills rest
+    # Pack order: footer and buttons fixed at bottom, text area fills rest.
+    # CRITICO: o pack aloca espaco na ordem das chamadas — widgets de altura
+    # fixa (rodape e barra de botoes) sao empacotados PRIMEIRO para reservar
+    # espaco; a area de texto expansivel vai por ULTIMO e absorve (ou encolhe
+    # via scrollbar) o espaco restante. Se text_container fosse empacotado
+    # antes, sua altura pedida empurraria os botoes para fora da janela quando
+    # o espaco requisitado excedesse a altura disponivel (telas menores,
+    # escalonamento de DPI/fontes), exigindo redimensionar a janela.
     footer_lbl.pack(side=tk.BOTTOM, fill=tk.X, pady=(0, 5))
     btn_frame.pack(side=tk.BOTTOM, fill=tk.X, pady=(15, 5))
+    text_container.pack(side=tk.TOP, expand=True, fill=tk.BOTH, padx=25, pady=(4, 10))
+
+    # Largura minima igual a largura natural da barra de botoes: impede que
+    # os botoes fiquem cortados quando a janela e estreitada ao maximo.
+    root.update_idletasks()
+    root.minsize(max(300, btn_frame.winfo_reqwidth() + 10), 500)
 
     # Bring window to front on startup without staying always-on-top
     root.lift()

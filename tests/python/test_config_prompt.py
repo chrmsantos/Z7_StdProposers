@@ -155,5 +155,32 @@ class TestRestoreDefault(unittest.TestCase):
             self.skipTest("Tkinter display not available")
 
 
+class TestLayoutPackingOrder(unittest.TestCase):
+    """Regressao do layout: os botoes inferiores devem ser empacotados antes
+    das areas expansiveis de texto. O pack do Tk aloca espaco na ordem das
+    chamadas; se a area expansivel for empacotada primeiro, sua altura pedida
+    empurra os botoes para fora da janela (fica necessario redimensionar)."""
+
+    @staticmethod
+    def _source() -> str:
+        return Path(config_prompt.__file__).read_text(encoding="utf-8")
+
+    def test_main_window_bottom_widgets_packed_before_text_container(self):
+        src = self._source()
+        footer = src.index("footer_lbl.pack(side=tk.BOTTOM")
+        buttons = src.index("btn_frame.pack(side=tk.BOTTOM")
+        text = src.index("text_container.pack(side=tk.TOP")
+        self.assertLess(footer, text)
+        self.assertLess(buttons, text)
+
+    def test_api_dialog_buttons_packed_before_output_area(self):
+        src = self._source()
+        web = src.index("web_btn.pack(side=tk.BOTTOM")
+        row = src.index("btn_row.pack(side=tk.BOTTOM")
+        out = src.index("output_frame.pack(side=tk.TOP")
+        self.assertLess(web, out)
+        self.assertLess(row, out)
+
+
 if __name__ == "__main__":
     unittest.main()

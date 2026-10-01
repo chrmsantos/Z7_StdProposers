@@ -48,7 +48,7 @@ Public Const wdPrintView As Long = 3
 '================================================================================
 Public Const STANDARD_FONT As String = "Arial"
 Public Const STANDARD_FONT_SIZE As Long = 12
-Public Const FOOTER_FONT_SIZE As Long = 9
+Public Const FOOTER_FONT_SIZE As Long = 8
 Public Const LINE_SPACING As Single = 14
 
 Public Const TOP_MARGIN_CM As Double = 4.85
@@ -79,7 +79,7 @@ Public undoRecordActive As Boolean
 ' CONSTANTES DE SISTEMA
 '================================================================================
 Public Const MIN_SUPPORTED_VERSION As Long = 14
-Public Const Z7_STDPROPOSERS_VERSION As String = "10.2.0"
+Public Const Z7_STDPROPOSERS_VERSION As String = "10.2.1"
 Public Const REQUIRED_STRING As String = "$NUMERO$/$ANO$"
 Public Const MAX_BACKUP_FILES As Long = 10
 Public Const DEBUG_MODE As Boolean = False

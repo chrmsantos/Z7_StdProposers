@@ -1,3 +1,18 @@
+## v10.2.1 — Z7 StdProposers
+
+### Correcoes
+
+- **Botoes inferiores do `config_prompt.py` sempre visiveis**: corrigida a ordem de `pack` da janela principal — rodape e barra de botoes agora sao empacotados **antes** da area de texto expansivel (`text_container`), que passa a encolher (via scrollbar) quando o conteudo nao cabe. Antes, a altura pedida da area de texto era alocada primeiro e empurrava os botoes para fora da janela em telas menores ou com escalonamento de DPI/fontes (sendo necessario redimensionar para ve-los)
+- **Largura minima dinamica**: o `minsize` da janela principal passa a respeitar a largura natural da barra de botoes (evita corte horizontal dos botoes ao estreitar a janela)
+- **Dialogo "API de IA (OpenRouter)" (520x620 fixo)**: mesma correcao de ordem de pack — "Limpar/Testar/Salvar" e "OpenRouter Keys" agora reservam espaco antes da area "SAIDA" expansivel
+- Teste de regressao `TestLayoutPackingOrder` em `tests/python/test_config_prompt.py`
+
+### Sincronizacao de Versao
+
+- Versao 10.2.1 alinhada em `VERSION`, `Z7_STDPROPOSERS_VERSION` (`Mod_01_Infrastructure.bas`) e `_APP_VERSION` (`config_prompt.py` e `chat_ia.py`)
+
+---
+
 ## v10.2.0 — Z7 StdProposers
 
 ### Modelos de IA Padrao
