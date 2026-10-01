@@ -1,3 +1,18 @@
+## v10.2.0 — Z7 StdProposers
+
+### Modelos de IA Padrao
+
+- **Primary:** `inclusionai/ling-3.0-flash-sante:free` (antes: `google/gemini-2.5-flash` em Python e `deepseek/deepseek-v4-pro` em VBA)
+- **Fallback:** `dots-studio/dots-3-note-preview:free` (antes: `openai/gpt-oss-20b`)
+- Defaults atualizados em `chat_ia.py` (`_DEFAULT_MODEL`/`_FALLBACK_MODEL`), `config_prompt.py` (`load_ai_model`/`load_fallback_model` e exemplos da UI), `Mod_11_RevisionText.bas` (`MODELO_IA_DEFAULT`) e `Mod_12_AIStructure.bas` (`AI_STRUCT_DEFAULT_MODEL`)
+- Contratos de teste atualizados para os novos defaults (`test_config_prompt.py`)
+
+### Sincronizacao de Versao
+
+- Versao 10.2.0 alinhada em `VERSION`, `Z7_STDPROPOSERS_VERSION` (`Mod_01_Infrastructure.bas`) e `_APP_VERSION` (`config_prompt.py` e `chat_ia.py`)
+
+---
+
 ## v10.1.0 — Z7 StdProposers
 
 ### Novos Recursos

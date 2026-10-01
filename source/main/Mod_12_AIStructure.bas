@@ -34,7 +34,7 @@ Private Const AI_STRUCT_URL As String = _
 
 Private Const AI_STRUCT_PREFIX As String = "AI_STRUCTURE"
 Private Const AI_STRUCT_DEFAULT_MODEL As String = _
-    "deepseek/deepseek-v4-pro"
+    "inclusionai/ling-3.0-flash-sante:free"
 
 ' Timeouts em milissegundos (resolve, connect, send, receive)
 ' Maximo total: ~10s para garantir timeout e fallback em tempo habil

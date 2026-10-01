@@ -69,7 +69,7 @@ class TestLoadAiModel(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             with mock.patch("z7_logging.get_data_dir", return_value=Path(tmp)):
                 mod = _reload_config()
-                self.assertEqual(mod.load_ai_model(), "google/gemini-2.5-flash")
+                self.assertEqual(mod.load_ai_model(), "inclusionai/ling-3.0-flash-sante:free")
 
     def test_returns_saved_model(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -96,7 +96,7 @@ class TestLoadFallbackModel(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             with mock.patch("z7_logging.get_data_dir", return_value=Path(tmp)):
                 mod = _reload_config()
-                self.assertEqual(mod.load_fallback_model(), "openai/gpt-oss-20b")
+                self.assertEqual(mod.load_fallback_model(), "dots-studio/dots-3-note-preview:free")
 
     def test_returns_saved_fallback_model(self):
         with tempfile.TemporaryDirectory() as tmp:

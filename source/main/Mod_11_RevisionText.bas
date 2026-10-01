@@ -39,7 +39,7 @@ Private Const OPENROUTER_URL As String = _
     "https://openrouter.ai/api/v1/chat/completions"
 
 Private Const MODELO_IA_DEFAULT As String = _
-    "deepseek/deepseek-v4-pro"
+    "inclusionai/ling-3.0-flash-sante:free"
 
 ' Timeouts em milissegundos (resolve, connect, send, receive)
 Private Const HTTP_RESOLVE_TIMEOUT_MS As Long = 5000
