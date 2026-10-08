@@ -1020,4 +1020,73 @@ Describe 'Z7_STDPROPOSERS - Mod_12_AIStructure' {
 
     }
 
+
+    Context 'Fallback de modelo e teto de 10s por tentativa' {
+
+        It 'Define AI_STRUCT_DEFAULT_FALLBACK_MODEL' {
+
+            $script:mod12Content | Should Match 'AI_STRUCT_DEFAULT_FALLBACK_MODEL'
+
+            $script:mod12Content | Should Match 'dots-studio/dots-3-note-preview:free'
+
+        }
+
+
+
+        It 'Declara AI_CarregarModeloFallback' {
+
+            $script:mod12Content | Should Match '(?m)^Private Function AI_CarregarModeloFallback\(\) As String'
+
+        }
+
+
+
+        It 'AI_CarregarModeloFallback le selected_fallback_model.txt' {
+
+            $match = [regex]::Match($script:mod12Content, 'Private Function AI_CarregarModeloFallback[\s\S]*?End Function')
+
+            $match.Success | Should Be $true
+
+            $match.Value | Should Match 'selected_fallback_model\.txt'
+
+            $match.Value | Should Match 'AI_STRUCT_DEFAULT_FALLBACK_MODEL'
+
+        }
+
+
+
+        It 'Limita cada tentativa de uso da IA a 10 segundos' {
+
+            $script:mod12Content | Should Match 'AI_STRUCT_TENTATIVA_TIMEOUT_SEC As Long = 10'
+
+        }
+
+
+
+        It 'IdentifyDocumentStructureWithAI tenta modelo fallback quando o principal falha' {
+
+            $match = [regex]::Match($script:mod12Content, 'Public Function IdentifyDocumentStructureWithAI[\s\S]*?End Function')
+
+            $match.Success | Should Be $true
+
+            $match.Value | Should Match 'AI_CarregarModeloFallback'
+
+            $match.Value | Should Match 'MontarJSONPayload\(modeloFallback'
+
+        }
+
+
+
+        It 'AI_ChamarAPI descarta resposta que excede o teto da tentativa' {
+
+            $match = [regex]::Match($script:mod12Content, 'Private Function AI_ChamarAPI[\s\S]*?End Function')
+
+            $match.Success | Should Be $true
+
+            $match.Value | Should Match 'AI_STRUCT_TENTATIVA_TIMEOUT_SEC'
+
+        }
+
+    }
+
 }

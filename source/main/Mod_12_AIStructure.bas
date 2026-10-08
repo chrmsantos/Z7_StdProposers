@@ -36,15 +36,25 @@ Private Const AI_STRUCT_PREFIX As String = "AI_STRUCTURE"
 Private Const AI_STRUCT_DEFAULT_MODEL As String = _
     "inclusionai/ling-3.0-flash-sante:free"
 
+' Modelo fallback (alternativo) - tentado quando o modelo principal
+' nao responde dentro do teto de 10s da tentativa
+Private Const AI_STRUCT_DEFAULT_FALLBACK_MODEL As String = _
+    "dots-studio/dots-3-note-preview:free"
+
 ' Timeouts em milissegundos (resolve, connect, send, receive)
-' Maximo total: ~10s para garantir timeout e fallback em tempo habil
+' POR TENTATIVA de uso da IA (modelo principal ou fallback);
+' soma = 10s: teto maximo de 10 segundos por tentativa
 Private Const AI_STRUCT_RESOLVE_TIMEOUT As Long = 2000
 Private Const AI_STRUCT_CONNECT_TIMEOUT As Long = 3000
 Private Const AI_STRUCT_SEND_TIMEOUT As Long = 2000
 Private Const AI_STRUCT_RECEIVE_TIMEOUT As Long = 3000
 
+' Teto de tempo (segundos) de cada tentativa de uso da IA
+Private Const AI_STRUCT_TENTATIVA_TIMEOUT_SEC As Long = 10
+
 ' Limite de tempo total para a funcao (segundos)
-Private Const AI_STRUCT_TOTAL_TIMEOUT_SEC As Long = 10
+' 2 tentativas x 10s: modelo principal + modelo fallback
+Private Const AI_STRUCT_TOTAL_TIMEOUT_SEC As Long = 20
 
 ' Maximo de paragrafos para enviar a IA (protecao de contexto)
 Private Const MAX_PARAGRAPHS_FOR_AI As Long = 400
@@ -200,12 +210,36 @@ Public Function IdentifyDocumentStructureWithAI(doc As Document) As Boolean
     LogStepComplete "Montagem do payload JSON"
 
     ' -----------------------------------------------------------------
-    ' 5. CHAMADA HTTP A API
+    ' 5. CHAMADA HTTP A API - TENTATIVA 1 (MODELO PRINCIPAL)
+    ' Cada tentativa respeita o teto de 10s (AI_STRUCT_TENTATIVA_TIMEOUT_SEC)
     ' -----------------------------------------------------------------
     LogStepStart "Chamada HTTP a API OpenRouter"
 
     Dim resposta As String
     resposta = AI_ChamarAPI(apiKey, jsonPayload)
+
+    ' -----------------------------------------------------------------
+    ' 5b. TENTATIVA 2 - MODELO FALLBACK (teto de 10s)
+    ' Se o modelo principal falhou (timeout/erro/resposta vazia), tenta
+    ' o modelo fallback antes de desistir. Se ambas as tentativas
+    ' falharem, a macro segue normalmente (fallback para heuristica no
+    ' chamador), sem prejuizo ao processamento.
+    ' -----------------------------------------------------------------
+    If Len(resposta) = 0 Then
+        Dim modeloFallback As String
+        modeloFallback = AI_CarregarModeloFallback()
+        If Len(Trim(modeloFallback)) > 0 Then
+            If StrComp(modeloFallback, modelo, vbTextCompare) <> 0 Then
+                LogMessage AI_STRUCT_PREFIX & ": Modelo principal sem resposta - " & _
+                    "tentando modelo fallback: " & modeloFallback, LOG_LEVEL_WARNING
+                jsonPayload = MontarJSONPayload(modeloFallback, _
+                    EscaparJSONAI(prompt), _
+                    EscaparJSONAI(AI_MontarMensagemDados(docText)))
+                resposta = AI_ChamarAPI(apiKey, jsonPayload)
+            End If
+        End If
+    End If
+
     If Len(resposta) = 0 Then
         LogMessage AI_STRUCT_PREFIX & ": Resposta da IA vazia", LOG_LEVEL_WARNING
         LogStepSkipped "Identificacao de estrutura", "Resposta vazia da API"
@@ -462,6 +496,16 @@ Private Function AI_ChamarAPI(ByVal apiKey As String, _
 
     Dim httpElapsed As Double
     httpElapsed = Timer - httpStartTime
+
+    ' Teto de 10s por tentativa: descarta resposta que excedeu o limite
+    If httpElapsed > AI_STRUCT_TENTATIVA_TIMEOUT_SEC Then
+        LogMessage AI_STRUCT_PREFIX & ": Tentativa excedeu o teto de " & _
+            AI_STRUCT_TENTATIVA_TIMEOUT_SEC & "s (" & _
+            Format(httpElapsed, "0.00") & "s) - descartada", LOG_LEVEL_WARNING
+        AI_ChamarAPI = ""
+        Set http = Nothing
+        Exit Function
+    End If
 
     If http.Status = 200 Then
         AI_ChamarAPI = AI_BytesParaStringUTF8(http.ResponseBody)
@@ -762,6 +806,34 @@ Private Function AI_CarregarModelo() As String
     LogMessage AI_STRUCT_PREFIX & ": Modelo padrao: " & AI_STRUCT_DEFAULT_MODEL, LOG_LEVEL_DEBUG
     Exit Function
 ErrorHandler: AI_CarregarModelo = AI_STRUCT_DEFAULT_MODEL
+End Function
+
+' =============================================================================
+' CARREGAR MODELO FALLBACK IA
+' =============================================================================
+' Le selected_fallback_model.txt (gravado pelo config_prompt.py).
+' Retorna AI_STRUCT_DEFAULT_FALLBACK_MODEL se o arquivo nao existir.
+' =============================================================================
+Private Function AI_CarregarModeloFallback() As String
+    On Error GoTo ErrorHandler
+    Dim caminhoArquivo As String, ff As Integer, conteudo As String
+    caminhoArquivo = GetZ7StdProposersDataPath() & "\selected_fallback_model.txt"
+    If Dir(caminhoArquivo) <> "" Then
+        ff = FreeFile
+        Open caminhoArquivo For Input As #ff
+        If Not EOF(ff) Then Line Input #ff, conteudo
+        Close #ff
+        conteudo = Trim(conteudo)
+        If Len(conteudo) > 0 Then
+            LogMessage AI_STRUCT_PREFIX & ": Modelo fallback carregado do arquivo: " & conteudo, LOG_LEVEL_DEBUG
+            AI_CarregarModeloFallback = conteudo
+            Exit Function
+        End If
+    End If
+    AI_CarregarModeloFallback = AI_STRUCT_DEFAULT_FALLBACK_MODEL
+    LogMessage AI_STRUCT_PREFIX & ": Modelo fallback padrao: " & AI_STRUCT_DEFAULT_FALLBACK_MODEL, LOG_LEVEL_DEBUG
+    Exit Function
+ErrorHandler: AI_CarregarModeloFallback = AI_STRUCT_DEFAULT_FALLBACK_MODEL
 End Function
 
 ' =============================================================================

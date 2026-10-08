@@ -543,13 +543,17 @@ End Function
 '--------------------------------------------------------------------------------
 ' IdentifyDocumentStructure - Identifica todos os elementos estruturais
 '--------------------------------------------------------------------------------
-' Tenta identificacao via IA primeiro; em caso de falha ou timeout (>10s),
+' Tenta identificacao via IA primeiro; em caso de falha ou timeout,
 ' usa heuristica como fallback.
+' Cada tentativa de uso da IA (modelo principal e modelo fallback)
+' respeita o teto de 10s (ver Mod_12_AIStructure).
 '--------------------------------------------------------------------------------
 Public Sub IdentifyDocumentStructure(doc As Document)
     On Error GoTo ErrorHandler
 
-    Const IA_TIMEOUT_SEC As Long = 10
+    ' Budget total do estagio de IA: 2 tentativas x 10s
+    ' (modelo principal + modelo fallback)
+    Const IA_TIMEOUT_SEC As Long = 20
 
     LogMessage "Identificando estrutura do documento...", LOG_LEVEL_INFO
 

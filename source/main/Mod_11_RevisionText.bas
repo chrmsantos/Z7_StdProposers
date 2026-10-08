@@ -30,6 +30,11 @@ Option Explicit
 ' Arquivos externos esperados (via config_prompt.py / z7_api_key.py):
 '   - %USERPROFILE%\AppData\Local\Z7\Apps\StdProposers\LocalConfigs\openrouter.key
 '   - %USERPROFILE%\AppData\Local\Z7\Apps\StdProposers\LocalConfigs\selected_model.txt
+'   - %USERPROFILE%\AppData\Local\Z7\Apps\StdProposers\LocalConfigs\selected_fallback_model.txt
+'
+' TIMEOUTS DE USO DA IA: cada tentativa (modelo principal e modelo
+' fallback) respeita o teto de 10 segundos (IA_TENTATIVA_TIMEOUT_SEC);
+' se ambas falharem, a macro segue normalmente, sem prejuizo.
 ' =============================================================================
 
 ' =============================================================================
@@ -41,11 +46,29 @@ Private Const OPENROUTER_URL As String = _
 Private Const MODELO_IA_DEFAULT As String = _
     "inclusionai/ling-3.0-flash-sante:free"
 
+' Modelo fallback (alternativo) - tentado quando o modelo principal
+' nao responde dentro do teto de 10s da tentativa
+Private Const MODELO_IA_FALLBACK_DEFAULT As String = _
+    "dots-studio/dots-3-note-preview:free"
+
 ' Timeouts em milissegundos (resolve, connect, send, receive)
+' Usados apenas pelo diagnostico de conectividade (DiagnosticarOpenRouter)
 Private Const HTTP_RESOLVE_TIMEOUT_MS As Long = 5000
 Private Const HTTP_CONNECT_TIMEOUT_MS As Long = 10000
 Private Const HTTP_SEND_TIMEOUT_MS As Long = 30000
 Private Const HTTP_RECEIVE_TIMEOUT_MS As Long = 120000
+
+' Timeouts HTTP por TENTATIVA de uso da IA (resolve, connect, send, receive)
+' Soma = 10000 ms: cada tentativa (modelo principal ou modelo fallback)
+' respeita o teto maximo de 10 segundos, sem prejudicar a continuidade
+' do processamento da macro
+Private Const IA_TENTATIVA_RESOLVE_TIMEOUT_MS As Long = 2000
+Private Const IA_TENTATIVA_CONNECT_TIMEOUT_MS As Long = 3000
+Private Const IA_TENTATIVA_SEND_TIMEOUT_MS As Long = 2000
+Private Const IA_TENTATIVA_RECEIVE_TIMEOUT_MS As Long = 3000
+
+' Teto de tempo (segundos) de cada tentativa de uso da IA
+Private Const IA_TENTATIVA_TIMEOUT_SEC As Long = 10
 
 ' Tamanho minimo de paragrafo para enviar a IA (evita chamadas desnecessarias)
 Private Const PARAGRAPH_MIN_LENGTH As Long = 5
@@ -152,6 +175,40 @@ Private Function CarregarModeloIA() As String
 ErrorHandler:
     LogMessage LOG_PREFIX & ": Erro ao carregar modelo IA: " & Err.Description, LOG_LEVEL_WARNING
     CarregarModeloIA = MODELO_IA_DEFAULT
+End Function
+
+' =============================================================================
+' CARREGAR MODELO FALLBACK IA DO CONFIG_PROMPT
+' =============================================================================
+' Le selected_fallback_model.txt gravado pelo config_prompt.py.
+' Retorna MODELO_IA_FALLBACK_DEFAULT se o arquivo nao existir.
+' =============================================================================
+Private Function CarregarModeloFallbackIA() As String
+    On Error GoTo ErrorHandler
+
+    Dim caminhoArquivo As String
+    Dim conteudo As String
+
+    caminhoArquivo = GetZ7StdProposersDataPath() & _
+        "\selected_fallback_model.txt"
+
+    If Dir(caminhoArquivo) <> "" Then
+        conteudo = LerArquivoUTF8(caminhoArquivo)
+        conteudo = Trim(conteudo)
+        If Len(conteudo) > 0 Then
+            CarregarModeloFallbackIA = conteudo
+            LogMessage LOG_PREFIX & ": Modelo fallback IA carregado: " & conteudo, LOG_LEVEL_INFO
+            Exit Function
+        End If
+    End If
+
+    CarregarModeloFallbackIA = MODELO_IA_FALLBACK_DEFAULT
+    LogMessage LOG_PREFIX & ": Modelo fallback IA padrao: " & MODELO_IA_FALLBACK_DEFAULT, LOG_LEVEL_INFO
+    Exit Function
+
+ErrorHandler:
+    LogMessage LOG_PREFIX & ": Erro ao carregar modelo fallback IA: " & Err.Description, LOG_LEVEL_WARNING
+    CarregarModeloFallbackIA = MODELO_IA_FALLBACK_DEFAULT
 End Function
 
 ' =============================================================================
@@ -634,18 +691,16 @@ Private Function ProcessarTextoComIA( _
     ByVal textoInput As String) As String
     On Error GoTo ErrorHandler
 
-    Dim http As Object
     Dim promptSystem As String
     Dim textoJSON As String
     Dim systemJSON As String
-    Dim jsonPayload As String
-    Dim resposta As String
     Dim conteudo As String
     Dim apiKey As String
     Dim modeloIA As String
+    Dim modeloFallback As String
 
     ' -----------------------------------------------------------------
-    ' CARREGA CHAVE E MODELO DO CONFIG_PROMPT
+    ' CARREGA CHAVE E MODELOS DO CONFIG_PROMPT
     ' -----------------------------------------------------------------
     apiKey = CarregarChaveAPI()
     If Len(Trim(apiKey)) = 0 Then
@@ -654,6 +709,7 @@ Private Function ProcessarTextoComIA( _
     End If
 
     modeloIA = CarregarModeloIA()
+    modeloFallback = CarregarModeloFallbackIA()
 
     ' -----------------------------------------------------------------
     ' PROMPT E JSON
@@ -668,19 +724,94 @@ Private Function ProcessarTextoComIA( _
     ' da mensagem "user" (ver MontarMensagemDados / MontarJSONRequest)
     textoJSON = EscaparJSON(MontarMensagemDados(textoInput))
     systemJSON = EscaparJSON(promptSystem)
+
+    ' -----------------------------------------------------------------
+    ' TENTATIVA 1 - MODELO PRINCIPAL (teto de 10s por tentativa)
+    ' -----------------------------------------------------------------
+    LogMessage LOG_PREFIX & ": Tentativa 1/2 - modelo principal: " & _
+        modeloIA, LOG_LEVEL_INFO
+    conteudo = TentarChamarIAComModelo( _
+        apiKey, modeloIA, systemJSON, textoJSON)
+    If Len(conteudo) > 0 Then
+        ' Anti prompt-injection: remove eventual eco do envelope de dados
+        ' antes da limpeza final da resposta
+        ProcessarTextoComIA = SanitizarTextoIA(LimparRespostaIA( _
+            RemoverEnvelopeResposta(conteudo)))
+        Exit Function
+    End If
+
+    ' -----------------------------------------------------------------
+    ' TENTATIVA 2 - MODELO FALLBACK (teto de 10s por tentativa)
+    ' -----------------------------------------------------------------
+    If Len(Trim(modeloFallback)) > 0 Then
+        If StrComp(modeloFallback, modeloIA, vbTextCompare) <> 0 Then
+            LogMessage LOG_PREFIX & ": Tentativa 2/2 - modelo fallback: " & _
+                modeloFallback, LOG_LEVEL_WARNING
+            conteudo = TentarChamarIAComModelo( _
+                apiKey, modeloFallback, systemJSON, textoJSON)
+            If Len(conteudo) > 0 Then
+                ProcessarTextoComIA = SanitizarTextoIA(LimparRespostaIA( _
+                    RemoverEnvelopeResposta(conteudo)))
+                Exit Function
+            End If
+        End If
+    End If
+
+    ' -----------------------------------------------------------------
+    ' AMBAS AS TENTATIVAS FALHARAM
+    ' Retorna vazio: a macro segue normalmente, sem prejuizo ao
+    ' processamento (timeout/falha da IA nunca interrompe a macro)
+    ' -----------------------------------------------------------------
+    LogMessage LOG_PREFIX & ": Modelos principal e fallback sem resposta" & _
+        " - operacao ignorada sem prejuizo a macro", LOG_LEVEL_WARNING
+    ProcessarTextoComIA = ""
+    Exit Function
+
+ErrorHandler:
+    LogMessage LOG_PREFIX & ": Erro ao comunicar com a IA: " & _
+        Err.Number & " - " & Err.Description, LOG_LEVEL_ERROR
+    ProcessarTextoComIA = ""
+End Function
+
+' =============================================================================
+' TENTATIVA UNICA DE USO DA IA COM UM MODELO
+' =============================================================================
+' Executa UMA tentativa de chamada a IA respeitando o teto de
+' IA_TENTATIVA_TIMEOUT_SEC segundos (qualquer que seja o modelo).
+' Timeout, erro HTTP ou erro de rede sao registrados em log e retornam
+' string vazia, permitindo a tentativa com o modelo fallback e a
+' continuidade do processamento da macro.
+' Retorna o conteudo ja extraido do JSON (sem limpeza/sanitizacao).
+' =============================================================================
+Private Function TentarChamarIAComModelo( _
+    ByVal apiKey As String, _
+    ByVal modeloIA As String, _
+    ByVal systemJSON As String, _
+    ByVal textoJSON As String) As String
+    On Error GoTo ErrorHandler
+
+    Dim http As Object
+    Dim jsonPayload As String
+    Dim resposta As String
+    Dim respostaErro As String
+    Dim tentativaStart As Double
+    Dim tentativaElapsed As Double
+
+    tentativaStart = Timer
+
     jsonPayload = MontarJSONRequest(modeloIA, systemJSON, textoJSON)
 
     ' -----------------------------------------------------------------
-    ' HTTP COM TIMEOUTS
+    ' HTTP COM TIMEOUTS - SOMA = 10s (TETO POR TENTATIVA)
     ' -----------------------------------------------------------------
     Set http = CreateObject( _
         "MSXML2.ServerXMLHTTP.6.0")
 
     http.setTimeouts _
-        HTTP_RESOLVE_TIMEOUT_MS, _
-        HTTP_CONNECT_TIMEOUT_MS, _
-        HTTP_SEND_TIMEOUT_MS, _
-        HTTP_RECEIVE_TIMEOUT_MS
+        IA_TENTATIVA_RESOLVE_TIMEOUT_MS, _
+        IA_TENTATIVA_CONNECT_TIMEOUT_MS, _
+        IA_TENTATIVA_SEND_TIMEOUT_MS, _
+        IA_TENTATIVA_RECEIVE_TIMEOUT_MS
 
     http.Open "POST", OPENROUTER_URL, False
     http.setRequestHeader "Content-Type", _
@@ -697,26 +828,28 @@ Private Function ProcessarTextoComIA( _
     ' -----------------------------------------------------------------
     http.send StringParaUTF8(jsonPayload)
 
+    tentativaElapsed = Timer - tentativaStart
+
     If http.Status = 200 Then
-        resposta = BytesParaStringUTF8(http.ResponseBody)
-        ' Anti prompt-injection: remove eventual eco do envelope de dados
-        ' antes da limpeza final da resposta
-        conteudo = RemoverEnvelopeResposta(ExtrairContentJSON(resposta))
-        ProcessarTextoComIA = SanitizarTextoIA(LimparRespostaIA(conteudo))
+        If tentativaElapsed > IA_TENTATIVA_TIMEOUT_SEC Then
+            ' Teto de 10s por tentativa: descarta resposta tardia
+            LogMessage LOG_PREFIX & ": Tentativa com modelo " & modeloIA & _
+                " excedeu o teto de " & IA_TENTATIVA_TIMEOUT_SEC & "s (" & _
+                Format(tentativaElapsed, "0.00") & "s) - descartada", _
+                LOG_LEVEL_WARNING
+            TentarChamarIAComModelo = ""
+        Else
+            resposta = BytesParaStringUTF8(http.ResponseBody)
+            TentarChamarIAComModelo = ExtrairContentJSON(resposta)
+            LogMessage LOG_PREFIX & ": Resposta do modelo " & modeloIA & _
+                " em " & Format(tentativaElapsed, "0.00") & "s", LOG_LEVEL_INFO
+        End If
     Else
-        Dim respostaErro As String
         respostaErro = BytesParaStringUTF8(http.ResponseBody)
-        LogMessage LOG_PREFIX & ": HTTP " & http.Status & " - " & _
+        LogMessage LOG_PREFIX & ": HTTP " & http.Status & " (modelo " & _
+            modeloIA & ", " & Format(tentativaElapsed, "0.00") & "s) - " & _
             Left(respostaErro, 200), LOG_LEVEL_ERROR
-        MsgBox _
-            "A OpenRouter retornou um erro." & _
-            vbCrLf & vbCrLf & _
-            "Codigo HTTP: " & http.Status & _
-            vbCrLf & vbCrLf & _
-            "Resposta:" & vbCrLf & _
-            Left(respostaErro, 500), _
-            vbCritical, "Erro OpenRouter"
-        ProcessarTextoComIA = ""
+        TentarChamarIAComModelo = ""
     End If
 
     Set http = Nothing
@@ -724,14 +857,9 @@ Private Function ProcessarTextoComIA( _
 
 ErrorHandler:
     Set http = Nothing
-    LogMessage LOG_PREFIX & ": Erro ao comunicar com a IA: " & _
-        Err.Number & " - " & Err.Description, LOG_LEVEL_ERROR
-    MsgBox _
-        "Erro ao comunicar com a IA:" & _
-        vbCrLf & vbCrLf & _
-        Err.Number & " - " & Err.Description, _
-        vbCritical, "Erro"
-    ProcessarTextoComIA = ""
+    LogMessage LOG_PREFIX & ": Erro na tentativa com modelo " & modeloIA & _
+        ": " & Err.Number & " - " & Err.Description, LOG_LEVEL_ERROR
+    TentarChamarIAComModelo = ""
 End Function
 
 ' =============================================================================

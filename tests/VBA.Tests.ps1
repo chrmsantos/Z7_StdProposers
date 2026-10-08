@@ -1288,5 +1288,112 @@ Describe 'Z7_STDPROPOSERS - VBA Modular Architecture' {
 
     }
 
+
+    Context 'Timeout e fallback de IA (teto de 10s por tentativa)' {
+
+        It 'Mod_11 define MODELO_IA_FALLBACK_DEFAULT' {
+
+            $script:moduleContent['Mod_11_RevisionText.bas'] | Should Match 'MODELO_IA_FALLBACK_DEFAULT'
+
+            $script:moduleContent['Mod_11_RevisionText.bas'] | Should Match 'dots-studio/dots-3-note-preview:free'
+
+        }
+
+
+
+        It 'Mod_11 limita cada tentativa de IA a no maximo 10 segundos' {
+
+            $mod11 = $script:moduleContent['Mod_11_RevisionText.bas']
+
+            $mod11 | Should Match 'IA_TENTATIVA_TIMEOUT_SEC As Long = 10'
+
+            $mod11 | Should Match 'IA_TENTATIVA_RESOLVE_TIMEOUT_MS As Long = 2000'
+
+            $mod11 | Should Match 'IA_TENTATIVA_CONNECT_TIMEOUT_MS As Long = 3000'
+
+            $mod11 | Should Match 'IA_TENTATIVA_SEND_TIMEOUT_MS As Long = 2000'
+
+            $mod11 | Should Match 'IA_TENTATIVA_RECEIVE_TIMEOUT_MS As Long = 3000'
+
+        }
+
+
+
+        It 'TentarChamarIAComModelo usa timeouts de tentativa (nao os do diagnostico)' {
+
+            $mod11 = $script:moduleContent['Mod_11_RevisionText.bas']
+
+            $match = [regex]::Match($mod11, 'Private Function TentarChamarIAComModelo[\s\S]*?End Function')
+
+            $match.Success | Should Be $true
+
+            $match.Value | Should Match 'IA_TENTATIVA_RESOLVE_TIMEOUT_MS'
+
+            $match.Value | Should Match 'IA_TENTATIVA_RECEIVE_TIMEOUT_MS'
+
+            $match.Value | Should Not Match 'HTTP_RECEIVE_TIMEOUT_MS'
+
+        }
+
+
+
+        It 'ProcessarTextoComIA tenta modelo principal e depois o modelo fallback' {
+
+            $mod11 = $script:moduleContent['Mod_11_RevisionText.bas']
+
+            $match = [regex]::Match($mod11, 'Private Function ProcessarTextoComIA[\s\S]*?End Function')
+
+            $match.Success | Should Be $true
+
+            $match.Value | Should Match 'CarregarModeloFallbackIA'
+
+            $match.Value | Should Match 'TentarChamarIAComModelo'
+
+            $match.Value | Should Match 'modeloFallback'
+
+        }
+
+
+
+        It 'CarregarModeloFallbackIA usa LerArquivoUTF8 e selected_fallback_model.txt' {
+
+            $mod11 = $script:moduleContent['Mod_11_RevisionText.bas']
+
+            $match = [regex]::Match($mod11, 'Private Function CarregarModeloFallbackIA[\s\S]*?End Function')
+
+            $match.Success | Should Be $true
+
+            $match.Value | Should Match 'selected_fallback_model\.txt'
+
+            $match.Value | Should Match 'LerArquivoUTF8'
+
+            $match.Value | Should Not Match 'Line Input'
+
+        }
+
+
+
+        It 'TentarChamarIAComModelo retorna vazio em falha (continuidade da macro)' {
+
+            $mod11 = $script:moduleContent['Mod_11_RevisionText.bas']
+
+            $match = [regex]::Match($mod11, 'Private Function TentarChamarIAComModelo[\s\S]*?End Function')
+
+            $match.Value | Should Match 'TentarChamarIAComModelo = ""'
+
+            $match.Value | Should Match 'IA_TENTATIVA_TIMEOUT_SEC'
+
+        }
+
+
+
+        It 'Mod_02 reserva budget de 2 tentativas x 10s para o estagio de IA' {
+
+            $script:moduleContent['Mod_02_Engine.bas'] | Should Match 'IA_TIMEOUT_SEC As Long = 20'
+
+        }
+
+    }
+
 }
 
