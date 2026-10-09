@@ -557,6 +557,13 @@ Public Sub IdentifyDocumentStructure(doc As Document)
 
     LogMessage "Identificando estrutura do documento...", LOG_LEVEL_INFO
 
+    ' 0. Reaproveita o resultado da ultima identificacao via IA quando o
+    ' texto do documento nao mudou (cache hit = zero requisicoes HTTP)
+    If AI_TentarReaproveitarEstrutura(doc) Then
+        lastIdentifiedParaCount = doc.Paragraphs.count
+        Exit Sub
+    End If
+
     ' Tenta identificacao via IA (Mod12AIStructure)
     Dim aiSuccess As Boolean
     Dim iaStartTime As Double
@@ -568,6 +575,7 @@ Public Sub IdentifyDocumentStructure(doc As Document)
     If aiSuccess Then
         LogMessage "Estrutura identificada com sucesso via IA em " & _
             Format(iaElapsed, "0.00") & "s.", LOG_LEVEL_INFO
+        lastIdentifiedParaCount = doc.Paragraphs.count
         Exit Sub
     End If
 
@@ -581,11 +589,54 @@ Public Sub IdentifyDocumentStructure(doc As Document)
     End If
 
     IdentifyDocumentStructureHeuristics doc
+    lastIdentifiedParaCount = doc.Paragraphs.count
     Exit Sub
 
 ErrorHandler:
     LogMessage "Erro ao identificar estrutura do documento: " & Err.Description, LOG_LEVEL_ERROR
 End Sub
+
+'--------------------------------------------------------------------------------
+' StructureIdentificationFresh - A estrutura atual esta valida para o documento?
+'--------------------------------------------------------------------------------
+' Retorna True quando a contagem de paragrafos e igual a da ultima identificacao
+' bem-sucedida (IA ou heuristica) e todos os indices estruturais estao dentro do
+' intervalo do documento. Nesse caso, uma nova identificacao seria um no-op
+' posicional e pode ser pulada (ver PadronizarDocumentoMain, passagem 2).
+'--------------------------------------------------------------------------------
+Public Function StructureIdentificationFresh(doc As Document) As Boolean
+    On Error GoTo ErrorHandler
+
+    StructureIdentificationFresh = False
+
+    If doc Is Nothing Then Exit Function
+    If lastIdentifiedParaCount <= 0 Then Exit Function
+
+    ' Estrutura precisa ter sido efetivamente identificada (titulo valido)
+    If tituloParaIndex <= 0 Then Exit Function
+
+    Dim maxPara As Long
+    maxPara = doc.Paragraphs.count
+    If maxPara <> lastIdentifiedParaCount Then Exit Function
+
+    ' Todos os indices devem estar dentro do intervalo do documento
+    If tituloParaIndex > maxPara Then Exit Function
+    If ementaParaIndex > maxPara Then Exit Function
+    If vocativoStartIndex > maxPara Or vocativoEndIndex > maxPara Then Exit Function
+    If corpoStartIndex > maxPara Or corpoEndIndex > maxPara Then Exit Function
+    If tituloJustificativaIndex > maxPara Then Exit Function
+    If justificativaStartIndex > maxPara Or justificativaEndIndex > maxPara Then Exit Function
+    If dataParaIndex > maxPara Then Exit Function
+    If assinaturaStartIndex > maxPara Or assinaturaEndIndex > maxPara Then Exit Function
+    If tituloAnexoIndex > maxPara Then Exit Function
+    If anexoStartIndex > maxPara Or anexoEndIndex > maxPara Then Exit Function
+
+    StructureIdentificationFresh = True
+    Exit Function
+
+ErrorHandler:
+    StructureIdentificationFresh = False
+End Function
 
 '--------------------------------------------------------------------------------
 ' IdentifyDocumentStructureHeuristics - Identifica estrutura por heuristicas
@@ -1125,6 +1176,7 @@ Public Sub ClearParagraphCache()
     Erase paragraphCache
     cacheSize = 0
     cacheEnabled = False
+    lastIdentifiedParaCount = 0
 
     ' Limpa tambem os indices de identificacao
     tituloParaIndex = 0

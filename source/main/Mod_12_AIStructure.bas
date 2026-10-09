@@ -74,6 +74,48 @@ Private Const LOG_LEVEL_DEBUG As Long = 0
 Private Const AI_DADOS_MARCADOR_INICIO As String = "<<<INICIO_TEXTO_DO_DOCUMENTO>>>"
 
 ' =============================================================================
+' CACHE DE RESULTADO + CIRCUIT BREAKER (REDUCAO DE REQUISICOES HTTP)
+' =============================================================================
+' Cache single-entry (escopo = sessao do Word): guarda o resultado da ultima
+' identificacao de estrutura bem-sucedida da IA. Se a identificacao for
+' refeita com o MESMO texto de documento (e mesma contagem de paragrafos),
+' os indices sao reaplicados sem nenhuma requisicao HTTP
+' (ver AI_TentarReaproveitarEstrutura).
+' Circuit breaker: apos falha real (HTTP/timeout/parse/validacao), novas
+' tentativas sao puladas por AI_STRUCT_BREAKER_MIN minutos SEM requisicao
+' HTTP; o chamador cai na heuristica (fallback funcional existente).
+' Entrypoints de diagnostico manual ignoram o breaker uma unica vez
+' (aiBreakerIgnorarProxima).
+Private Const AI_STRUCT_BREAKER_MIN As Long = 5
+
+Private Type AI_CACHE_ESTRUTURA
+    valida As Boolean
+    paraCount As Long
+    docText As String
+    titulo As Long
+    ementa As Long
+    vocStart As Long
+    vocEnd As Long
+    corpoStart As Long
+    corpoEnd As Long
+    titJust As Long
+    justStart As Long
+    justEnd As Long
+    data As Long
+    assStart As Long
+    assEnd As Long
+    titAnexo As Long
+    anexoStart As Long
+    anexoEnd As Long
+End Type
+
+Private aiCacheEstrutura As AI_CACHE_ESTRUTURA
+
+Private aiBreakerAbertoAte As Date
+Private aiBreakerMotivo As String
+Private aiBreakerIgnorarProxima As Boolean
+
+' =============================================================================
 ' DECLARACOES DA API WINDOWS (DPAPI) - mesma infraestrutura de Mod11
 ' =============================================================================
 #If VBA7 Then
@@ -133,6 +175,20 @@ Public Function IdentifyDocumentStructureWithAI(doc As Document) As Boolean
     On Error GoTo ErrorHandler
 
     IdentifyDocumentStructureWithAI = False
+
+    ' Diagnostico manual pode forcar a tentativa mesmo com breaker aberto
+    Dim ignorarBreaker As Boolean
+    ignorarBreaker = aiBreakerIgnorarProxima
+    aiBreakerIgnorarProxima = False
+
+    ' Circuit breaker: se a IA esta degradada, pula a tentativa SEM HTTP;
+    ' o chamador cai na heuristica (fallback funcional existente)
+    If (Not ignorarBreaker) And AI_EstruturaIndisponivel() Then
+        LogMessage AI_STRUCT_PREFIX & ": CIRCUIT BREAKER ativo - tentativa pulada (sem HTTP)", LOG_LEVEL_WARNING
+        LogStepSkipped "Identificacao de estrutura", "Circuit breaker ativo"
+        Exit Function
+    End If
+
     If doc Is Nothing Then Exit Function
     If doc.Paragraphs.count = 0 Then Exit Function
 
@@ -243,6 +299,7 @@ Public Function IdentifyDocumentStructureWithAI(doc As Document) As Boolean
     If Len(resposta) = 0 Then
         LogMessage AI_STRUCT_PREFIX & ": Resposta da IA vazia", LOG_LEVEL_WARNING
         LogStepSkipped "Identificacao de estrutura", "Resposta vazia da API"
+        AI_AbrirCircuitBreaker "sem resposta da API apos modelo principal e fallback"
         Exit Function
     End If
 
@@ -254,6 +311,7 @@ Public Function IdentifyDocumentStructureWithAI(doc As Document) As Boolean
         LogMessage AI_STRUCT_PREFIX & ": Timeout apos chamada HTTP (" & _
             Format(Timer - startTime, "0.00") & "s)", LOG_LEVEL_WARNING
         LogStepSkipped "Identificacao de estrutura", "Timeout - excedeu " & AI_STRUCT_TOTAL_TIMEOUT_SEC & "s"
+        AI_AbrirCircuitBreaker "timeout total da identificacao apos chamada HTTP"
         Exit Function
     End If
 
@@ -265,6 +323,7 @@ Public Function IdentifyDocumentStructureWithAI(doc As Document) As Boolean
     If Not ParsearRespostaEstruturaIA(resposta, doc) Then
         LogMessage AI_STRUCT_PREFIX & ": Falha ao parsear resposta da IA", LOG_LEVEL_WARNING
         LogStepSkipped "Identificacao de estrutura", "Falha no parse"
+        AI_AbrirCircuitBreaker "falha no parse da resposta da IA"
         Exit Function
     End If
 
@@ -278,6 +337,7 @@ Public Function IdentifyDocumentStructureWithAI(doc As Document) As Boolean
     If Not ValidarIndicesEstrutura(doc) Then
         LogMessage AI_STRUCT_PREFIX & ": Indices invalidos - fallback para heuristica", LOG_LEVEL_WARNING
         LogStepSkipped "Identificacao de estrutura", "Indices invalidos"
+        AI_AbrirCircuitBreaker "indices estruturais invalidos"
         Exit Function
     End If
 
@@ -306,6 +366,11 @@ Public Function IdentifyDocumentStructureWithAI(doc As Document) As Boolean
                " A=" & assinaturaStartIndex & "-" & assinaturaEndIndex & _
                " AN=" & anexoStartIndex & "-" & anexoEndIndex & " ===", LOG_LEVEL_INFO
 
+    ' Sucesso: fecha o circuit breaker e grava o cache de resultado
+    ' (permite reaproveitar a estrutura sem HTTP se o texto nao mudar)
+    AI_FecharCircuitBreaker
+    AI_SalvarCacheEstrutura docText, doc.Paragraphs.count
+
     IdentifyDocumentStructureWithAI = True
     Exit Function
 
@@ -313,6 +378,133 @@ ErrorHandler:
     LogMessage AI_STRUCT_PREFIX & ": Erro inesperado: " & Err.Number & " - " & Err.Description, LOG_LEVEL_ERROR
     IdentifyDocumentStructureWithAI = False
 End Function
+
+' =============================================================================
+' CACHE DE RESULTADO: REAPROVEITAMENTO SEM REQUISICAO HTTP
+' =============================================================================
+' Compara o texto que seria enviado a IA (MontarTextoDocumentoParaIA) com o da
+' ultima identificacao bem-sucedida. Em caso de igualdade EXATA (texto e
+' contagem de paragrafos), reaplica os indices cacheados - zero HTTP.
+' Nao altera a semantica de re-identificacao: se o texto mudou, retorna False
+' e o chamador segue para a IA (ou heuristica) normalmente.
+Public Function AI_TentarReaproveitarEstrutura(doc As Document) As Boolean
+    On Error GoTo ErrorHandler
+
+    AI_TentarReaproveitarEstrutura = False
+
+    If doc Is Nothing Then Exit Function
+    If Not aiCacheEstrutura.valida Then Exit Function
+    If doc.Paragraphs.count <> aiCacheEstrutura.paraCount Then Exit Function
+
+    Dim docText As String
+    docText = MontarTextoDocumentoParaIA(doc)
+    If Len(docText) = 0 Then Exit Function
+    If StrComp(docText, aiCacheEstrutura.docText, vbBinaryCompare) <> 0 Then Exit Function
+
+    ' Reaplica os indices cacheados
+    tituloParaIndex = aiCacheEstrutura.titulo
+    ementaParaIndex = aiCacheEstrutura.ementa
+    vocativoStartIndex = aiCacheEstrutura.vocStart
+    vocativoEndIndex = aiCacheEstrutura.vocEnd
+    corpoStartIndex = aiCacheEstrutura.corpoStart
+    corpoEndIndex = aiCacheEstrutura.corpoEnd
+    tituloJustificativaIndex = aiCacheEstrutura.titJust
+    justificativaStartIndex = aiCacheEstrutura.justStart
+    justificativaEndIndex = aiCacheEstrutura.justEnd
+    dataParaIndex = aiCacheEstrutura.data
+    assinaturaStartIndex = aiCacheEstrutura.assStart
+    assinaturaEndIndex = aiCacheEstrutura.assEnd
+    tituloAnexoIndex = aiCacheEstrutura.titAnexo
+    anexoStartIndex = aiCacheEstrutura.anexoStart
+    anexoEndIndex = aiCacheEstrutura.anexoEnd
+
+    ' Revalida os indices reaplicados (defesa contra estado corrompido)
+    If Not ValidarIndicesEstrutura(doc) Then
+        LogMessage AI_STRUCT_PREFIX & ": Cache reprovado na revalidacao - descartado", LOG_LEVEL_WARNING
+        aiCacheEstrutura.valida = False
+        Exit Function
+    End If
+
+    MarcarFlagsEstrutura doc
+
+    LogMessage AI_STRUCT_PREFIX & ": CACHE HIT - estrutura reaproveitada (0 requisicoes HTTP)", LOG_LEVEL_INFO
+    AI_TentarReaproveitarEstrutura = True
+    Exit Function
+
+ErrorHandler:
+    LogMessage AI_STRUCT_PREFIX & ": Erro ao reaproveitar cache: " & Err.Description, LOG_LEVEL_ERROR
+    AI_TentarReaproveitarEstrutura = False
+End Function
+
+' =============================================================================
+' CACHE DE RESULTADO: GRAVACAO APOS SUCESSO DA IA
+' =============================================================================
+Private Sub AI_SalvarCacheEstrutura(ByVal docText As String, ByVal paraCount As Long)
+    On Error GoTo ErrorHandler
+
+    aiCacheEstrutura.valida = True
+    aiCacheEstrutura.paraCount = paraCount
+    aiCacheEstrutura.docText = docText
+    aiCacheEstrutura.titulo = tituloParaIndex
+    aiCacheEstrutura.ementa = ementaParaIndex
+    aiCacheEstrutura.vocStart = vocativoStartIndex
+    aiCacheEstrutura.vocEnd = vocativoEndIndex
+    aiCacheEstrutura.corpoStart = corpoStartIndex
+    aiCacheEstrutura.corpoEnd = corpoEndIndex
+    aiCacheEstrutura.titJust = tituloJustificativaIndex
+    aiCacheEstrutura.justStart = justificativaStartIndex
+    aiCacheEstrutura.justEnd = justificativaEndIndex
+    aiCacheEstrutura.data = dataParaIndex
+    aiCacheEstrutura.assStart = assinaturaStartIndex
+    aiCacheEstrutura.assEnd = assinaturaEndIndex
+    aiCacheEstrutura.titAnexo = tituloAnexoIndex
+    aiCacheEstrutura.anexoStart = anexoStartIndex
+    aiCacheEstrutura.anexoEnd = anexoEndIndex
+
+    LogMessage AI_STRUCT_PREFIX & ": Cache de estrutura atualizado (" & paraCount & " paragrafos)", LOG_LEVEL_DEBUG
+    Exit Sub
+
+ErrorHandler:
+    LogMessage AI_STRUCT_PREFIX & ": Erro ao gravar cache: " & Err.Description, LOG_LEVEL_ERROR
+End Sub
+
+' =============================================================================
+' CIRCUIT BREAKER: EVITA CASCATA DE REQUISICOES FALHAS
+' =============================================================================
+' Retorna True quando a IA esta degradada (falha recente dentro da janela
+' do breaker). O chamador deve cair na heuristica - o fallback funcional
+' existente - sem novas requisicoes HTTP.
+Public Function AI_EstruturaIndisponivel() As Boolean
+    On Error GoTo ErrorHandler
+
+    If aiBreakerIgnorarProxima Then
+        AI_EstruturaIndisponivel = False
+        Exit Function
+    End If
+
+    AI_EstruturaIndisponivel = (Len(aiBreakerMotivo) > 0 And Now < aiBreakerAbertoAte)
+    Exit Function
+
+ErrorHandler:
+    AI_EstruturaIndisponivel = False
+End Function
+
+Private Sub AI_AbrirCircuitBreaker(ByVal motivo As String)
+    On Error Resume Next
+    aiBreakerMotivo = motivo
+    aiBreakerAbertoAte = Now + TimeSerial(0, AI_STRUCT_BREAKER_MIN, 0)
+    LogMessage AI_STRUCT_PREFIX & ": CIRCUIT BREAKER aberto por " & AI_STRUCT_BREAKER_MIN & _
+        " min (motivo: " & motivo & ") - proximas chamadas usam heuristica sem HTTP", LOG_LEVEL_WARNING
+End Sub
+
+Private Sub AI_FecharCircuitBreaker()
+    On Error Resume Next
+    If Len(aiBreakerMotivo) > 0 Then
+        LogMessage AI_STRUCT_PREFIX & ": CIRCUIT BREAKER fechado (IA recuperada)", LOG_LEVEL_INFO
+    End If
+    aiBreakerMotivo = ""
+    aiBreakerAbertoAte = 0
+End Sub
 
 ' =============================================================================
 ' MONTA TEXTO DO DOCUMENTO COM INDICES DE PARAGRAFOS
@@ -1148,6 +1340,9 @@ Public Sub TestarEstruturaIADocumentoAtual()
 
     Dim startTime As Double
     startTime = Timer
+
+    ' Diagnostico manual: ignora o circuit breaker (sempre tenta a IA)
+    aiBreakerIgnorarProxima = True
 
     Dim resultado As Boolean
     resultado = IdentifyDocumentStructureWithAI(doc)

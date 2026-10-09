@@ -1089,4 +1089,86 @@ Describe 'Z7_STDPROPOSERS - Mod_12_AIStructure' {
 
     }
 
+    Context 'Reducao de requisicoes HTTP - cache de resultado e circuit breaker' {
+
+        It 'Declara AI_TentarReaproveitarEstrutura (cache sem HTTP)' {
+
+            $script:mod12Content | Should Match '(?m)^Public Function AI_TentarReaproveitarEstrutura\(doc As Document\) As Boolean'
+
+        }
+
+        It 'Declara AI_EstruturaIndisponivel (circuit breaker)' {
+
+            $script:mod12Content | Should Match '(?m)^Public Function AI_EstruturaIndisponivel\(\) As Boolean'
+
+        }
+
+        It 'Cache compara texto do documento E contagem de paragrafos' {
+
+            $match = [regex]::Match($script:mod12Content, 'Public Function AI_TentarReaproveitarEstrutura[\s\S]*?End Function')
+
+            $match.Success | Should Be $true
+
+            $match.Value | Should Match 'MontarTextoDocumentoParaIA\(doc\)'
+
+            $match.Value | Should Match 'aiCacheEstrutura\.paraCount'
+
+            $match.Value | Should Match 'vbBinaryCompare'
+
+        }
+
+        It 'Cache reaplica indices e marca flags sem HTTP' {
+
+            $match = [regex]::Match($script:mod12Content, 'Public Function AI_TentarReaproveitarEstrutura[\s\S]*?End Function')
+
+            $match.Value | Should Match 'MarcarFlagsEstrutura'
+
+            $match.Value | Should Match 'ValidarIndicesEstrutura'
+
+        }
+
+        It 'IdentifyDocumentStructureWithAI consulta o breaker ANTES de AI_ChamarAPI' {
+
+            $script:mod12Content | Should Match '(?s)Public Function IdentifyDocumentStructureWithAI[\s\S]*?AI_EstruturaIndisponivel[\s\S]*?AI_ChamarAPI'
+
+        }
+
+        It 'Sucesso grava cache e fecha o circuit breaker' {
+
+            $match = [regex]::Match($script:mod12Content, 'Public Function IdentifyDocumentStructureWithAI[\s\S]*?End Function')
+
+            $match.Success | Should Be $true
+
+            $match.Value | Should Match 'AI_SalvarCacheEstrutura'
+
+            $match.Value | Should Match 'AI_FecharCircuitBreaker'
+
+        }
+
+        It 'Falhas abrem o circuit breaker' {
+
+            $match = [regex]::Match($script:mod12Content, 'Public Function IdentifyDocumentStructureWithAI[\s\S]*?End Function')
+
+            $match.Value | Should Match 'AI_AbrirCircuitBreaker'
+
+        }
+
+        It 'Janela do breaker e configuravel em minutos' {
+
+            $script:mod12Content | Should Match 'AI_STRUCT_BREAKER_MIN As Long = 5'
+
+        }
+
+        It 'TestarEstruturaIADocumentoAtual ignora o circuit breaker' {
+
+            $match = [regex]::Match($script:mod12Content, 'Public Sub TestarEstruturaIADocumentoAtual[\s\S]*?End Sub')
+
+            $match.Success | Should Be $true
+
+            $match.Value | Should Match 'aiBreakerIgnorarProxima = True'
+
+        }
+
+    }
+
 }

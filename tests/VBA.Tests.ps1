@@ -1129,6 +1129,52 @@ Describe 'Z7_STDPROPOSERS - VBA Modular Architecture' {
 
         }
 
+        It 'IdentifyDocumentStructure tenta reaproveitar cache antes de chamar a IA' {
+
+            $mod02 = $script:moduleContent['Mod_02_Engine.bas']
+
+            $fn = [regex]::Match($mod02, '(?s)Public Sub IdentifyDocumentStructure\(.*?End Sub')
+
+            $fn.Success | Should Be $true
+
+            $fn.Value | Should Match '(?s)AI_TentarReaproveitarEstrutura\(doc\).*?IdentifyDocumentStructureWithAI\(doc\)'
+
+        }
+
+        It 'IdentifyDocumentStructure registra contagem de paragrafos da ultima identificacao' {
+
+            $mod02 = $script:moduleContent['Mod_02_Engine.bas']
+
+            $fn = [regex]::Match($mod02, '(?s)Public Sub IdentifyDocumentStructure\(.*?End Sub')
+
+            $fn.Value | Should Match 'lastIdentifiedParaCount = doc\.Paragraphs\.count'
+
+        }
+
+        It 'Mod_02 declara StructureIdentificationFresh' {
+
+            $mod02 = $script:moduleContent['Mod_02_Engine.bas']
+
+            $mod02 | Should Match '(?m)^Public Function StructureIdentificationFresh\(doc As Document\) As Boolean'
+
+        }
+
+        It 'Mod_01 declara lastIdentifiedParaCount' {
+
+            $mod01 = $script:moduleContent['Mod_01_Infrastructure.bas']
+
+            $mod01 | Should Match 'Public lastIdentifiedParaCount As Long'
+
+        }
+
+        It 'Passagem 2 pula re-identificacao quando a estrutura esta fresca' {
+
+            $mod04 = $script:moduleContent['Mod_04_Main.bas']
+
+            $mod04 | Should Match '(?s)StructureIdentificationFresh\(doc\) Then\s+BuildParagraphCache doc, refreshStructure:=False'
+
+        }
+
         It 'Normalizacao generalizada de linhas roda ANTES das garantias zonais' {
 
             $mod04 = $script:moduleContent['Mod_04_Main.bas']

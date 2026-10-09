@@ -151,7 +151,15 @@ Public Sub PadronizarDocumentoMain()
         ' (paragrafos podem ter sido removidos na passagem anterior)
         If pipelinePass > 1 Then
             IncrementProgress "Reindexando paragrafos (passagem " & pipelinePass & ")"
-            BuildParagraphCache doc
+            ' Pula a re-identificacao de estrutura quando ela esta comprovadamente
+            ' fresca (mesma contagem de paragrafos da ultima identificacao e
+            ' indices validos): o refresh seria um no-op posicional.
+            ' Caso contrario, re-identifica normalmente (IA com fallback).
+            If StructureIdentificationFresh(doc) Then
+                BuildParagraphCache doc, refreshStructure:=False
+            Else
+                BuildParagraphCache doc
+            End If
         End If
 
         ' Formata documento

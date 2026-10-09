@@ -79,7 +79,7 @@ Public undoRecordActive As Boolean
 ' CONSTANTES DE SISTEMA
 '================================================================================
 Public Const MIN_SUPPORTED_VERSION As Long = 14
-Public Const Z7_STDPROPOSERS_VERSION As String = "10.4.0"
+Public Const Z7_STDPROPOSERS_VERSION As String = "10.5.0"
 Public Const REQUIRED_STRING As String = "$NUMERO$/$ANO$"
 Public Const MAX_BACKUP_FILES As Long = 10
 Public Const DEBUG_MODE As Boolean = False
@@ -249,6 +249,11 @@ Public assinaturaEndIndex As Long
 Public tituloAnexoIndex As Long
 Public anexoStartIndex As Long
 Public anexoEndIndex As Long
+
+' Contagem de paragrafos da ultima identificacao de estrutura bem-sucedida
+' (IA ou heuristica). Usada por StructureIdentificationFresh (Mod_02) para
+' decidir se uma re-identificacao pode ser pulada com seguranca.
+Public lastIdentifiedParaCount As Long
 
 '================================================================================
 ' GERENCIAMENTO DE ESTADO DA APLICACAO
