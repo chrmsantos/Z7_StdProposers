@@ -44,12 +44,12 @@ Private Const OPENROUTER_URL As String = _
     "https://openrouter.ai/api/v1/chat/completions"
 
 Private Const MODELO_IA_DEFAULT As String = _
-    "inclusionai/ling-3.0-flash-sante:free"
+    "nvidia/nemotron-3-ultra-550b-a55b:free"
 
 ' Modelo fallback (alternativo) - tentado quando o modelo principal
 ' nao responde dentro do teto de 10s da tentativa
 Private Const MODELO_IA_FALLBACK_DEFAULT As String = _
-    "dots-studio/dots-3-note-preview:free"
+    "google/gemma-4-31b-it:free"
 
 ' Timeouts em milissegundos (resolve, connect, send, receive)
 ' Usados apenas pelo diagnostico de conectividade (DiagnosticarOpenRouter)
@@ -401,6 +401,8 @@ Public Sub TestarRevisaoTextoSelecionado()
     ' -----------------------------------------------------------------
     ' VALIDACOES INICIAIS
     ' -----------------------------------------------------------------
+    InitializeProgress 4
+    IncrementProgress "Validando selecao de texto"
     If Selection Is Nothing Then
         LogMessage LOG_PREFIX & ": Nenhuma selecao ativa", LOG_LEVEL_WARNING
         Exit Sub
@@ -421,15 +423,12 @@ Public Sub TestarRevisaoTextoSelecionado()
     ' -----------------------------------------------------------------
     ' ENVIA PARA A IA
     ' -----------------------------------------------------------------
-    Application.StatusBar = RenderProgressBar(20, "Enviando texto para a IA")
-    If Not undoRecordActive Then
-        DoEvents
-    End If
+    IncrementProgress "Enviando texto para a IA"
 
     textoCorrigido = ProcessarTextoComIA(textoOriginal)
-    Application.StatusBar = False
 
     If Len(Trim(textoCorrigido)) = 0 Then
+        IncrementProgress "Revisao cancelada - IA sem resposta"
         LogStepSkipped "Revisao de texto selecionado", "IA retornou resposta vazia"
         Exit Sub
     End If
@@ -439,6 +438,7 @@ Public Sub TestarRevisaoTextoSelecionado()
     ' -----------------------------------------------------------------
     If NormalizarComparacao(textoCorrigido) <> _
        NormalizarComparacao(textoOriginal) Then
+        IncrementProgress "Aplicando correcao preservando formatacao"
         SubstituirTextoPreservandoFormatacaoMultiParagrafo _
             rng, _
             textoCorrigido
@@ -446,11 +446,13 @@ Public Sub TestarRevisaoTextoSelecionado()
             "Texto substituido | " & _
             Format(Timer - startTime, "0.0") & "s"
     Else
+        IncrementProgress "Nenhuma alteracao necessaria"
         LogStepComplete "Revisao de texto selecionado", _
             "Nenhuma alteracao | " & _
             Format(Timer - startTime, "0.0") & "s"
     End If
 
+    IncrementProgress "Revisao concluida"
     Exit Sub
 
 ErrorHandler:
@@ -499,6 +501,8 @@ Public Sub CorrigirProposituraComIA()
     ' -----------------------------------------------------------------
     ' VALIDACOES INICIAIS
     ' -----------------------------------------------------------------
+    InitializeProgress 5
+    IncrementProgress "Validando selecao de texto"
     If Selection Is Nothing Then
         LogMessage LOG_PREFIX & ": Nenhuma selecao ativa", LOG_LEVEL_WARNING
         MsgBox "Selecione o texto a ser corrigido antes de executar " & _
@@ -546,6 +550,7 @@ Public Sub CorrigirProposituraComIA()
     ' -----------------------------------------------------------------
     ' VALIDA CHAVE ANTES DE ENVIAR
     ' -----------------------------------------------------------------
+    IncrementProgress "Validando chave API"
     chaveAPI = CarregarChaveAPI()
     If Not ValidarChaveAPI(chaveAPI) Then Exit Sub
 
@@ -560,15 +565,12 @@ Public Sub CorrigirProposituraComIA()
     ' -----------------------------------------------------------------
     ' ENVIA O TEXTO SELECIONADO PARA A IA
     ' -----------------------------------------------------------------
-    Application.StatusBar = RenderProgressBar(20, "Enviando texto para a IA")
-    If Not undoRecordActive Then
-        DoEvents
-    End If
+    IncrementProgress "Enviando texto para a IA"
 
     textoCorrigido = ProcessarTextoComIA(textoOriginal)
 
     If Len(Trim(textoCorrigido)) = 0 Then
-        Application.StatusBar = False
+        IncrementProgress "Correcao cancelada - IA sem resposta"
         LogStepSkipped "Correcao de texto selecionado", _
             "IA retornou resposta vazia"
         MsgBox "A IA nao retornou texto corrigido." & vbCrLf & vbCrLf & _
@@ -616,16 +618,18 @@ Public Sub CorrigirProposituraComIA()
         SubstituirTextoPreservandoFormatacaoMultiParagrafo _
             rng, _
             textoCorrigido
-        Application.StatusBar = RenderProgressBar(100, "Texto corrigido com sucesso")
+        IncrementProgress "Aplicando correcao preservando formatacao"
         LogStepComplete "Correcao de texto selecionado", _
             "Texto corrigido e substituido | " & _
             Format(Timer - startTime, "0.0") & "s"
     Else
-        Application.StatusBar = RenderProgressBar(100, "Nenhuma alteracao necessaria")
+        IncrementProgress "Nenhuma alteracao necessaria"
         LogStepComplete "Correcao de texto selecionado", _
             "Nenhuma alteracao necessaria | " & _
             Format(Timer - startTime, "0.0") & "s"
     End If
+
+    IncrementProgress "Finalizando"
 
     ' -----------------------------------------------------------------
     ' FIM DO GRUPO DE DESFAZER - SEMPRE fecha o UndoRecord
@@ -718,6 +722,7 @@ Private Function ProcessarTextoComIA( _
     ' (texto a revisar e corrigir), JAMAIS prompt/instrucao.
     ' O guard anti-injecao e anexado EM CODIGO, depois do prompt
     ' configuravel, e nao pode ser removido via revision_prompt.txt.
+    UpdateProgressDetail "Montando requisicao para a IA"
     promptSystem = CarregarPromptRevisao() & vbLf & vbLf & _
         MontarGuardAntiInjecao()
     ' O texto do documento viaja embrulhado em envelope de dados dentro
@@ -728,6 +733,7 @@ Private Function ProcessarTextoComIA( _
     ' -----------------------------------------------------------------
     ' TENTATIVA 1 - MODELO PRINCIPAL (teto de 10s por tentativa)
     ' -----------------------------------------------------------------
+    UpdateProgressDetail "Tentativa 1/2 - modelo: " & modeloIA
     LogMessage LOG_PREFIX & ": Tentativa 1/2 - modelo principal: " & _
         modeloIA, LOG_LEVEL_INFO
     conteudo = TentarChamarIAComModelo( _
@@ -745,6 +751,7 @@ Private Function ProcessarTextoComIA( _
     ' -----------------------------------------------------------------
     If Len(Trim(modeloFallback)) > 0 Then
         If StrComp(modeloFallback, modeloIA, vbTextCompare) <> 0 Then
+            UpdateProgressDetail "Tentativa 2/2 - modelo: " & modeloFallback
             LogMessage LOG_PREFIX & ": Tentativa 2/2 - modelo fallback: " & _
                 modeloFallback, LOG_LEVEL_WARNING
             conteudo = TentarChamarIAComModelo( _
@@ -762,6 +769,7 @@ Private Function ProcessarTextoComIA( _
     ' Retorna vazio: a macro segue normalmente, sem prejuizo ao
     ' processamento (timeout/falha da IA nunca interrompe a macro)
     ' -----------------------------------------------------------------
+    UpdateProgressDetail "Modelos principal e fallback sem resposta"
     LogMessage LOG_PREFIX & ": Modelos principal e fallback sem resposta" & _
         " - operacao ignorada sem prejuizo a macro", LOG_LEVEL_WARNING
     ProcessarTextoComIA = ""
@@ -799,6 +807,7 @@ Private Function TentarChamarIAComModelo( _
 
     tentativaStart = Timer
 
+    UpdateProgressDetail "Montando payload JSON (modelo: " & modeloIA & ")"
     jsonPayload = MontarJSONRequest(modeloIA, systemJSON, textoJSON)
 
     ' -----------------------------------------------------------------
@@ -826,6 +835,7 @@ Private Function TentarChamarIAComModelo( _
     ' -----------------------------------------------------------------
     ' ENVIA E RECEBE
     ' -----------------------------------------------------------------
+    UpdateProgressDetail "Enviando requisicao (modelo: " & modeloIA & ", teto de " & IA_TENTATIVA_TIMEOUT_SEC & "s)"
     http.send StringParaUTF8(jsonPayload)
 
     tentativaElapsed = Timer - tentativaStart
@@ -839,6 +849,7 @@ Private Function TentarChamarIAComModelo( _
                 LOG_LEVEL_WARNING
             TentarChamarIAComModelo = ""
         Else
+            UpdateProgressDetail "Processando resposta da IA (modelo: " & modeloIA & ")"
             resposta = BytesParaStringUTF8(http.ResponseBody)
             TentarChamarIAComModelo = ExtrairContentJSON(resposta)
             LogMessage LOG_PREFIX & ": Resposta do modelo " & modeloIA & _

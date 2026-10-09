@@ -34,12 +34,12 @@ Private Const AI_STRUCT_URL As String = _
 
 Private Const AI_STRUCT_PREFIX As String = "AI_STRUCTURE"
 Private Const AI_STRUCT_DEFAULT_MODEL As String = _
-    "inclusionai/ling-3.0-flash-sante:free"
+    "nvidia/nemotron-3-ultra-550b-a55b:free"
 
 ' Modelo fallback (alternativo) - tentado quando o modelo principal
 ' nao responde dentro do teto de 10s da tentativa
 Private Const AI_STRUCT_DEFAULT_FALLBACK_MODEL As String = _
-    "dots-studio/dots-3-note-preview:free"
+    "google/gemma-4-31b-it:free"
 
 ' Timeouts em milissegundos (resolve, connect, send, receive)
 ' POR TENTATIVA de uso da IA (modelo principal ou fallback);

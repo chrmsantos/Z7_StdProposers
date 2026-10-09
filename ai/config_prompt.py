@@ -292,7 +292,7 @@ def load_ai_model() -> str:
             return model_file.read_text(encoding='utf-8').strip()
         except Exception as e:
             log_exception(LOGGER, "Failed to load custom model", e)
-    return "inclusionai/ling-3.0-flash-sante:free"
+    return "nvidia/nemotron-3-ultra-550b-a55b:free"
 
 def save_ai_model(model_name: str) -> None:
     model_file = get_model_file_path()
@@ -315,7 +315,7 @@ def load_fallback_model() -> str:
             return fallback_file.read_text(encoding='utf-8').strip()
         except Exception as e:
             log_exception(LOGGER, "Failed to load fallback model", e)
-    return "dots-studio/dots-3-note-preview:free"
+    return "google/gemma-4-31b-it:free"
 
 def save_fallback_model(model_name: str) -> None:
     fallback_file = get_fallback_model_file_path()
@@ -557,7 +557,7 @@ def open_ai_api_dialog(
     model_entry.pack(fill=tk.X, padx=22, ipady=2)
 
     tk.Label(
-        dialog, text="Ex: inclusionai/ling-3.0-flash-sante:free, openai/gpt-4o",
+        dialog, text="Ex: nvidia/nemotron-3-ultra-550b-a55b:free, openai/gpt-4o",
         font=("Segoe UI", 8), fg=fg_muted, bg=bg, anchor="w",
     ).pack(fill=tk.X, padx=22, pady=(2, 0))
 
@@ -577,7 +577,7 @@ def open_ai_api_dialog(
     fallback_entry.pack(fill=tk.X, padx=22, ipady=2)
 
     tk.Label(
-        dialog, text="Ex: dots-studio/dots-3-note-preview:free, google/gemini-2.5-flash-lite",
+        dialog, text="Ex: google/gemma-4-31b-it:free, google/gemini-2.5-flash-lite",
         font=("Segoe UI", 8), fg=fg_muted, bg=bg, anchor="w",
     ).pack(fill=tk.X, padx=22, pady=(2, 0))
 

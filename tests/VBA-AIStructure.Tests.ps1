@@ -1027,7 +1027,7 @@ Describe 'Z7_STDPROPOSERS - Mod_12_AIStructure' {
 
             $script:mod12Content | Should Match 'AI_STRUCT_DEFAULT_FALLBACK_MODEL'
 
-            $script:mod12Content | Should Match 'dots-studio/dots-3-note-preview:free'
+            $script:mod12Content | Should Match 'google/gemma-4-31b-it:free'
 
         }
 

@@ -79,7 +79,7 @@ Public undoRecordActive As Boolean
 ' CONSTANTES DE SISTEMA
 '================================================================================
 Public Const MIN_SUPPORTED_VERSION As Long = 14
-Public Const Z7_STDPROPOSERS_VERSION As String = "10.3.0"
+Public Const Z7_STDPROPOSERS_VERSION As String = "10.4.0"
 Public Const REQUIRED_STRING As String = "$NUMERO$/$ANO$"
 Public Const MAX_BACKUP_FILES As Long = 10
 Public Const DEBUG_MODE As Boolean = False
@@ -166,6 +166,7 @@ Public documentDirty As Boolean  ' Flag para otimizar pipeline de 2 passagens
 ' Barra de progresso
 Public totalSteps As Long
 Public currentStep As Long
+Public currentProgressStep As String  ' etapa atual exibida na StatusBar
 
 Public Type ImageInfo
     paraIndex As Long
@@ -273,7 +274,7 @@ Public Function SetAppState(Optional ByVal enabled As Boolean = True, Optional B
         If Not preserveStatusBar Then
             If statusMsg <> "" Then
                 On Error Resume Next
-                .StatusBar = statusMsg
+                .StatusBar = SanitizeStatusText(statusMsg)
                 If Err.Number <> 0 Then success = False
                 On Error GoTo ErrorHandler
             ElseIf enabled Then
@@ -303,7 +304,7 @@ End Function
 Public Function ConfigureDocumentView(doc As Document) As Boolean
     On Error GoTo ErrorHandler
 
-    Application.StatusBar = RenderProgressBar(50, "Configurando visualizacao")
+    UpdateProgressDetail "Configurando visualizacao (zoom 130%)"
 
     Dim docWindow As Window
     Set docWindow = doc.ActiveWindow
@@ -437,10 +438,48 @@ End Sub
 '================================================================================
 Public Sub UpdateProgress(message As String, percentComplete As Long)
     Application.StatusBar = RenderProgressBar(percentComplete, message)
-    If Not undoRecordActive Then
+    ' DoEvents bloqueado dentro de QUALQUER grupo de undo (padronizacao ou
+    ' correcao IA) para prevenir entradas fantasmas na pilha de undo.
+    If Not undoRecordActive And Not undoGroupEnabled Then
         DoEvents
     End If
 End Sub
+
+'================================================================================
+' SANITIZACAO DE TEXTO DA STATUSBAR (APENAS ASCII)
+' A StatusBar do Word nao aceita caracteres acentuados (regra 4.4).
+' Translitera para ASCII mantendo legibilidade; demais nao-ASCII viram "?".
+'================================================================================
+Public Function SanitizeStatusText(ByVal s As String) As String
+    Dim i As Long
+    Dim ch As String
+    Dim result As String
+
+    result = ""
+    For i = 1 To Len(s)
+        ch = Mid$(s, i, 1)
+        Select Case AscW(ch)
+            Case 224 To 229, 192 To 197: ch = "a"   ' a acentuado
+            Case 232 To 235, 200 To 203: ch = "e"   ' e acentuado
+            Case 236 To 239, 204 To 207: ch = "i"   ' i acentuado
+            Case 242 To 246, 210 To 214: ch = "o"   ' o acentuado
+            Case 249 To 252, 217 To 220: ch = "u"   ' u acentuado
+            Case 231, 199: ch = "c"                 ' cedilha
+            Case 241, 209: ch = "n"                 ' n til
+            Case 223: ch = "ss"                     ' eszett
+            Case 176, 186: ch = "o"                 ' ordinal masculino
+            Case 170: ch = "a"                      ' ordinal feminino
+            Case 8216, 8217: ch = "'"               ' aspas simples tipograficas
+            Case 8220, 8221: ch = """"              ' aspas duplas tipograficas
+            Case 8211, 8212: ch = "-"               ' travessoes
+            Case 8230: ch = "..."                   ' reticencias
+            Case 128 To 32767, -32768 To -1: ch = "?"  ' demais nao-ASCII
+        End Select
+        result = result & ch
+    Next i
+
+    SanitizeStatusText = result
+End Function
 
 '================================================================================
 ' RENDER PROGRESS BAR - Barra ASCII grafica
@@ -448,6 +487,7 @@ End Sub
 '================================================================================
 Public Function RenderProgressBar(ByVal percent As Long, ByVal msg As String) As String
     Dim filled As Long
+    msg = SanitizeStatusText(msg)
     
     If percent < 0 Then percent = 0
     If percent > 100 Then percent = 100
@@ -468,7 +508,7 @@ End Function
 Public Function SaveDocumentFirst(doc As Document) As Boolean
     On Error GoTo ErrorHandler
 
-    Application.StatusBar = RenderProgressBar(0, "Salvando documento")
+    UpdateProgressDetail "Salvando documento (aguardando confirmacao)"
     ' Log de inicio removido para performance
 
     Dim saveDialog As Object
@@ -498,7 +538,7 @@ Public Function SaveDocumentFirst(doc As Document) As Boolean
                 DoEvents
             End If
         Loop
-        Application.StatusBar = RenderProgressBar(CLng(waitCount * 100 / maxWait), "Salvando")
+        UpdateProgressDetail "Salvando documento: aguardando confirmacao (" & waitCount & "/" & maxWait & ")"
     Next waitCount
 
     If doc.Path = "" Then
@@ -562,7 +602,7 @@ Public Function CreateDocumentBackup(doc As Document) As Boolean
     End If
 
     ' Salva uma copia do documento como backup
-    Application.StatusBar = RenderProgressBar(20, "Criando backup")
+    UpdateProgressDetail "Criando backup: " & backupFileName
 
     ' Cria uma copia do arquivo usando FileSystemObject
     fso.CopyFile doc.FullName, backupFilePath, True

@@ -51,4 +51,23 @@ Describe 'Z7_STDPROPOSERS - Logging VBA' {
         $warnCount | Should BeGreaterThan 20
         $errorCount | Should BeGreaterThan 20
     }
+
+    It 'Detalha subtarefas na barra de status via UpdateProgressDetail' {
+        $mod3 | Should Match 'Public Sub UpdateProgressDetail\(detail As String\)'
+        $mod3 | Should Match 'Public Sub LogStepStart[\s\S]*?UpdateProgressDetail stepName'
+        $mod3 | Should Match 'Public Sub LogStepComplete[\s\S]*?UpdateProgressDetail ""'
+    }
+
+    It 'Indica posicao da etapa na barra de status (Passo X/NN)' {
+        $mod3 | Should Match 'Passo " & currentStep & "/" & totalSteps'
+    }
+
+    It 'Sanitiza texto da StatusBar para ASCII em RenderProgressBar' {
+        $mod1 | Should Match 'Public Function SanitizeStatusText\('
+        $mod1 | Should Match 'Public Function RenderProgressBar[\s\S]*?SanitizeStatusText\(msg\)'
+    }
+
+    It 'Bloqueia DoEvents dentro de grupos de undo ativos' {
+        $mod1 | Should Match 'If Not undoRecordActive And Not undoGroupEnabled Then'
+    }
 }

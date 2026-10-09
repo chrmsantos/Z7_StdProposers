@@ -1094,7 +1094,7 @@ Public Sub BuildParagraphCache(doc As Document, Optional ByVal refreshStructure 
 
         ' Atualiza progresso a cada 100 paragrafos
         If i Mod 100 = 0 Then
-            UpdateProgress "Indexando: " & i & "/" & cacheSize, 5 + (i * 5 \ cacheSize)
+            UpdateProgressDetail "Indexando: " & i & "/" & cacheSize
         End If
     Next i
 
@@ -1761,7 +1761,7 @@ Public Function InsertHeaderstamp(doc As Document) As Boolean
     imgFile = GetHeaderImagePath()
 
     If imgFile = "" Then
-        Application.StatusBar = RenderProgressBar(80, "Verificando imagens")
+        UpdateProgressDetail "Verificando imagens"
         InsertHeaderstamp = False
         Exit Function
     End If
@@ -1830,7 +1830,7 @@ End Function
 Public Function BackupAllImages(doc As Document) As Boolean
     On Error GoTo ErrorHandler
 
-    Application.StatusBar = RenderProgressBar(10, "Protegendo imagens")
+    UpdateProgressDetail "Protegendo imagens"
 
     imageCount = 0
     ReDim savedImages(0)
@@ -1940,7 +1940,7 @@ Public Function RestoreAllImages(doc As Document) As Boolean
         Exit Function
     End If
 
-    Application.StatusBar = RenderProgressBar(75, "Verificando integridade das imagens")
+    UpdateProgressDetail "Verificando integridade das imagens"
 
     Dim i As Long
     Dim verifiedCount As Long

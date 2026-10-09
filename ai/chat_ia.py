@@ -27,8 +27,8 @@ def _configure_ssl_certifi() -> None:
         LOGGER.warning("certifi not available; SSL may fail in frozen environment")
 
 
-_DEFAULT_MODEL = 'inclusionai/ling-3.0-flash-sante:free'
-_FALLBACK_MODEL = 'dots-studio/dots-3-note-preview:free'
+_DEFAULT_MODEL = 'nvidia/nemotron-3-ultra-550b-a55b:free'
+_FALLBACK_MODEL = 'google/gemma-4-31b-it:free'
 _OPENROUTER_BASE_URL = 'https://openrouter.ai/api/v1'
 _MAX_CONTEXT_CHARS = 150_000
 

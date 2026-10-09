@@ -1159,7 +1159,7 @@ End Function
 Public Function ClearAllFormatting(doc As Document) As Boolean
     On Error GoTo ErrorHandler
 
-    Application.StatusBar = RenderProgressBar(5, "Limpando formatacao")
+    UpdateProgressDetail "Limpando formatacao"
 
     ' SUPER OTIMIZADO: Verificacao unica de conteudo visual no documento
     Dim hasImages As Boolean
@@ -1751,7 +1751,7 @@ End Function
 Public Function CleanMultipleSpaces(doc As Document) As Boolean
     On Error GoTo ErrorHandler
 
-    Application.StatusBar = RenderProgressBar(55, "Limpando espacos")
+    UpdateProgressDetail "Limpando espacos"
 
     Dim rng As Range
     Dim spacesRemoved As Long
@@ -1940,7 +1940,7 @@ Public Function LimitSequentialEmptyLines(doc As Document) As Boolean
     ReplaceLineBreaksWithParagraphBreaks doc
     On Error GoTo ErrorHandler
 
-    Application.StatusBar = RenderProgressBar(60, "Controlando linhas")
+    UpdateProgressDetail "Controlando linhas"
 
     ' IDENTIFICACAO DO SEGUNDO PARAGRAFO PARA PROTECAO
     Dim secondParaIndex As Long
@@ -2093,7 +2093,7 @@ End Function
 Public Function RemoveAllHighlightsAndBorders(doc As Document) As Boolean
     On Error GoTo ErrorHandler
 
-    Application.StatusBar = RenderProgressBar(65, "Removendo realces e bordas")
+    UpdateProgressDetail "Removendo realces e bordas"
 
     Dim para As Paragraph
     Dim highlightCount As Long
@@ -2135,7 +2135,7 @@ Public Function RemoveAllHighlightsAndBorders(doc As Document) As Boolean
             If Not undoRecordActive Then
                 DoEvents
             End If
-            Application.StatusBar = RenderProgressBar(CLng(processedCount * 100 / doc.Paragraphs.count), "Removendo bordas")
+            UpdateProgressDetail "Removendo bordas: " & processedCount & "/" & doc.Paragraphs.count
         End If
 
         On Error GoTo ErrorHandler
@@ -2157,7 +2157,7 @@ End Function
 Public Function RemoveEmptyPagesAtEnd(doc As Document) As Boolean
     On Error GoTo ErrorHandler
 
-    Application.StatusBar = RenderProgressBar(68, "Verificando paginas vazias")
+    UpdateProgressDetail "Verificando paginas vazias"
 
     ' Verifica se ha paginas vazias no final
     Dim totalPages As Long
@@ -2729,7 +2729,7 @@ End Function
 Public Function BackupViewSettings(doc As Document) As Boolean
     On Error GoTo ErrorHandler
 
-    Application.StatusBar = RenderProgressBar(12, "Salvando visualizacao")
+    UpdateProgressDetail "Salvando visualizacao"
 
     Dim docWindow As Window
     Set docWindow = doc.ActiveWindow
@@ -2778,7 +2778,7 @@ End Function
 Public Function RestoreViewSettings(doc As Document) As Boolean
     On Error GoTo ErrorHandler
 
-    Application.StatusBar = RenderProgressBar(85, "Restaurando visualizacao")
+    UpdateProgressDetail "Restaurando visualizacao"
 
     Dim docWindow As Window
     Set docWindow = doc.ActiveWindow

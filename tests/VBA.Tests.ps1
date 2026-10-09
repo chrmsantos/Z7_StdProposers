@@ -1295,7 +1295,7 @@ Describe 'Z7_STDPROPOSERS - VBA Modular Architecture' {
 
             $script:moduleContent['Mod_11_RevisionText.bas'] | Should Match 'MODELO_IA_FALLBACK_DEFAULT'
 
-            $script:moduleContent['Mod_11_RevisionText.bas'] | Should Match 'dots-studio/dots-3-note-preview:free'
+            $script:moduleContent['Mod_11_RevisionText.bas'] | Should Match 'google/gemma-4-31b-it:free'
 
         }
 

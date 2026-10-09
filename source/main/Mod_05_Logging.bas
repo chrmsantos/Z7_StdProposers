@@ -11,18 +11,48 @@ Option Explicit
 Public Sub InitializeProgress(steps As Long)
     totalSteps = steps
     currentStep = 0
+    currentProgressStep = ""
 End Sub
 
 
 Public Sub IncrementProgress(message As String)
     currentStep = currentStep + 1
+    currentProgressStep = message
     Dim percent As Long
     If totalSteps > 0 Then
         percent = CLng((currentStep * 100) / totalSteps)
+        UpdateProgress "Passo " & currentStep & "/" & totalSteps & ": " & message, percent
     Else
         percent = 0
+        UpdateProgress message, percent
     End If
-    UpdateProgress message, percent
+End Sub
+
+'================================================================================
+' DETALHE DE ETAPA (SUBTAREFA) NA BARRA DE STATUS
+' Mantem o percentual global da etapa atual (monotonico) e compoe a mensagem:
+'   Passo X/NN: etapa atual + detalhe (separador " + " ">" + " ")
+' Sem progresso inicializado, exibe apenas o detalhe (se houver).
+'================================================================================
+Public Sub UpdateProgressDetail(detail As String)
+    On Error Resume Next
+
+    Dim percent As Long
+    Dim msg As String
+
+    If totalSteps > 0 And Len(currentProgressStep) > 0 Then
+        percent = CLng((currentStep * 100) / totalSteps)
+        msg = "Passo " & currentStep & "/" & totalSteps & ": " & currentProgressStep
+        If Len(detail) > 0 Then
+            msg = msg & " + " & detail
+        End If
+        UpdateProgress msg, percent
+    Else
+        ' Sem progresso inicializado: exibe apenas o detalhe (se houver)
+        If Len(detail) > 0 Then
+            UpdateProgress detail, 0
+        End If
+    End If
 End Sub
 
 '================================================================================
@@ -352,6 +382,7 @@ End Sub
 Public Sub LogStepStart(stepName As String)
     On Error Resume Next
     lastStepStartTime = Timer
+    UpdateProgressDetail stepName
     LogMessage "� Iniciando: " & stepName, LOG_LEVEL_INFO
 End Sub
 
@@ -370,6 +401,7 @@ Public Sub LogStepComplete(stepName As String, Optional details As String = "")
     If Len(details) > 0 Then msg = msg & " | " & details
     msg = msg & " | " & Format(elapsed, "0.000") & "s"
     LogMessage msg, LOG_LEVEL_INFO
+    UpdateProgressDetail ""
 End Sub
 
 

@@ -129,6 +129,7 @@ Public Sub PadronizarDocumentoMain()
     BuildParagraphCache doc
 
     ' Executa verificacao de coerencia da Ementa x Corpo (Modulo 13)
+    IncrementProgress "Verificando coerencia ementa x corpo"
     CheckEmentaCoherence doc
 
     ' Executa formatacao em 2 passagens para garantir estabilidade
@@ -254,6 +255,7 @@ Public Sub PadronizarDocumentoMain()
 
 Cleanup:
 
+    InitializeProgress 0 ' Zera contadores de progresso (evita estado obsoleto)
     ClearParagraphCache ' Limpa cache de paragrafos
     SafeCleanup
     CleanupImageProtection       ' Limpa variaveis de protecao de imagens
