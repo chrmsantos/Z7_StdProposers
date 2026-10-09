@@ -1175,6 +1175,28 @@ Describe 'Z7_STDPROPOSERS - VBA Modular Architecture' {
 
         }
 
+        It 'Fluxo de identificacao: cache exato -> remapeamento -> IA' {
+
+            $mod02 = $script:moduleContent['Mod_02_Engine.bas']
+
+            $fn = [regex]::Match($mod02, '(?s)Public Sub IdentifyDocumentStructure\(.*?End Sub')
+
+            $fn.Success | Should Be $true
+
+            $fn.Value | Should Match '(?s)AI_TentarReaproveitarEstrutura\(doc\).*?AI_TentarRemapearEstrutura\(doc\).*?IdentifyDocumentStructureWithAI\(doc\)'
+
+        }
+
+        It 'Caminho heuristico tambem grava o cache de resultado' {
+
+            $mod02 = $script:moduleContent['Mod_02_Engine.bas']
+
+            $fn = [regex]::Match($mod02, '(?s)Public Sub IdentifyDocumentStructure\(.*?End Sub')
+
+            $fn.Value | Should Match '(?s)IdentifyDocumentStructureHeuristics doc[\s\S]*?AI_SalvarEstruturaIdentificada doc'
+
+        }
+
         It 'Normalizacao generalizada de linhas roda ANTES das garantias zonais' {
 
             $mod04 = $script:moduleContent['Mod_04_Main.bas']

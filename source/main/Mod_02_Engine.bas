@@ -564,6 +564,14 @@ Public Sub IdentifyDocumentStructure(doc As Document)
         Exit Sub
     End If
 
+    ' 0b. Remapeamento por ancoras: reposiciona os indices da ultima
+    ' identificacao sem IA quando houve mutacoes (zero requisicoes HTTP;
+    ' fail-safe: nao confiavel -> cai na IA)
+    If AI_TentarRemapearEstrutura(doc) Then
+        lastIdentifiedParaCount = doc.Paragraphs.count
+        Exit Sub
+    End If
+
     ' Tenta identificacao via IA (Mod12AIStructure)
     Dim aiSuccess As Boolean
     Dim iaStartTime As Double
@@ -589,6 +597,10 @@ Public Sub IdentifyDocumentStructure(doc As Document)
     End If
 
     IdentifyDocumentStructureHeuristics doc
+    ' Caminho heuristico tambem atualiza o cache de resultado: o remapeamento
+    ' posterior deve refletir a ULTIMA identificacao (e nao uma decisao
+    ' anterior da IA ja substituida)
+    AI_SalvarEstruturaIdentificada doc
     lastIdentifiedParaCount = doc.Paragraphs.count
     Exit Sub
 

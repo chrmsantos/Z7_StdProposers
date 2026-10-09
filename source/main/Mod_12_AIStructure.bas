@@ -92,21 +92,10 @@ Private Type AI_CACHE_ESTRUTURA
     valida As Boolean
     paraCount As Long
     docText As String
-    titulo As Long
-    ementa As Long
-    vocStart As Long
-    vocEnd As Long
-    corpoStart As Long
-    corpoEnd As Long
-    titJust As Long
-    justStart As Long
-    justEnd As Long
-    data As Long
-    assStart As Long
-    assEnd As Long
-    titAnexo As Long
-    anexoStart As Long
-    anexoEnd As Long
+    ' Indices estruturais na ordem canonica AI_IDX_* (1..15)
+    idx(1 To 15) As Long
+    ' Assinaturas de ancora (texto normalizado) na mesma ordem
+    ass(1 To 15) As String
 End Type
 
 Private aiCacheEstrutura As AI_CACHE_ESTRUTURA
@@ -114,6 +103,36 @@ Private aiCacheEstrutura As AI_CACHE_ESTRUTURA
 Private aiBreakerAbertoAte As Date
 Private aiBreakerMotivo As String
 Private aiBreakerIgnorarProxima As Boolean
+
+' ---------------------------------------------------------------------------
+' REMAPEAMENTO POR ANCORAS (REDUCAO DE REQUISICOES HTTP)
+' ---------------------------------------------------------------------------
+' Ordem canonica dos indices/assinaturas no cache (1..15):
+' 1=titulo 2=ementa 3=vocStart 4=vocEnd 5=corpoStart 6=corpoEnd
+' 7=titJust 8=justStart 9=justEnd 10=data 11=assStart 12=assEnd
+' 13=titAnexo 14=anexoStart 15=anexoEnd
+Private Const AI_IDX_TITULO As Long = 1
+Private Const AI_IDX_EMENTA As Long = 2
+Private Const AI_IDX_VOC_START As Long = 3
+Private Const AI_IDX_VOC_END As Long = 4
+Private Const AI_IDX_CORPO_START As Long = 5
+Private Const AI_IDX_CORPO_END As Long = 6
+Private Const AI_IDX_TIT_JUST As Long = 7
+Private Const AI_IDX_JUST_START As Long = 8
+Private Const AI_IDX_JUST_END As Long = 9
+Private Const AI_IDX_DATA As Long = 10
+Private Const AI_IDX_ASS_START As Long = 11
+Private Const AI_IDX_ASS_END As Long = 12
+Private Const AI_IDX_TIT_ANEXO As Long = 13
+Private Const AI_IDX_ANEXO_START As Long = 14
+Private Const AI_IDX_ANEXO_END As Long = 15
+
+' Tamanho minimo de uma assinatura para ser considerada confiavel na
+' relocalizacao; assinaturas menores (ou em branco) sao interpoladas
+Private Const AI_ASSINATURA_MIN As Long = 8
+
+' Maximo de caracteres da assinatura de ancora
+Private Const AI_ASSINATURA_MAX As Long = 80
 
 ' =============================================================================
 ' DECLARACOES DA API WINDOWS (DPAPI) - mesma infraestrutura de Mod11
@@ -369,7 +388,7 @@ Public Function IdentifyDocumentStructureWithAI(doc As Document) As Boolean
     ' Sucesso: fecha o circuit breaker e grava o cache de resultado
     ' (permite reaproveitar a estrutura sem HTTP se o texto nao mudar)
     AI_FecharCircuitBreaker
-    AI_SalvarCacheEstrutura docText, doc.Paragraphs.count
+    AI_SalvarCacheEstrutura doc, docText
 
     IdentifyDocumentStructureWithAI = True
     Exit Function
@@ -401,22 +420,13 @@ Public Function AI_TentarReaproveitarEstrutura(doc As Document) As Boolean
     If Len(docText) = 0 Then Exit Function
     If StrComp(docText, aiCacheEstrutura.docText, vbBinaryCompare) <> 0 Then Exit Function
 
-    ' Reaplica os indices cacheados
-    tituloParaIndex = aiCacheEstrutura.titulo
-    ementaParaIndex = aiCacheEstrutura.ementa
-    vocativoStartIndex = aiCacheEstrutura.vocStart
-    vocativoEndIndex = aiCacheEstrutura.vocEnd
-    corpoStartIndex = aiCacheEstrutura.corpoStart
-    corpoEndIndex = aiCacheEstrutura.corpoEnd
-    tituloJustificativaIndex = aiCacheEstrutura.titJust
-    justificativaStartIndex = aiCacheEstrutura.justStart
-    justificativaEndIndex = aiCacheEstrutura.justEnd
-    dataParaIndex = aiCacheEstrutura.data
-    assinaturaStartIndex = aiCacheEstrutura.assStart
-    assinaturaEndIndex = aiCacheEstrutura.assEnd
-    tituloAnexoIndex = aiCacheEstrutura.titAnexo
-    anexoStartIndex = aiCacheEstrutura.anexoStart
-    anexoEndIndex = aiCacheEstrutura.anexoEnd
+    ' Reaplica os indices cacheados (ordem canonica AI_IDX_*)
+    Dim tmp(1 To 15) As Long
+    Dim k As Long
+    For k = 1 To 15
+        tmp(k) = aiCacheEstrutura.idx(k)
+    Next k
+    AI_AplicarIndicesGlobais tmp
 
     ' Revalida os indices reaplicados (defesa contra estado corrompido)
     If Not ValidarIndicesEstrutura(doc) Then
@@ -437,35 +447,47 @@ ErrorHandler:
 End Function
 
 ' =============================================================================
-' CACHE DE RESULTADO: GRAVACAO APOS SUCESSO DA IA
+' CACHE DE RESULTADO: GRAVACAO APOS IDENTIFICACAO BEM-SUCEDIDA
+' (IA, heuristica ou remapeamento) - inclui assinaturas de ancora
 ' =============================================================================
-Private Sub AI_SalvarCacheEstrutura(ByVal docText As String, ByVal paraCount As Long)
+Private Sub AI_SalvarCacheEstrutura(doc As Document, ByVal docText As String)
     On Error GoTo ErrorHandler
 
-    aiCacheEstrutura.valida = True
-    aiCacheEstrutura.paraCount = paraCount
-    aiCacheEstrutura.docText = docText
-    aiCacheEstrutura.titulo = tituloParaIndex
-    aiCacheEstrutura.ementa = ementaParaIndex
-    aiCacheEstrutura.vocStart = vocativoStartIndex
-    aiCacheEstrutura.vocEnd = vocativoEndIndex
-    aiCacheEstrutura.corpoStart = corpoStartIndex
-    aiCacheEstrutura.corpoEnd = corpoEndIndex
-    aiCacheEstrutura.titJust = tituloJustificativaIndex
-    aiCacheEstrutura.justStart = justificativaStartIndex
-    aiCacheEstrutura.justEnd = justificativaEndIndex
-    aiCacheEstrutura.data = dataParaIndex
-    aiCacheEstrutura.assStart = assinaturaStartIndex
-    aiCacheEstrutura.assEnd = assinaturaEndIndex
-    aiCacheEstrutura.titAnexo = tituloAnexoIndex
-    aiCacheEstrutura.anexoStart = anexoStartIndex
-    aiCacheEstrutura.anexoEnd = anexoEndIndex
+    Dim tmp(1 To 15) As Long
+    AI_LerIndicesGlobais tmp
 
-    LogMessage AI_STRUCT_PREFIX & ": Cache de estrutura atualizado (" & paraCount & " paragrafos)", LOG_LEVEL_DEBUG
+    Dim k As Long
+    For k = 1 To 15
+        aiCacheEstrutura.idx(k) = tmp(k)
+        aiCacheEstrutura.ass(k) = AI_AssinaturaDe(doc, tmp(k))
+    Next k
+
+    aiCacheEstrutura.valida = True
+    aiCacheEstrutura.paraCount = doc.Paragraphs.count
+    aiCacheEstrutura.docText = docText
+
+    LogMessage AI_STRUCT_PREFIX & ": Cache de estrutura atualizado (" & aiCacheEstrutura.paraCount & " paragrafos)", LOG_LEVEL_DEBUG
     Exit Sub
 
 ErrorHandler:
     LogMessage AI_STRUCT_PREFIX & ": Erro ao gravar cache: " & Err.Description, LOG_LEVEL_ERROR
+End Sub
+
+' =============================================================================
+' GRAVA O RESULTADO DA IDENTIFICACAO ATUAL NO CACHE (CAMINHO HEURISTICO)
+' =============================================================================
+' O caminho heuristico tambem atualiza o cache para que remapeamentos
+' posteriores reflitam a ULTIMA identificacao (e nao uma decisao anterior
+' da IA ja substituida).
+Public Sub AI_SalvarEstruturaIdentificada(doc As Document)
+    On Error GoTo ErrorHandler
+
+    If doc Is Nothing Then Exit Sub
+    AI_SalvarCacheEstrutura doc, MontarTextoDocumentoParaIA(doc)
+    Exit Sub
+
+ErrorHandler:
+    LogMessage AI_STRUCT_PREFIX & ": Erro ao salvar estrutura identificada: " & Err.Description, LOG_LEVEL_ERROR
 End Sub
 
 ' =============================================================================
@@ -505,6 +527,402 @@ Private Sub AI_FecharCircuitBreaker()
     aiBreakerMotivo = ""
     aiBreakerAbertoAte = 0
 End Sub
+
+' =============================================================================
+' REMAPEAMENTO POR ANCORAS: IDENTIFICACAO SEM IA APOS MUTACOES
+' =============================================================================
+' Quando o documento sofreu mutacoes (remocoes/insercoes de paragrafos,
+' quebras) entre identificacoes, o cache exato nao casa. Em vez de chamar a
+' IA de novo, este remapeamento REPOSICIONA os indices da ultima decisao
+' (IA ou heuristica) procurando cada ancora pelo seu texto normalizado
+' (assinatura) no documento atual:
+'   1. Ancora com assinatura confiavel (>= AI_ASSINATURA_MIN): relocalizada
+'      pelo melhor match (exato; depois compativel com prefixo, para
+'      paragrafos quebrados ou com sufixos editados). Ancoras-fim de range
+'      avancam sobre fragmentos de continuacao da mesma assinatura (cobre
+'      a quebra " - vereador").
+'   2. Ancora sem match (em branco, texto substituido): posicao interpolada
+'      linearmente entre as ancoras relocalizadas vizinhas.
+' FAIL-SAFE: titulo nao relocalizado, menos de 2 ancoras relocalizadas ou
+' indices inconsistentes -> retorna False e o chamador usa a IA
+' (comportamento identico ao anterior). Zero requisicoes HTTP em sucesso.
+Public Function AI_TentarRemapearEstrutura(doc As Document) As Boolean
+    On Error GoTo ErrorHandler
+
+    AI_TentarRemapearEstrutura = False
+
+    If doc Is Nothing Then Exit Function
+    If Not aiCacheEstrutura.valida Then Exit Function
+
+    Dim maxPara As Long
+    maxPara = doc.Paragraphs.count
+    If maxPara = 0 Then Exit Function
+
+    ' Copia local dos indices e assinaturas cacheados
+    Dim velho(1 To 15) As Long
+    Dim novo(1 To 15) As Long
+    Dim reloc(1 To 15) As Boolean
+    Dim k As Long, i As Long
+    For k = 1 To 15
+        velho(k) = aiCacheEstrutura.idx(k)
+        novo(k) = 0
+        reloc(k) = False
+    Next k
+
+    ' Textos normalizados dos paragrafos atuais (base da busca)
+    Dim atuais() As String
+    ReDim atuais(1 To maxPara)
+    For i = 1 To maxPara
+        atuais(i) = AI_AssinaturaDe(doc, i)
+    Next i
+
+    ' Fase 1: relocalizacao por assinatura
+    Dim relocCount As Long
+    relocCount = 0
+    For k = 1 To 15
+        If velho(k) > 0 Then
+            If Len(aiCacheEstrutura.ass(k)) >= AI_ASSINATURA_MIN Then
+                novo(k) = AI_RelocalizarAncora(aiCacheEstrutura.ass(k), atuais, velho(k), maxPara)
+                If novo(k) > 0 Then
+                    reloc(k) = True
+                    relocCount = relocCount + 1
+                    ' Extensao de continuacao para ancoras-fim de range
+                    If AI_EhAncoraFim(k) Then
+                        novo(k) = AI_EstenderContinuacao(novo(k), aiCacheEstrutura.ass(k), atuais, maxPara)
+                    End If
+                End If
+            End If
+        End If
+    Next k
+
+    ' Fail-safe: titulo obrigatorio e minimo de 2 ancoras relocalizadas
+    If Not reloc(AI_IDX_TITULO) Then
+        LogMessage AI_STRUCT_PREFIX & ": REMAP abortado - titulo nao relocalizado", LOG_LEVEL_INFO
+        Exit Function
+    End If
+    If relocCount < 2 Then
+        LogMessage AI_STRUCT_PREFIX & ": REMAP abortado - ancoras relocalizadas insuficientes (" & relocCount & ")", LOG_LEVEL_INFO
+        Exit Function
+    End If
+
+    ' Fase 2: interpolacao para ancoras nao relocalizadas
+    For k = 1 To 15
+        If Not reloc(k) Then
+            novo(k) = AI_InterpolarPosicao(k, velho, novo, reloc, maxPara)
+        End If
+    Next k
+
+    ' Fase 3: validacao dos indices remapeados
+    If Not AI_RemapeValido(novo, velho, maxPara) Then
+        LogMessage AI_STRUCT_PREFIX & ": REMAP abortado - indices remapeados inconsistentes", LOG_LEVEL_INFO
+        Exit Function
+    End If
+
+    ' Aplica os indices e atualiza o cache (indices, assinaturas e texto)
+    AI_AplicarIndicesGlobais novo
+    MarcarFlagsEstrutura doc
+    AI_SalvarCacheEstrutura doc, MontarTextoDocumentoParaIA(doc)
+
+    LogMessage AI_STRUCT_PREFIX & ": REMAP - estrutura remapeada por ancoras (0 requisicoes HTTP)", LOG_LEVEL_INFO
+    AI_TentarRemapearEstrutura = True
+    Exit Function
+
+ErrorHandler:
+    LogMessage AI_STRUCT_PREFIX & ": Erro no remapeamento: " & Err.Description, LOG_LEVEL_ERROR
+    AI_TentarRemapearEstrutura = False
+End Function
+
+' =============================================================================
+' REMAPEAMENTO: AUXILIARES DE INDICES E ASSINATURAS
+' =============================================================================
+' Copia os 15 indices globais para um array na ordem canonica
+Private Sub AI_LerIndicesGlobais(dest() As Long)
+    dest(AI_IDX_TITULO) = tituloParaIndex
+    dest(AI_IDX_EMENTA) = ementaParaIndex
+    dest(AI_IDX_VOC_START) = vocativoStartIndex
+    dest(AI_IDX_VOC_END) = vocativoEndIndex
+    dest(AI_IDX_CORPO_START) = corpoStartIndex
+    dest(AI_IDX_CORPO_END) = corpoEndIndex
+    dest(AI_IDX_TIT_JUST) = tituloJustificativaIndex
+    dest(AI_IDX_JUST_START) = justificativaStartIndex
+    dest(AI_IDX_JUST_END) = justificativaEndIndex
+    dest(AI_IDX_DATA) = dataParaIndex
+    dest(AI_IDX_ASS_START) = assinaturaStartIndex
+    dest(AI_IDX_ASS_END) = assinaturaEndIndex
+    dest(AI_IDX_TIT_ANEXO) = tituloAnexoIndex
+    dest(AI_IDX_ANEXO_START) = anexoStartIndex
+    dest(AI_IDX_ANEXO_END) = anexoEndIndex
+End Sub
+
+' Aplica um array na ordem canonica aos 15 indices globais
+Private Sub AI_AplicarIndicesGlobais(src() As Long)
+    tituloParaIndex = src(AI_IDX_TITULO)
+    ementaParaIndex = src(AI_IDX_EMENTA)
+    vocativoStartIndex = src(AI_IDX_VOC_START)
+    vocativoEndIndex = src(AI_IDX_VOC_END)
+    corpoStartIndex = src(AI_IDX_CORPO_START)
+    corpoEndIndex = src(AI_IDX_CORPO_END)
+    tituloJustificativaIndex = src(AI_IDX_TIT_JUST)
+    justificativaStartIndex = src(AI_IDX_JUST_START)
+    justificativaEndIndex = src(AI_IDX_JUST_END)
+    dataParaIndex = src(AI_IDX_DATA)
+    assinaturaStartIndex = src(AI_IDX_ASS_START)
+    assinaturaEndIndex = src(AI_IDX_ASS_END)
+    tituloAnexoIndex = src(AI_IDX_TIT_ANEXO)
+    anexoStartIndex = src(AI_IDX_ANEXO_START)
+    anexoEndIndex = src(AI_IDX_ANEXO_END)
+End Sub
+
+' Assinatura de ancora: texto normalizado do paragrafo, truncado em
+' AI_ASSINATURA_MAX. Vazio para indice invalido ou paragrafo em branco.
+Private Function AI_AssinaturaDe(doc As Document, ByVal paraIdx As Long) As String
+    On Error GoTo ErrorHandler
+
+    AI_AssinaturaDe = ""
+    If doc Is Nothing Then Exit Function
+    If paraIdx <= 0 Or paraIdx > doc.Paragraphs.count Then Exit Function
+
+    Dim t As String
+    t = NormalizarTexto(doc.Paragraphs(paraIdx).Range.text)
+    t = Replace(t, Chr(7), " ")
+    If Len(t) > AI_ASSINATURA_MAX Then t = Left$(t, AI_ASSINATURA_MAX)
+    AI_AssinaturaDe = Trim$(t)
+    Exit Function
+
+ErrorHandler:
+    AI_AssinaturaDe = ""
+End Function
+
+' Procura a ancora no documento atual: primeiro match EXATO; depois match
+' compativel com prefixo (paragrafo quebrado ou com sufixo editado).
+' Escolhe o candidato mais proximo da posicao original.
+Private Function AI_RelocalizarAncora(ByVal assinatura As String, atuais() As String, _
+    ByVal posOriginal As Long, ByVal maxPara As Long) As Long
+    On Error GoTo ErrorHandler
+
+    AI_RelocalizarAncora = 0
+
+    Dim melhorPos As Long, melhorDist As Long
+    Dim i As Long, d As Long, t As String
+    melhorPos = 0
+    melhorDist = 2147483647
+
+    ' Passada 1: igualdade exata
+    For i = 1 To maxPara
+        t = atuais(i)
+        If Len(t) > 0 Then
+            If StrComp(t, assinatura, vbBinaryCompare) = 0 Then
+                d = Abs(i - posOriginal)
+                If d < melhorDist Then
+                    melhorDist = d
+                    melhorPos = i
+                End If
+            End If
+        End If
+    Next i
+    If melhorPos > 0 Then
+        AI_RelocalizarAncora = melhorPos
+        Exit Function
+    End If
+
+    ' Passada 2: compatibilidade de prefixo (fragmentos de quebra ou
+    ' sufixos editados); exige comprimento minimo no candidato
+    For i = 1 To maxPara
+        t = atuais(i)
+        If Len(t) >= AI_ASSINATURA_MIN Then
+            If AI_TextosCompativeis(t, assinatura) Then
+                d = Abs(i - posOriginal)
+                If d < melhorDist Then
+                    melhorDist = d
+                    melhorPos = i
+                End If
+            End If
+        End If
+    Next i
+
+    AI_RelocalizarAncora = melhorPos
+    Exit Function
+
+ErrorHandler:
+    AI_RelocalizarAncora = 0
+End Function
+
+' Compatibilidade de prefixo: um texto e prefixo do outro
+Private Function AI_TextosCompativeis(ByVal a As String, ByVal b As String) As Boolean
+    AI_TextosCompativeis = False
+    If Len(a) = 0 Or Len(b) = 0 Then Exit Function
+    If Len(a) <= Len(b) Then
+        If StrComp(Left$(b, Len(a)), a, vbBinaryCompare) = 0 Then AI_TextosCompativeis = True
+    Else
+        If StrComp(Left$(a, Len(b)), b, vbBinaryCompare) = 0 Then AI_TextosCompativeis = True
+    End If
+End Function
+
+' =============================================================================
+' REMAPEAMENTO: EXTENSAO DE CONTINUACAO, INTERPOLACAO E VALIDACAO
+' =============================================================================
+' Identifica ancoras-fim de range na ordem canonica
+Private Function AI_EhAncoraFim(ByVal k As Long) As Boolean
+    Select Case k
+        Case AI_IDX_VOC_END, AI_IDX_CORPO_END, AI_IDX_JUST_END, AI_IDX_ASS_END, AI_IDX_ANEXO_END
+            AI_EhAncoraFim = True
+        Case Else
+            AI_EhAncoraFim = False
+    End Select
+End Function
+
+' Avanca o fim de range sobre fragmentos de continuacao da mesma assinatura
+' (ex.: quebra "nome - vereador" -> "nome" + "- vereador")
+Private Function AI_EstenderContinuacao(ByVal pos As Long, ByVal assinatura As String, _
+    atuais() As String, ByVal maxPara As Long) As Long
+    On Error GoTo ErrorHandler
+
+    Dim p As Long, guard As Long
+    Dim prox As String
+    p = pos
+    guard = 0
+
+    Do While p < maxPara And guard < 5
+        prox = atuais(p + 1)
+        If Not AI_EhContinuacao(prox, assinatura) Then Exit Do
+        p = p + 1
+        guard = guard + 1
+    Loop
+
+    AI_EstenderContinuacao = p
+    Exit Function
+
+ErrorHandler:
+    AI_EstenderContinuacao = pos
+End Function
+
+' Continuacao: o texto do paragrafo e um SUFIXO da assinatura original
+' (comparacao sem espacos/pontuacao - cobre fragmentos de quebra)
+Private Function AI_EhContinuacao(ByVal frag As String, ByVal assinatura As String) As Boolean
+    Dim f As String, s As String
+    AI_EhContinuacao = False
+    f = AI_SemEspacosPonto(frag)
+    s = AI_SemEspacosPonto(assinatura)
+    If Len(f) < 5 Then Exit Function
+    If Len(f) > Len(s) Then Exit Function
+    If StrComp(Right$(s, Len(f)), f, vbBinaryCompare) = 0 Then AI_EhContinuacao = True
+End Function
+
+' Reduz o texto a [a-z0-9] sem espacos (comparacao robusta a pontuacao)
+Private Function AI_SemEspacosPonto(ByVal t As String) As String
+    Dim r As String, i As Long, c As String
+    r = ""
+    For i = 1 To Len(t)
+        c = LCase$(Mid$(t, i, 1))
+        If (c >= "a" And c <= "z") Or (c >= "0" And c <= "9") Then r = r & c
+    Next i
+    AI_SemEspacosPonto = r
+End Function
+
+' Interpola a posicao de ancora nao relocalizada a partir do deslocamento
+' entre as ancoras relocalizadas vizinhas (mais proxima antes e depois)
+Private Function AI_InterpolarPosicao(ByVal k As Long, velho() As Long, novo() As Long, _
+    reloc() As Boolean, ByVal maxPara As Long) As Long
+    On Error GoTo Fallback
+
+    If velho(k) <= 0 Then
+        AI_InterpolarPosicao = 0
+        Exit Function
+    End If
+
+    Dim p As Long, f As Long, i As Long
+    p = 0
+    f = 0
+    For i = k - 1 To 1 Step -1
+        If reloc(i) Then
+            p = i
+            Exit For
+        End If
+    Next i
+    For i = k + 1 To 15
+        If reloc(i) Then
+            f = i
+            Exit For
+        End If
+    Next i
+
+    Dim pos As Double
+    pos = velho(k)
+    If p > 0 And f > 0 Then
+        Dim spanVelho As Long
+        spanVelho = velho(f) - velho(p)
+        If spanVelho > 0 Then
+            pos = novo(p) + (velho(k) - velho(p)) * (novo(f) - novo(p)) / spanVelho
+        Else
+            pos = novo(p)
+        End If
+    ElseIf p > 0 Then
+        pos = novo(p) + (velho(k) - velho(p))
+    ElseIf f > 0 Then
+        pos = novo(f) - (velho(f) - velho(k))
+    End If
+
+    Dim ipos As Long
+    ipos = CLng(Int(pos + 0.5))
+    If ipos < 1 Then ipos = 1
+    If ipos > maxPara Then ipos = maxPara
+    AI_InterpolarPosicao = ipos
+    Exit Function
+
+Fallback:
+    AI_InterpolarPosicao = 0
+End Function
+
+' Validacao dos indices remapeados: limites, ausentes continuam ausentes,
+' titulo obrigatorio, pares inicio<=fim e ordem relativa preservada
+Private Function AI_RemapeValido(novo() As Long, velho() As Long, ByVal maxPara As Long) As Boolean
+    On Error GoTo ErrorHandler
+
+    AI_RemapeValido = False
+
+    Dim k As Long
+    For k = 1 To 15
+        If velho(k) > 0 Then
+            If novo(k) <= 0 Or novo(k) > maxPara Then Exit Function
+        Else
+            If novo(k) <> 0 Then Exit Function
+        End If
+    Next k
+
+    If novo(AI_IDX_TITULO) <= 0 Then Exit Function
+
+    ' Pares inicio <= fim
+    If AI_ParInvalido(novo(AI_IDX_VOC_START), novo(AI_IDX_VOC_END)) Then Exit Function
+    If AI_ParInvalido(novo(AI_IDX_CORPO_START), novo(AI_IDX_CORPO_END)) Then Exit Function
+    If AI_ParInvalido(novo(AI_IDX_JUST_START), novo(AI_IDX_JUST_END)) Then Exit Function
+    If AI_ParInvalido(novo(AI_IDX_ASS_START), novo(AI_IDX_ASS_END)) Then Exit Function
+    If AI_ParInvalido(novo(AI_IDX_ANEXO_START), novo(AI_IDX_ANEXO_END)) Then Exit Function
+
+    ' Ordem relativa preservada: se velho(a) < velho(b) entao novo(a) <= novo(b)
+    Dim a As Long, b As Long
+    For a = 1 To 15
+        If velho(a) > 0 Then
+            For b = 1 To 15
+                If velho(b) > 0 Then
+                    If velho(a) < velho(b) Then
+                        If novo(a) > novo(b) Then Exit Function
+                    End If
+                End If
+            Next b
+        End If
+    Next a
+
+    AI_RemapeValido = True
+    Exit Function
+
+ErrorHandler:
+    AI_RemapeValido = False
+End Function
+
+' Par de range invalido: inicio apos fim (quando ambos presentes)
+Private Function AI_ParInvalido(ByVal ini As Long, ByVal fim As Long) As Boolean
+    AI_ParInvalido = (ini > 0 And fim > 0 And ini > fim)
+End Function
 
 ' =============================================================================
 ' MONTA TEXTO DO DOCUMENTO COM INDICES DE PARAGRAFOS

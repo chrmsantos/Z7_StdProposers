@@ -1171,4 +1171,98 @@ Describe 'Z7_STDPROPOSERS - Mod_12_AIStructure' {
 
     }
 
+    Context 'Remapeamento por ancoras - identificacao sem IA apos mutacoes' {
+
+        It 'Declara AI_TentarRemapearEstrutura' {
+
+            $script:mod12Content | Should Match '(?m)^Public Function AI_TentarRemapearEstrutura\(doc As Document\) As Boolean'
+
+        }
+
+        It 'Declara AI_SalvarEstruturaIdentificada (cache do caminho heuristico)' {
+
+            $script:mod12Content | Should Match '(?m)^Public Sub AI_SalvarEstruturaIdentificada\(doc As Document\)'
+
+        }
+
+        It 'Remap e fail-safe: aborta sem titulo relocalizado' {
+
+            $match = [regex]::Match($script:mod12Content, 'Public Function AI_TentarRemapearEstrutura[\s\S]*?End Function')
+
+            $match.Success | Should Be $true
+
+            $match.Value | Should Match 'reloc\(AI_IDX_TITULO\)'
+
+            $match.Value | Should Match 'REMAP abortado - titulo nao relocalizado'
+
+        }
+
+        It 'Remap exige minimo de 2 ancoras relocalizadas' {
+
+            $match = [regex]::Match($script:mod12Content, 'Public Function AI_TentarRemapearEstrutura[\s\S]*?End Function')
+
+            $match.Value | Should Match 'relocCount < 2'
+
+        }
+
+        It 'Remap interpola ancoras nao relocalizadas' {
+
+            $match = [regex]::Match($script:mod12Content, 'Public Function AI_TentarRemapearEstrutura[\s\S]*?End Function')
+
+            $match.Value | Should Match 'AI_InterpolarPosicao'
+
+        }
+
+        It 'Remap valida indices antes de aplicar' {
+
+            $match = [regex]::Match($script:mod12Content, 'Public Function AI_TentarRemapearEstrutura[\s\S]*?End Function')
+
+            $match.Value | Should Match 'AI_RemapeValido'
+
+        }
+
+        It 'Remap atualiza o cache de resultado' {
+
+            $match = [regex]::Match($script:mod12Content, 'Public Function AI_TentarRemapearEstrutura[\s\S]*?End Function')
+
+            $match.Value | Should Match 'AI_SalvarCacheEstrutura'
+
+        }
+
+        It 'Relocalizacao aceita fragmentos de quebra (compatibilidade de prefixo)' {
+
+            $script:mod12Content | Should Match 'AI_TextosCompativeis'
+
+        }
+
+        It 'Ancoras-fim de range estendem sobre continuacao da assinatura' {
+
+            $script:mod12Content | Should Match 'AI_EstenderContinuacao'
+
+        }
+
+        It 'Validacao preserva a ordem relativa dos indices' {
+
+            $match = [regex]::Match($script:mod12Content, 'Private Function AI_RemapeValido[\s\S]*?End Function')
+
+            $match.Success | Should Be $true
+
+            $match.Value | Should Match 'velho\(a\) < velho\(b\)'
+
+        }
+
+        It 'Assinaturas de ancora sao gravadas no cache' {
+
+            $match = [regex]::Match($script:mod12Content, 'Private Sub AI_SalvarCacheEstrutura[\s\S]*?End Sub')
+
+            $match.Success | Should Be $true
+
+            $match.Value | Should Match 'AI_AssinaturaDe'
+
+            $match.Value | Should Match 'aiCacheEstrutura\.ass\('
+
+        }
+
+    }
+
 }
