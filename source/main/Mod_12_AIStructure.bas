@@ -62,6 +62,16 @@ Private Const MAX_PARAGRAPHS_FOR_AI As Long = 400
 ' Comprimento maximo de cada paragrafo enviado (evita tokens excessivos)
 Private Const MAX_PARAGRAPH_TEXT_LENGTH As Long = 500
 
+' Marcador de paragrafo vazio no texto enviado a IA. Paragrafos sem texto
+' (linhas em branco usadas como espacamento visual antes e/ou depois de um
+' elemento) sao explicitamente marcados para que a IA nao os confunda com
+' conteudo de elemento estrutural
+Private Const AI_PAR_VAZIO_MARCADOR As String = "<VAZIO>"
+
+' Janela de busca (em paragrafos) ao deslocar indices que apontam para
+' paragrafos vazios ate o paragrafo com texto mais proximo
+Private Const AI_JANELA_PAR_VAZIOS As Long = 5
+
 ' Nivel de log para depuracao detalhada
 Private Const LOG_LEVEL_DEBUG As Long = 0
 
@@ -349,7 +359,15 @@ Public Function IdentifyDocumentStructureWithAI(doc As Document) As Boolean
     LogStepComplete "Parse da resposta JSON da IA"
 
     ' -----------------------------------------------------------------
-    ' 7. VALIDA INDICES
+    ' 7. NORMALIZA INDICES PARA PARAGRAFOS VAZIOS (ESPACAMENTO)
+    ' -----------------------------------------------------------------
+    ' Espaco entrelinhas (paragrafos vazios) antes e/ou depois de um
+    ' elemento nunca deve ser atribuido como inicio/fim de elemento;
+    ' a ementa nao identificada pela IA e recuperada apos o titulo
+    AI_NormalizarIndicesEstrutura doc
+
+    ' -----------------------------------------------------------------
+    ' 8. VALIDA INDICES
     ' -----------------------------------------------------------------
     LogStepStart "Validacao dos indices de estrutura"
 
@@ -363,12 +381,12 @@ Public Function IdentifyDocumentStructureWithAI(doc As Document) As Boolean
     LogStepComplete "Validacao dos indices de estrutura"
 
     ' -----------------------------------------------------------------
-    ' 8. MARCA FLAGS NO CACHE
+    ' 9. MARCA FLAGS NO CACHE
     ' -----------------------------------------------------------------
     MarcarFlagsEstrutura doc
 
     ' -----------------------------------------------------------------
-    ' 9. LOG DE RESULTADO
+    ' 10. LOG DE RESULTADO
     ' -----------------------------------------------------------------
     Dim elapsed As Double
     elapsed = Timer - startTime
@@ -943,10 +961,19 @@ Private Function MontarTextoDocumentoParaIA(doc As Document) As String
         paraText = doc.Paragraphs(i).Range.text
         On Error GoTo ErrorHandler
         paraText = Replace(Replace(paraText, vbCr, ""), vbLf, "")
-        If Len(paraText) > MAX_PARAGRAPH_TEXT_LENGTH Then
-            paraText = Left(paraText, MAX_PARAGRAPH_TEXT_LENGTH) & "..."
+        paraText = Replace(Replace(paraText, Chr$(11), " "), vbTab, " ")
+        paraText = Replace(paraText, Chr$(160), " ")
+        If Len(Trim$(paraText)) = 0 Then
+            ' Paragrafo vazio = espacamento visual (espaco entrelinhas antes
+            ' e/ou depois de um elemento). Marcado explicitamente para que a
+            ' IA nao o trate como conteudo de elemento estrutural
+            sb = sb & "[P" & i & "] " & AI_PAR_VAZIO_MARCADOR & vbCrLf
+        Else
+            If Len(paraText) > MAX_PARAGRAPH_TEXT_LENGTH Then
+                paraText = Left(paraText, MAX_PARAGRAPH_TEXT_LENGTH) & "..."
+            End If
+            sb = sb & "[P" & i & "] " & paraText & vbCrLf
         End If
-        sb = sb & "[P" & i & "] " & paraText & vbCrLf
     Next i
 
     MontarTextoDocumentoParaIA = sb
@@ -978,7 +1005,16 @@ Private Function MontarPromptEstrutura() As String
         "2. Se nao existir, use 0 (zero)." & vbCrLf & _
         "3. 'corpo' e o texto principal entre vocativo e justificativa." & vbCrLf & _
         "4. Assinatura: 3 paragrafos centralizados no final." & vbCrLf & _
-        "5. Data: contem nome do plenario e data de emissao." & vbCrLf & vbCrLf & _
+        "5. Data: contem nome do plenario e data de emissao." & vbCrLf & _
+        "6. Paragrafos marcados com <VAZIO> sao apenas espacamento visual " & _
+        "(linhas em branco antes e/ou depois de um elemento). Nao sao " & _
+        "elementos: nunca use um paragrafo <VAZIO> como primeiro ou " & _
+        "ultimo numero de um intervalo." & vbCrLf & _
+        "7. 'ementa' e o paragrafo que resume o assunto da proposicao, " & _
+        "localizado logo apos o titulo, ignorando paragrafos <VAZIO>. " & _
+        "Se houver paragrafos <VAZIO> antes e/ou depois da ementa, o " & _
+        "intervalo deve cobrir somente o(s) paragrafo(s) com texto." & vbCrLf & _
+        "8. Todo intervalo deve comecar e terminar em paragrafos com texto." & vbCrLf & vbCrLf & _
         AI_MontarGuardAntiInjecao()
 
     LogMessage AI_STRUCT_PREFIX & ": Prompt de estrutura montado: " & Len(MontarPromptEstrutura) & " chars", LOG_LEVEL_DEBUG
@@ -1153,6 +1189,9 @@ Private Function ParsearRespostaEstruturaIA(ByVal resposta As String, _
         Exit Function
     End If
 
+    Dim ementaIni As Long
+    Dim ementaFim As Long
+
     LogMessage AI_STRUCT_PREFIX & ": Resposta: " & Left(content, 300), LOG_LEVEL_DEBUG
 
     ' Reseta todos os indices
@@ -1167,7 +1206,14 @@ Private Function ParsearRespostaEstruturaIA(ByVal resposta As String, _
     anexoStartIndex = 0: anexoEndIndex = 0
 
     tituloParaIndex = AI_ExtrairIndiceUnico(content, "titulo")
-    ementaParaIndex = AI_ExtrairIndiceUnico(content, "ementa")
+
+    ' Ementa: usa o intervalo informado [primeiro,ultimo] e escolhe o
+    ' primeiro paragrafo COM TEXTO dentro dele. Paragrafos vazios
+    ' (espacamento antes e/ou depois da ementa) nunca sao a ementa
+    ementaIni = AI_ExtrairIndiceUnico(content, "ementa")
+    ementaFim = AI_ExtrairArrayUltimo(content, "ementa")
+    If ementaFim < ementaIni Then ementaFim = ementaIni
+    ementaParaIndex = AI_PrimeiroParagrafoComTexto(doc, ementaIni, ementaFim)
     vocativoStartIndex = AI_ExtrairArrayPrimeiro(content, "vocativo")
     vocativoEndIndex = AI_ExtrairArrayUltimo(content, "vocativo")
     corpoStartIndex = AI_ExtrairArrayPrimeiro(content, "corpo")
@@ -1292,6 +1338,218 @@ Private Sub MarcarFlagsEstrutura(doc As Document)
     Exit Sub
 ErrorHandler:
     LogMessage AI_STRUCT_PREFIX & ": Erro ao marcar flags: " & Err.Description, LOG_LEVEL_ERROR
+End Sub
+
+' =============================================================================
+' PARAGRAFOS VAZIOS (ESPACAMENTO ENTRELINHAS ANTES E/OU DEPOIS DE ELEMENTO)
+' =============================================================================
+' Linhas em branco adicionadas antes e/ou depois de um paragrafo sao apenas
+' espacamento visual e nunca fazem parte de um elemento estrutural. Garantias:
+'   - MontarTextoDocumentoParaIA marca paragrafos vazios com AI_PAR_VAZIO_MARCADOR;
+'   - AI_PrimeiroParagrafoComTexto escolhe o primeiro paragrafo COM TEXTO
+'     dentro do intervalo [ini,fim] informado pela IA;
+'   - AI_NormalizarIndicesEstrutura desloca indices que ainda apontam para
+'     paragrafos vazios e recupera a ementa nao identificada.
+' =============================================================================
+
+' Retorna True quando o paragrafo nao contem texto (vazio ou apenas espacos,
+' tabulacoes, quebras manuais ou espacos nao separaveis)
+Private Function AI_ParagrafoVazio(doc As Document, ByVal idx As Long) As Boolean
+    On Error GoTo ErrorHandler
+
+    AI_ParagrafoVazio = False
+    If doc Is Nothing Then Exit Function
+    If idx <= 0 Then Exit Function
+    If idx > doc.Paragraphs.count Then Exit Function
+
+    Dim t As String
+    t = doc.Paragraphs(idx).Range.Text
+    t = Replace(Replace(t, vbCr, ""), vbLf, "")
+    t = Replace(Replace(t, Chr$(11), " "), vbTab, " ")
+    t = Replace(t, Chr$(160), " ")
+    AI_ParagrafoVazio = (Len(Trim$(t)) = 0)
+    Exit Function
+
+ErrorHandler:
+    AI_ParagrafoVazio = False
+End Function
+
+' Retorna o indice do primeiro paragrafo COM TEXTO dentro do intervalo
+' [ini,fim]; 0 quando o intervalo nao contem texto (ou e invalido)
+Private Function AI_PrimeiroParagrafoComTexto(doc As Document, _
+    ByVal ini As Long, ByVal fim As Long) As Long
+    On Error GoTo ErrorHandler
+
+    AI_PrimeiroParagrafoComTexto = 0
+    If doc Is Nothing Then Exit Function
+    If ini <= 0 Then Exit Function
+
+    Dim maxPara As Long
+    maxPara = doc.Paragraphs.count
+    If ini > maxPara Then Exit Function
+    If fim < ini Then Exit Function
+    If fim > maxPara Then fim = maxPara
+
+    Dim j As Long
+    For j = ini To fim
+        If Not AI_ParagrafoVazio(doc, j) Then
+            AI_PrimeiroParagrafoComTexto = j
+            Exit Function
+        End If
+    Next j
+    Exit Function
+
+ErrorHandler:
+    AI_PrimeiroParagrafoComTexto = 0
+End Function
+
+' Desloca um indice de limite de intervalo que aponta para paragrafo vazio:
+' inicios avancam (avancar=True) e fins recuam (avancar=False) ate o
+' paragrafo com texto mais proximo, limitado a AI_JANELA_PAR_VAZIOS
+Private Function AI_AjustarIndiceNaoVazio(doc As Document, ByVal idx As Long, _
+    ByVal avancar As Boolean) As Long
+    On Error GoTo ErrorHandler
+
+    AI_AjustarIndiceNaoVazio = idx
+    If doc Is Nothing Then Exit Function
+    If idx <= 0 Then Exit Function
+    If Not AI_ParagrafoVazio(doc, idx) Then Exit Function
+
+    Dim j As Long
+    Dim limite As Long
+    If avancar Then
+        limite = idx + AI_JANELA_PAR_VAZIOS
+        If limite > doc.Paragraphs.count Then limite = doc.Paragraphs.count
+        For j = idx + 1 To limite
+            If Not AI_ParagrafoVazio(doc, j) Then
+                AI_AjustarIndiceNaoVazio = j
+                Exit Function
+            End If
+        Next j
+    Else
+        limite = idx - AI_JANELA_PAR_VAZIOS
+        If limite < 1 Then limite = 1
+        For j = idx - 1 To limite Step -1
+            If Not AI_ParagrafoVazio(doc, j) Then
+                AI_AjustarIndiceNaoVazio = j
+                Exit Function
+            End If
+        Next j
+    End If
+    ' Nenhum paragrafo com texto na janela: mantem o indice original
+    Exit Function
+
+ErrorHandler:
+    AI_AjustarIndiceNaoVazio = idx
+End Function
+
+' Desloca um indice unico que aponta para paragrafo vazio ate o paragrafo
+' com texto mais proximo (em empate, avanca)
+Private Function AI_AjustarIndiceUnico(doc As Document, ByVal idx As Long) As Long
+    On Error GoTo ErrorHandler
+
+    AI_AjustarIndiceUnico = idx
+    If doc Is Nothing Then Exit Function
+    If idx <= 0 Then Exit Function
+    If Not AI_ParagrafoVazio(doc, idx) Then Exit Function
+
+    Dim d As Long
+    For d = 1 To AI_JANELA_PAR_VAZIOS
+        If idx + d <= doc.Paragraphs.count Then
+            If Not AI_ParagrafoVazio(doc, idx + d) Then
+                AI_AjustarIndiceUnico = idx + d
+                Exit Function
+            End If
+        End If
+        If idx - d >= 1 Then
+            If Not AI_ParagrafoVazio(doc, idx - d) Then
+                AI_AjustarIndiceUnico = idx - d
+                Exit Function
+            End If
+        End If
+    Next d
+    ' Nenhum paragrafo com texto na janela: mantem o indice original
+    Exit Function
+
+ErrorHandler:
+    AI_AjustarIndiceUnico = idx
+End Function
+
+' Recupera a ementa nao identificada: primeiro paragrafo com texto apos o
+' titulo (mesma regra posicional da heuristica), limitado pelo vocativo/corpo
+' (quando identificados) ou pela janela de busca
+Private Function AI_RecuperarEmentaAposTitulo(doc As Document) As Long
+    On Error GoTo ErrorHandler
+
+    AI_RecuperarEmentaAposTitulo = 0
+    If doc Is Nothing Then Exit Function
+    If tituloParaIndex <= 0 Then Exit Function
+
+    Dim limite As Long
+    limite = tituloParaIndex + AI_JANELA_PAR_VAZIOS
+    If vocativoStartIndex > 0 Then limite = vocativoStartIndex - 1
+    If corpoStartIndex > 0 And corpoStartIndex - 1 < limite Then
+        limite = corpoStartIndex - 1
+    End If
+    If limite > doc.Paragraphs.count Then limite = doc.Paragraphs.count
+
+    AI_RecuperarEmentaAposTitulo = AI_PrimeiroParagrafoComTexto(doc, _
+        tituloParaIndex + 1, limite)
+    Exit Function
+
+ErrorHandler:
+    AI_RecuperarEmentaAposTitulo = 0
+End Function
+
+' =============================================================================
+' NORMALIZACAO DE INDICES PARA PARAGRAFOS VAZIOS
+' =============================================================================
+' Executada apos o parse da resposta da IA e antes da validacao: garante que
+' nenhum indice estrutural aponte para um paragrafo vazio (espacamento
+' antes/depois do elemento) e recupera a ementa quando a IA nao a identifica
+' por causa desses paragrafos.
+' =============================================================================
+Private Sub AI_NormalizarIndicesEstrutura(doc As Document)
+    On Error GoTo ErrorHandler
+
+    If doc Is Nothing Then Exit Sub
+
+    tituloParaIndex = AI_AjustarIndiceUnico(doc, tituloParaIndex)
+
+    ' Limites de intervalo: inicios avancam e fins recuam sobre vazios
+    vocativoStartIndex = AI_AjustarIndiceNaoVazio(doc, vocativoStartIndex, True)
+    vocativoEndIndex = AI_AjustarIndiceNaoVazio(doc, vocativoEndIndex, False)
+    corpoStartIndex = AI_AjustarIndiceNaoVazio(doc, corpoStartIndex, True)
+    corpoEndIndex = AI_AjustarIndiceNaoVazio(doc, corpoEndIndex, False)
+
+    ' Ementa: desloca sobre vazios; se a IA nao a identificou (0), recupera
+    ' como o primeiro paragrafo com texto apos o titulo
+    If ementaParaIndex > 0 Then
+        ementaParaIndex = AI_AjustarIndiceUnico(doc, ementaParaIndex)
+    End If
+    If ementaParaIndex = 0 Then
+        ementaParaIndex = AI_RecuperarEmentaAposTitulo(doc)
+        If ementaParaIndex > 0 Then
+            LogMessage AI_STRUCT_PREFIX & ": Ementa recuperada apos o titulo (paragrafo " & _
+                ementaParaIndex & ") - IA nao identificou (paragrafos vazios no entorno)", _
+                LOG_LEVEL_INFO
+        End If
+    End If
+
+    tituloJustificativaIndex = AI_AjustarIndiceUnico(doc, tituloJustificativaIndex)
+    justificativaStartIndex = AI_AjustarIndiceNaoVazio(doc, justificativaStartIndex, True)
+    justificativaEndIndex = AI_AjustarIndiceNaoVazio(doc, justificativaEndIndex, False)
+    dataParaIndex = AI_AjustarIndiceUnico(doc, dataParaIndex)
+    assinaturaStartIndex = AI_AjustarIndiceNaoVazio(doc, assinaturaStartIndex, True)
+    assinaturaEndIndex = AI_AjustarIndiceNaoVazio(doc, assinaturaEndIndex, False)
+    tituloAnexoIndex = AI_AjustarIndiceUnico(doc, tituloAnexoIndex)
+    anexoStartIndex = AI_AjustarIndiceNaoVazio(doc, anexoStartIndex, True)
+    anexoEndIndex = AI_AjustarIndiceNaoVazio(doc, anexoEndIndex, False)
+    Exit Sub
+
+ErrorHandler:
+    LogMessage AI_STRUCT_PREFIX & ": Erro ao normalizar indices para paragrafos vazios: " & _
+        Err.Description, LOG_LEVEL_ERROR
 End Sub
 
 ' =============================================================================

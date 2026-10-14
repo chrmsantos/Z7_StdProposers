@@ -1265,4 +1265,138 @@ Describe 'Z7_STDPROPOSERS - Mod_12_AIStructure' {
 
     }
 
+    Context 'Robustez a paragrafos vazios (espacamento antes/depois de elementos)' {
+
+        It 'Declara AI_PAR_VAZIO_MARCADOR e AI_JANELA_PAR_VAZIOS' {
+
+            $script:mod12Content | Should Match 'AI_PAR_VAZIO_MARCADOR As String = "<VAZIO>"'
+
+            $script:mod12Content | Should Match 'AI_JANELA_PAR_VAZIOS As Long = 5'
+
+        }
+
+
+
+        It 'MontarTextoDocumentoParaIA marca paragrafos vazios com <VAZIO>' {
+
+            $match = [regex]::Match($script:mod12Content, 'Private Function MontarTextoDocumentoParaIA[\s\S]*?End Function')
+
+            $match.Success | Should Be $true
+
+            $match.Value | Should Match 'AI_PAR_VAZIO_MARCADOR'
+
+            $match.Value | Should Match 'Trim\$\('
+
+        }
+
+
+
+        It 'Prompt orienta a IA sobre paragrafos <VAZIO> e define a ementa' {
+
+            $match = [regex]::Match($script:mod12Content, 'Private Function MontarPromptEstrutura[\s\S]*?End Function')
+
+            $match.Success | Should Be $true
+
+            $match.Value | Should Match 'nunca use um paragrafo <VAZIO>'
+
+            $match.Value | Should Match 'logo apos o titulo'
+
+            $match.Value | Should Match 'Todo intervalo deve comecar e terminar em paragrafos com texto'
+
+        }
+
+
+
+        It 'Declara funcoes de normalizacao para paragrafos vazios' {
+
+            $script:mod12Content | Should Match '(?m)^Private Function AI_ParagrafoVazio\(doc As Document, ByVal idx As Long\) As Boolean'
+
+            $script:mod12Content | Should Match '(?m)^Private Function AI_PrimeiroParagrafoComTexto\(doc As Document, _'
+
+            $script:mod12Content | Should Match '(?m)^Private Function AI_AjustarIndiceNaoVazio\(doc As Document, ByVal idx As Long, _'
+
+            $script:mod12Content | Should Match '(?m)^Private Function AI_AjustarIndiceUnico\(doc As Document, ByVal idx As Long\) As Long'
+
+            $script:mod12Content | Should Match '(?m)^Private Function AI_RecuperarEmentaAposTitulo\(doc As Document\) As Long'
+
+            $script:mod12Content | Should Match '(?m)^Private Sub AI_NormalizarIndicesEstrutura\(doc As Document\)'
+
+        }
+
+
+
+        It 'Ementa usa o primeiro paragrafo com texto do intervalo informado pela IA' {
+
+            $match = [regex]::Match($script:mod12Content, 'Private Function ParsearRespostaEstruturaIA[\s\S]*?End Function')
+
+            $match.Success | Should Be $true
+
+            $match.Value | Should Match 'ementaIni = AI_ExtrairIndiceUnico\(content, "ementa"\)'
+
+            $match.Value | Should Match 'ementaFim = AI_ExtrairArrayUltimo\(content, "ementa"\)'
+
+            $match.Value | Should Match 'ementaParaIndex = AI_PrimeiroParagrafoComTexto\(doc, ementaIni, ementaFim\)'
+
+        }
+
+
+
+        It 'IdentifyDocumentStructureWithAI normaliza indices apos o parse e antes da validacao' {
+
+            $match = [regex]::Match($script:mod12Content, 'Public Function IdentifyDocumentStructureWithAI[\s\S]*?End Function')
+
+            $match.Success | Should Be $true
+
+            $match.Value | Should Match '(?s)ParsearRespostaEstruturaIA[\s\S]*?AI_NormalizarIndicesEstrutura doc[\s\S]*?ValidarIndicesEstrutura\(doc\)'
+
+        }
+
+
+
+        It 'Ementa nao identificada e recuperada apos o titulo' {
+
+            $match = [regex]::Match($script:mod12Content, 'Private Sub AI_NormalizarIndicesEstrutura[\s\S]*?End Sub')
+
+            $match.Success | Should Be $true
+
+            $match.Value | Should Match 'ementaParaIndex = 0'
+
+            $match.Value | Should Match 'AI_RecuperarEmentaAposTitulo\(doc\)'
+
+        }
+
+
+
+        It 'Inicios de intervalo avancam e fins recuam sobre paragrafos vazios' {
+
+            $match = [regex]::Match($script:mod12Content, 'Private Sub AI_NormalizarIndicesEstrutura[\s\S]*?End Sub')
+
+            $match.Success | Should Be $true
+
+            $match.Value | Should Match 'AI_AjustarIndiceNaoVazio\(doc, vocativoStartIndex, True\)'
+
+            $match.Value | Should Match 'AI_AjustarIndiceNaoVazio\(doc, vocativoEndIndex, False\)'
+
+            $match.Value | Should Match 'AI_AjustarIndiceNaoVazio\(doc, assinaturaStartIndex, True\)'
+
+            $match.Value | Should Match 'AI_AjustarIndiceNaoVazio\(doc, assinaturaEndIndex, False\)'
+
+        }
+
+
+
+        It 'Recuperacao da ementa e limitada pelo vocativo/corpo' {
+
+            $match = [regex]::Match($script:mod12Content, 'Private Function AI_RecuperarEmentaAposTitulo[\s\S]*?End Function')
+
+            $match.Success | Should Be $true
+
+            $match.Value | Should Match 'vocativoStartIndex - 1'
+
+            $match.Value | Should Match 'corpoStartIndex - 1'
+
+        }
+
+    }
+
 }

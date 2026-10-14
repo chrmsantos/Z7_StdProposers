@@ -1,3 +1,23 @@
+## v10.6.1 — Z7 StdProposers
+
+### Correcoes
+
+- **Identificacao de estrutura via IA robusta a paragrafos vazios (espaco entrelinhas antes e/ou depois de um paragrafo)**: a ementa deixava de ser identificada quando o documento tinha linhas em branco em volta do paragrafo. Correcao em `Mod_12_AIStructure.bas` com 4 camadas de defesa:
+  - paragrafos vazios (linhas em branco, apenas espacos/tabs/espacos nao separaveis ou quebras manuais) agora sao enviados a IA marcados como `<VAZIO>` (`MontarTextoDocumentoParaIA`)
+  - prompt de estrutura ganhou regras explicitas: `<VAZIO>` e espacamento visual e nunca limite de elemento; ementa e o paragrafo logo apos o titulo ignorando vazios; todo intervalo comeca e termina em paragrafo com texto
+  - a ementa usa o intervalo `[primeiro,ultimo]` informado pela IA e escolhe o primeiro paragrafo COM TEXTO dentro dele (`AI_PrimeiroParagrafoComTexto`)
+  - nova normalizacao pos-parse (`AI_NormalizarIndicesEstrutura`): inicios de intervalo avancam e fins recuam sobre paragrafos vazios; indices unicos vao para o paragrafo com texto mais proximo; ementa ainda nao identificada e recuperada deterministicamente como o primeiro paragrafo com texto apos o titulo (`AI_RecuperarEmentaAposTitulo`), limitada por vocativo/corpo
+
+### Testes
+
+- Novo contexto em `VBA-AIStructure.Tests.ps1` (8 contratos): marcador `<VAZIO>`, regras do prompt, funcoes de normalizacao, resolucao da ementa por intervalo, ordem parse -> normalizacao -> validacao, recuperacao da ementa e limites da busca
+
+### Sincronizacao de Versao
+
+- Versao 10.6.1 alinhada em `VERSION`, `Z7_STDPROPOSERS_VERSION` (`Mod_01_Infrastructure.bas`) e `_APP_VERSION` (`config_prompt.py` e `chat_ia.py` — que estavam defasados em 10.2.4)
+
+---
+
 ## v10.2.4 — Z7 StdProposers
 
 ### Padronizacao de Espacamento e Recuos
