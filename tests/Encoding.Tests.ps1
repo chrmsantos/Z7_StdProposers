@@ -571,6 +571,33 @@ Configuracao do sistema
                 ($isUtf8 -or $isCp1252) | Should Be $true
             }
         }
+
+        It 'Nenhuma instrucao .bas excede 24 continuacoes de linha (limite do parser VBA)' {
+            # VBComponents.Import falha com excecao COM 0x800A9D00
+            # ("Too many line continuations") quando uma instrucao usa 25 ou
+            # mais continuacoes '_'. Limite real (validado empiricamente via
+            # VBComponents.Import): 25 linhas fisicas por instrucao = no
+            # maximo 24 continuacoes de linha.
+            $basFiles = Get-VbaFiles
+            $basFiles | Should Not BeNullOrEmpty
+            foreach ($f in $basFiles) {
+                $cp1252 = [System.Text.Encoding]::GetEncoding(1252)
+                $lines = [System.IO.File]::ReadAllText($f.FullName, $cp1252) -split "\r?\n"
+                $run = 0
+                $maxRun = 0
+                foreach ($line in $lines) {
+                    $trimmed = $line.TrimEnd()
+                    $isContinuation = $trimmed.EndsWith('_') -and -not $trimmed.TrimStart().StartsWith("'")
+                    if ($isContinuation) {
+                        $run++
+                        if ($run -gt $maxRun) { $maxRun = $run }
+                    } else {
+                        $run = 0
+                    }
+                }
+                $maxRun | Should BeLessThan 25
+            }
+        }
     }
 }
 

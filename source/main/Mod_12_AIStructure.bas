@@ -34,12 +34,12 @@ Private Const AI_STRUCT_URL As String = _
 
 Private Const AI_STRUCT_PREFIX As String = "AI_STRUCTURE"
 Private Const AI_STRUCT_DEFAULT_MODEL As String = _
-    "nvidia/nemotron-3-ultra-550b-a55b:free"
+    "openai/gpt-oss-safeguard-20b"
 
 ' Modelo fallback (alternativo) - tentado quando o modelo principal
 ' nao responde dentro do teto de 10s da tentativa
 Private Const AI_STRUCT_DEFAULT_FALLBACK_MODEL As String = _
-    "google/gemma-4-31b-it:free"
+    "meta-llama/llama-3.1-8b-instruct"
 
 ' Timeouts em milissegundos (resolve, connect, send, receive)
 ' POR TENTATIVA de uso da IA (modelo principal ou fallback);
@@ -990,23 +990,33 @@ End Function
 ' PROMPT DE SISTEMA
 ' =============================================================================
 Private Function MontarPromptEstrutura() As String
-    MontarPromptEstrutura = _
-        "Voce e um especialista em analise de documentos legislativos brasileiros. " & _
+    ' NOTA: a montagem do prompt e dividida em multiplas atribuicoes porque
+    ' o parser VBA limita cada instrucao a 25 linhas fisicas (no maximo 24
+    ' caracteres de continuacao '_'). Uma instrucao unica com o prompt
+    ' completo excederia esse limite e impediria a importacao do modulo
+    ' (VBComponents.Import falha com excecao COM 0x800A9D00 =
+    ' "Too many line continuations").
+    Dim sb As String
+
+    sb = "Voce e um especialista em analise de documentos legislativos brasileiros. " & _
         "Identifique a estrutura de uma propositura legislativa. " & _
         "O documento tem marcadores [Pn] indicando o numero de cada paragrafo." & vbCrLf & vbCrLf & _
-        "Retorne APENAS o JSON abaixo, sem explicacoes:" & vbCrLf & vbCrLf & _
-        "{""titulo"":[primeiro,ultimo],""ementa"":[primeiro,ultimo]," & _
+        "Retorne APENAS o JSON abaixo, sem explicacoes:" & vbCrLf & vbCrLf
+
+    sb = sb & "{""titulo"":[primeiro,ultimo],""ementa"":[primeiro,ultimo]," & _
         """vocativo"":[primeiro,ultimo],""corpo"":[primeiro,ultimo]," & _
         """titulo_da_justificativa"":[unico],""justificativa"":[primeiro,ultimo]," & _
         """data"":[unico],""assinatura"":[primeiro,ultimo]," & _
-        """titulo_do_anexo"":[unico ou null],""anexo"":[primeiro,ultimo ou null]}" & vbCrLf & vbCrLf & _
-        "REGRAS:" & vbCrLf & _
+        """titulo_do_anexo"":[unico ou null],""anexo"":[primeiro,ultimo ou null]}" & vbCrLf & vbCrLf
+
+    sb = sb & "REGRAS:" & vbCrLf & _
         "1. Valores sao NUMEROS dos paragrafos (sem 'P')." & vbCrLf & _
         "2. Se nao existir, use 0 (zero)." & vbCrLf & _
         "3. 'corpo' e o texto principal entre vocativo e justificativa." & vbCrLf & _
         "4. Assinatura: 3 paragrafos centralizados no final." & vbCrLf & _
-        "5. Data: contem nome do plenario e data de emissao." & vbCrLf & _
-        "6. Paragrafos marcados com <VAZIO> sao apenas espacamento visual " & _
+        "5. Data: contem nome do plenario e data de emissao." & vbCrLf
+
+    sb = sb & "6. Paragrafos marcados com <VAZIO> sao apenas espacamento visual " & _
         "(linhas em branco antes e/ou depois de um elemento). Nao sao " & _
         "elementos: nunca use um paragrafo <VAZIO> como primeiro ou " & _
         "ultimo numero de um intervalo." & vbCrLf & _
@@ -1014,8 +1024,9 @@ Private Function MontarPromptEstrutura() As String
         "localizado logo apos o titulo, ignorando paragrafos <VAZIO>. " & _
         "Se houver paragrafos <VAZIO> antes e/ou depois da ementa, o " & _
         "intervalo deve cobrir somente o(s) paragrafo(s) com texto." & vbCrLf & _
-        "8. Todo intervalo deve comecar e terminar em paragrafos com texto." & vbCrLf & vbCrLf & _
-        AI_MontarGuardAntiInjecao()
+        "8. Todo intervalo deve comecar e terminar em paragrafos com texto." & vbCrLf & vbCrLf
+
+    MontarPromptEstrutura = sb & AI_MontarGuardAntiInjecao()
 
     LogMessage AI_STRUCT_PREFIX & ": Prompt de estrutura montado: " & Len(MontarPromptEstrutura) & " chars", LOG_LEVEL_DEBUG
 End Function

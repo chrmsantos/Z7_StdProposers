@@ -27,15 +27,15 @@ def _configure_ssl_certifi() -> None:
         LOGGER.warning("certifi not available; SSL may fail in frozen environment")
 
 
-_DEFAULT_MODEL = 'nvidia/nemotron-3-ultra-550b-a55b:free'
-_FALLBACK_MODEL = 'google/gemma-4-31b-it:free'
+_DEFAULT_MODEL = 'openai/gpt-oss-safeguard-20b'
+_FALLBACK_MODEL = 'meta-llama/llama-3.1-8b-instruct'
 _OPENROUTER_BASE_URL = 'https://openrouter.ai/api/v1'
 _MAX_CONTEXT_CHARS = 150_000
 
 _RPC_BUSY_RETRIES = 3
 _RPC_BUSY_RETRY_DELAY = 0.3
 
-_APP_VERSION = "10.6.1"
+_APP_VERSION = "10.7.0"
 _APP_AUTHOR  = "CMS"
 _ORG         = "Câmara Municipal de Santa Bárbara d'Oeste"
 _LICENSE     = "GPL-3.0"

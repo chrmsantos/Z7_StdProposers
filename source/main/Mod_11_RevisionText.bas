@@ -44,12 +44,12 @@ Private Const OPENROUTER_URL As String = _
     "https://openrouter.ai/api/v1/chat/completions"
 
 Private Const MODELO_IA_DEFAULT As String = _
-    "nvidia/nemotron-3-ultra-550b-a55b:free"
+    "openai/gpt-oss-safeguard-20b"
 
 ' Modelo fallback (alternativo) - tentado quando o modelo principal
 ' nao responde dentro do teto de 10s da tentativa
 Private Const MODELO_IA_FALLBACK_DEFAULT As String = _
-    "google/gemma-4-31b-it:free"
+    "meta-llama/llama-3.1-8b-instruct"
 
 ' Timeouts em milissegundos (resolve, connect, send, receive)
 ' Usados apenas pelo diagnostico de conectividade (DiagnosticarOpenRouter)

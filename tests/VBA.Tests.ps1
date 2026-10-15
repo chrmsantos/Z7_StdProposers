@@ -1363,7 +1363,7 @@ Describe 'Z7_STDPROPOSERS - VBA Modular Architecture' {
 
             $script:moduleContent['Mod_11_RevisionText.bas'] | Should Match 'MODELO_IA_FALLBACK_DEFAULT'
 
-            $script:moduleContent['Mod_11_RevisionText.bas'] | Should Match 'google/gemma-4-31b-it:free'
+            $script:moduleContent['Mod_11_RevisionText.bas'] | Should Match 'meta-llama/llama-3\.1-8b-instruct'
 
         }
 

@@ -33,6 +33,13 @@ BACKUP_NAME = "Normal_backup.dotm"
 NORMAL_DOTM_RELATIVE = os.path.join("Microsoft", "Templates", "Normal.dotm")
 Z7_MODULE_PREFIX = "Mod_"
 
+# VBComponents.Import failure code "Too many line continuations"
+# (validado empiricamente via COM): uma instrucao com 25 ou mais
+# continuacoes de linha ('_') excede o limite do parser VBA de
+# 25 linhas fisicas por instrucao (maximo 24 continuacoes).
+VBA_TOO_MANY_CONTINUATIONS = -2146788096  # 0x800A9D00
+MAX_CONTINUATIONS_PER_STATEMENT = 24
+
 # ---------------------------------------------------------------------------
 # Logging setup
 # ---------------------------------------------------------------------------
@@ -221,8 +228,9 @@ def import_modules_to_normal(
                 stats["imported"] += 1
             except Exception as e:
                 stats["errors"] += 1
-                stats["error_details"].append((bas_name, str(e)))
-                logger.error("  [ERRO] %s - %s", bas_name, e)
+                detail = _describe_import_error(e, bas_path)
+                stats["error_details"].append((bas_name, detail))
+                logger.error("  [ERRO] %s - %s", bas_name, detail)
 
         logger.info("Salvando Normal.dotm...")
         # Use SaveAs2 with correct format for .dotm (macro-enabled template)
@@ -232,7 +240,7 @@ def import_modules_to_normal(
 
     except Exception as e:
         stats["errors"] += 1
-        stats["error_details"].append(("_global", str(e)))
+        stats["error_details"].append(("_global", _describe_import_error(e)))
         logger.error("Erro durante processamento: %s", e)
         raise
     finally:
@@ -425,6 +433,74 @@ def _remove_z7_modules(vb_project, logger: logging.Logger) -> int:
             logger.warning("  [REM] %s - falha ao remover: %s", comp.Name, e)
 
     return removed_count
+
+
+def _find_continuation_violation(content: str):
+    """Return the 1-based line where a statement exceeds the VBA continuation
+    limit (more than MAX_CONTINUATIONS_PER_STATEMENT '_' in a row), or None
+    if the content is compliant.
+
+    Comment lines (starting with ') never continue a statement.
+    """
+    run = 0
+    start = 0
+    for i, line in enumerate(content.splitlines(), 1):
+        s = line.rstrip()
+        if s.endswith("_") and not s.lstrip().startswith("'"):
+            if run == 0:
+                start = i
+            run += 1
+            if run > MAX_CONTINUATIONS_PER_STATEMENT:
+                return start
+        else:
+            run = 0
+    return None
+
+
+def _scode_from_com_error(exc):
+    """Extract the EXCEPINFO scode from a pywin32 com_error, if present.
+
+    com_error args: (hresult, strerror, excepinfo, argerror) where
+    excepinfo is (scode?, ...) -- the scode is excepinfo[5].
+    """
+    try:
+        args = exc.args
+    except Exception:
+        return None
+    if len(args) >= 3 and isinstance(args[2], (tuple, list)) and len(args[2]) >= 6:
+        scode = args[2][5]
+        if isinstance(scode, int):
+            return scode
+    if args and isinstance(args[0], int):
+        return args[0]
+    return None
+
+
+def _describe_import_error(exc, bas_path=None) -> str:
+    """Translate cryptic COM errors from VBComponents.Import into actionable
+    messages; falls back to str(exc) for unknown codes."""
+    scode = _scode_from_com_error(exc)
+    if scode == VBA_TOO_MANY_CONTINUATIONS:
+        msg = (
+            "Too many line continuations (0x800A9D00): uma instrucao excede o "
+            "limite do VBA de 25 linhas fisicas por instrucao (maximo 24 "
+            "continuacoes '_'). Divida a instrucao em multiplas atribuicoes."
+        )
+        if bas_path:
+            try:
+                raw = Path(bas_path).read_bytes()
+            except OSError:
+                raw = None
+            if raw is not None:
+                try:
+                    content = raw.decode("utf-8")
+                except UnicodeDecodeError:
+                    content = raw.decode("cp1252")
+                line_no = _find_continuation_violation(content)
+                if line_no is not None:
+                    msg += f" Inicio da instrucao ofensora: linha {line_no}."
+        return msg
+    return str(exc)
 
 
 def _import_single_module(vb_project, bas_path: str, bas_name: str, logger: logging.Logger):

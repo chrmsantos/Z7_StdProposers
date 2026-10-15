@@ -17,7 +17,10 @@ if str(SCRIPTS_DIR) not in sys.path:
 
 from import_bas_to_normal import (  # noqa: E402
     BACKUP_NAME,
+    VBA_TOO_MANY_CONTINUATIONS,
     Z7_MODULE_PREFIX,
+    _describe_import_error,
+    _find_continuation_violation,
     _get_logs_dir,
     create_backup,
     discover_bas_files,
@@ -226,6 +229,96 @@ class TestZ7ModulePrefix(unittest.TestCase):
         non_z7 = ["Normal", "ThisDocument", "UserForm1", "Module1"]
         for name in non_z7:
             self.assertFalse(name.startswith(Z7_MODULE_PREFIX))
+
+
+class TestFindContinuationViolation(unittest.TestCase):
+    """Static detection of the VBA continuation limit (max 24 '_' per
+    statement = 25 physical lines), the root cause of the 0x800A9D00
+    import failure."""
+
+    @staticmethod
+    def _module(n_continuations):
+        lines = [
+            'Attribute VB_Name = "Mod_X"',
+            "Option Explicit",
+            "",
+            "Sub Test()",
+            '    Debug.Print "a" & _',
+        ]
+        for _ in range(n_continuations - 1):
+            lines.append('        "b" & _')
+        lines.append('        "c"')
+        lines.append("End Sub")
+        return "\r\n".join(lines)
+
+    def test_compliant_module_returns_none(self):
+        self.assertIsNone(_find_continuation_violation(self._module(24)))
+
+    def test_violation_reports_statement_start_line(self):
+        # 25 continuations: statement starts at line 5 ("Debug.Print...")
+        self.assertEqual(_find_continuation_violation(self._module(25)), 5)
+
+    def test_comment_lines_do_not_continue_statement(self):
+        lines = ["Sub Test()", '    Debug.Print "a"']
+        for _ in range(30):
+            lines.append("' comentario terminando com underline _")
+        lines.append("End Sub")
+        self.assertIsNone(_find_continuation_violation("\r\n".join(lines)))
+
+    def test_empty_content(self):
+        self.assertIsNone(_find_continuation_violation(""))
+
+
+class TestDescribeImportError(unittest.TestCase):
+    """Anti-regression: cryptic COM errors from VBComponents.Import must be
+    translated into actionable messages (validated against the real
+    0x800A9D00 failure of Mod_12_AIStructure)."""
+
+    @staticmethod
+    def _make_com_error(scode):
+        exc = Exception("Excecao.")
+        exc.args = (-2147352567, "Excecao.", (0, None, None, None, 0, scode), None)
+        return exc
+
+    def test_too_many_continuations_message(self):
+        exc = self._make_com_error(VBA_TOO_MANY_CONTINUATIONS)
+        msg = _describe_import_error(exc)
+        self.assertIn("Too many line continuations", msg)
+        self.assertIn("0x800A9D00", msg)
+        self.assertIn("24", msg)
+        self.assertIn("continuacoes", msg)
+
+    def test_includes_offending_statement_line(self):
+        content = TestFindContinuationViolation._module(25)
+        with tempfile.TemporaryDirectory() as tmp:
+            bas = Path(tmp) / "Mod_X.bas"
+            bas.write_bytes(content.encode("cp1252"))
+            exc = self._make_com_error(VBA_TOO_MANY_CONTINUATIONS)
+            msg = _describe_import_error(exc, bas_path=bas)
+        self.assertIn("linha 5", msg)
+
+    def test_no_line_info_when_module_is_compliant(self):
+        content = TestFindContinuationViolation._module(24)
+        with tempfile.TemporaryDirectory() as tmp:
+            bas = Path(tmp) / "Mod_X.bas"
+            bas.write_bytes(content.encode("cp1252"))
+            exc = self._make_com_error(VBA_TOO_MANY_CONTINUATIONS)
+            msg = _describe_import_error(exc, bas_path=bas)
+        self.assertNotIn("Inicio da instrucao ofensora", msg)
+
+    def test_fallback_to_str_for_unknown_com_error(self):
+        exc = self._make_com_error(-2146788224)
+        self.assertEqual(_describe_import_error(exc), str(exc))
+
+    def test_fallback_to_str_for_generic_exception(self):
+        plain = RuntimeError("boom")
+        self.assertEqual(_describe_import_error(plain), "boom")
+
+    def test_scode_from_hresult_only(self):
+        exc = Exception("x")
+        exc.args = (VBA_TOO_MANY_CONTINUATIONS,)
+        msg = _describe_import_error(exc)
+        self.assertIn("Too many line continuations", msg)
 
 
 if __name__ == "__main__":

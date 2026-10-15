@@ -1,3 +1,28 @@
+## v10.7.0 — Z7 StdProposers
+
+### Modelos de IA Padrao
+
+- **Primary:** `openai/gpt-oss-safeguard-20b` (antes: `nvidia/nemotron-3-ultra-550b-a55b:free`)
+- **Fallback:** `meta-llama/llama-3.1-8b-instruct` (antes: `google/gemma-4-31b-it:free`)
+- Defaults atualizados em `chat_ia.py` (`_DEFAULT_MODEL`/`_FALLBACK_MODEL`), `config_prompt.py` (`load_ai_model`/`load_fallback_model` e exemplos da UI), `Mod_11_RevisionText.bas` (`MODELO_IA_DEFAULT`/`MODELO_IA_FALLBACK_DEFAULT`) e `Mod_12_AIStructure.bas` (`AI_STRUCT_DEFAULT_MODEL`/`AI_STRUCT_DEFAULT_FALLBACK_MODEL`)
+
+### Importacao de Modulos VBA
+
+- **Diagnostico de "Too many line continuations" (COM 0x800A9D00)** em `import_bas_to_normal.py`: mensagem acionavel aponta a linha da instrucao ofensora (instrucao com mais de 24 continuacoes '_')
+- `MontarPromptEstrutura` (`Mod_12_AIStructure.bas`) dividido em multiplas atribuicoes para respeitar o limite do parser VBA de 25 linhas fisicas por instrucao
+
+### Testes
+
+- Contratos atualizados para os novos defaults de modelo (`test_config_prompt.py`, `VBA.Tests.ps1`, `VBA-AIStructure.Tests.ps1`)
+- Novo contrato de encoding: nenhuma instrucao `.bas` excede 24 continuacoes de linha (`Encoding.Tests.ps1`)
+- Novos testes de diagnostico de import em `test_import_bas_to_normal.py`
+
+### Sincronizacao de Versao
+
+- Versao 10.7.0 alinhada em `VERSION`, `Z7_STDPROPOSERS_VERSION` (`Mod_01_Infrastructure.bas`) e `_APP_VERSION` (`config_prompt.py` e `chat_ia.py`)
+
+---
+
 ## v10.6.1 — Z7 StdProposers
 
 ### Correcoes
