@@ -1463,5 +1463,61 @@ Describe 'Z7_STDPROPOSERS - VBA Modular Architecture' {
 
     }
 
+    Context 'Substituicao de texto segura na presenca de campos (erro 4608)' {
+
+        It 'SafeReplaceText nao propaga erros estruturais do Word' {
+
+            $mod3 = $script:moduleContent['Mod_03_Pipeline.bas']
+
+            $match = [regex]::Match($mod3, 'Public Sub SafeReplaceText[\s\S]*?End Sub')
+
+            $match.Success | Should Be $true
+
+            $match.Value | Should Match 'rng\.Text = newText'
+
+            $match.Value | Should Match 'On Error Resume Next'
+
+            $match.Value | Should Match 'LOG_LEVEL_WARNING'
+
+        }
+
+        It 'ApplyStdParagraphs protege paragrafos que contem campos' {
+
+            $mod7 = $script:moduleContent['Mod_07_Formatting.bas']
+
+            $match = [regex]::Match($mod7, 'Public Function ApplyStdParagraphs[\s\S]*?End Function')
+
+            $match.Success | Should Be $true
+
+            $match.Value | Should Match 'ParagraphHasField'
+
+            $match.Value | Should Match 'Not hasField'
+
+        }
+
+        It 'ApplyStdParagraphs nao aborta a formatacao por erro em um unico paragrafo' {
+
+            $mod7 = $script:moduleContent['Mod_07_Formatting.bas']
+
+            $match = [regex]::Match($mod7, 'Public Function ApplyStdParagraphs[\s\S]*?End Function')
+
+            $match.Success | Should Be $true
+
+            $match.Value | Should Match 'ParagraphErrorHandler'
+
+            $match.Value | Should Match 'Resume NextParagraph'
+
+            $match.Value | Should Match 'LOG_LEVEL_WARNING'
+
+        }
+
+        It 'ParagraphHasField existe como funcao privada no Mod_07' {
+
+            $script:moduleContent['Mod_07_Formatting.bas'] | Should Match 'Private Function ParagraphHasField\(para As Paragraph\) As Boolean'
+
+        }
+
+    }
+
 }
 

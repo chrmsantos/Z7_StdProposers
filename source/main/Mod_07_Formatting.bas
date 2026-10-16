@@ -255,12 +255,15 @@ Public Function ApplyStdParagraphs(doc As Document) As Boolean
 
     Dim para As Paragraph
     Dim hasInlineImage As Boolean
+    Dim hasField As Boolean
     Dim paragraphIndent As Single
     Dim firstIndent As Single
     Dim rightMarginPoints As Single
     Dim i As Long
     Dim formattedCount As Long
     Dim skippedCount As Long
+    Dim fieldSkipCount As Long
+    Dim errorCount As Long
     Dim textChangedCount As Long  ' Contador de alteracoes reais de texto
     Dim paraText As String
     Dim prevPara As Paragraph
@@ -271,10 +274,16 @@ Public Function ApplyStdParagraphs(doc As Document) As Boolean
     Dim paraCount As Long
     paraCount = doc.Paragraphs.count
 
+    ' Cache da quantidade de campos do documento (evita COM no loop quando zero)
+    Dim docFieldCount As Long
+    docFieldCount = doc.Fields.count
+
     For i = paraCount To 1 Step -1
+        On Error GoTo ParagraphErrorHandler
         If i > doc.Paragraphs.count Then Exit For ' Protecao dinamica
         Set para = doc.Paragraphs(i)
         hasInlineImage = False
+        hasField = False
 
         ' Early exit se processou demais
         If formattedCount > 50000 Then
@@ -293,13 +302,22 @@ Public Function ApplyStdParagraphs(doc As Document) As Boolean
             skippedCount = skippedCount + 1
         End If
 
+        ' Protege paragrafos que contem campos (ex.: HYPERLINK que atravessa
+        ' paragrafos): substituir o texto desses ranges gera o erro 4608 do
+        ' Word "O intervalo nao pode ser excluido"
+        If docFieldCount > 0 Then
+            If ParagraphHasField(para) Then
+                hasField = True
+                fieldSkipCount = fieldSkipCount + 1
+            End If
+        End If
+
         ' Aplica formatacao de paragrafo para TODOS os paragrafos
         ' (independente se contem imagens ou nao)
 
         ' Limpeza robusta de espacos multiplos - SEMPRE aplicada
         Dim cleanText As String
         cleanText = para.Range.text
-
         ' OTIMIZADO: Combinacao de multiplas operacoes de limpeza em um bloco
         If InStr(cleanText, "  ") > 0 Or InStr(cleanText, vbTab) > 0 Then
             ' Remove multiplos espacos consecutivos com protecao
@@ -351,9 +369,9 @@ Public Function ApplyStdParagraphs(doc As Document) As Boolean
         If checkText = JUSTIFICATIVA_TEXT Or IsAnexoPattern(checkText) Or IsVereadorPattern(checkText) Then
             isSpecialFormatParagraph = True
         End If
-
-        ' Aplica o texto limpo APENAS se nao ha imagens E nao e paragrafo especial
-        If cleanText <> para.Range.text And Not hasInlineImage And Not isSpecialFormatParagraph Then
+        ' Aplica o texto limpo APENAS se nao ha imagens, nao ha campos
+        ' e nao e paragrafo especial
+        If cleanText <> para.Range.text And Not hasInlineImage And Not isSpecialFormatParagraph And Not hasField Then
             SafeReplaceText para.Range, cleanText
             textChangedCount = textChangedCount + 1
         End If
@@ -388,23 +406,55 @@ Public Function ApplyStdParagraphs(doc As Document) As Boolean
         End If
 
         formattedCount = formattedCount + 1
+NextParagraph:
     Next i
+
+    On Error GoTo ErrorHandler
 
     ' Marca documento como modificado APENAS se houve alteracao real de texto
     ' (nao apenas reaplicacao de formatacao ja existente)
     If textChangedCount > 0 Then documentDirty = True
 
     ' Log atualizado para refletir que todos os paragrafos sao formatados
-    If skippedCount > 0 Or textChangedCount > 0 Then
-        LogMessage "Paragrafos formatados: " & formattedCount & " (incluindo " & skippedCount & " com protecao de imagens, " & textChangedCount & " com texto alterado)"
+    If skippedCount > 0 Or textChangedCount > 0 Or fieldSkipCount > 0 Or errorCount > 0 Then
+        LogMessage "Paragrafos formatados: " & formattedCount & " (incluindo " & skippedCount & " com protecao de imagens, " & fieldSkipCount & " com protecao de campos, " & textChangedCount & " com texto alterado, " & errorCount & " ignorados por erro)"
     End If
 
-    ApplyStdParagraphs = True
+    ' Falha total apenas se nenhum paragrafo foi processado
+    If formattedCount = 0 And errorCount > 0 Then
+        ApplyStdParagraphs = False
+    Else
+        ApplyStdParagraphs = True
+    End If
     Exit Function
+
+ParagraphErrorHandler:
+    ' Um paragrafo problematico nao aborta a formatacao dos demais
+    errorCount = errorCount + 1
+    LogMessage "ApplyStdParagraphs: paragrafo " & i & " ignorado - " & Err.Description, LOG_LEVEL_WARNING
+    Resume NextParagraph
 
 ErrorHandler:
     LogMessage "Erro na formatacao de paragrafos: " & Err.Description, LOG_LEVEL_ERROR
     ApplyStdParagraphs = False
+End Function
+
+'================================================================================
+' ParagraphHasField - DETECCAO DE CAMPOS EM PARAGRAFOS
+'================================================================================
+
+Private Function ParagraphHasField(para As Paragraph) As Boolean
+    ' Retorna True se o paragrafo toca algum campo do Word (HYPERLINK, PAGINA,
+    ' etc.), inclusive campos que se estendem para fora do paragrafo. A
+    ' substituicao de texto nesses ranges pode destruir o campo ou provocar o
+    ' erro 4608 "O intervalo nao pode ser excluido".
+    On Error GoTo SafeExit
+    ParagraphHasField = (para.Range.Fields.count > 0)
+    Exit Function
+
+SafeExit:
+    ' Em caso de erro de leitura, assume campo presente (nao substitui texto)
+    ParagraphHasField = True
 End Function
 
 '================================================================================

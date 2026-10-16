@@ -160,20 +160,33 @@ End Function
 '--------------------------------------------------------------------------------
 Public Sub SafeReplaceText(ByVal rng As Range, ByVal newText As String)
     If rng Is Nothing Then Exit Sub
-    
+
     Dim origFont As Font
     Dim origParaFormat As ParagraphFormat
-    
-    ' Salva a formata��o original com seguran�a
+    Dim replaceError As String
+
+    ' Salva a formatacao original com seguranca
     On Error Resume Next
     Set origFont = rng.Font.Duplicate
     Set origParaFormat = rng.ParagraphFormat.Duplicate
     On Error GoTo 0
-    
-    ' Realiza a substitui��o
-    rng.text = newText
-    
-    ' Restaura a formata��o original no novo range (que agora cont�m o novo texto)
+
+    ' Realiza a substituicao com tolerancia a falhas estruturais do Word.
+    ' Ex.: range que corta um campo (HYPERLINK entre paragrafos) gera o erro
+    ' 4608 "O intervalo nao pode ser excluido". Nesse caso a substituicao e
+    ' ignorada com aviso, em vez de abortar o pipeline inteiro.
+    On Error Resume Next
+    Err.Clear
+    rng.Text = newText
+    replaceError = Err.Description
+    On Error GoTo 0
+
+    If Len(replaceError) > 0 Then
+        LogMessage "SafeReplaceText: substituicao ignorada - " & replaceError, LOG_LEVEL_WARNING
+        Exit Sub
+    End If
+
+    ' Restaura a formatacao original no novo range (que agora contem o novo texto)
     On Error Resume Next
     If Not origFont Is Nothing Then rng.Font = origFont
     If Not origParaFormat Is Nothing Then rng.ParagraphFormat = origParaFormat
