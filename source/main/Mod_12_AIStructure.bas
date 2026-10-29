@@ -1517,8 +1517,8 @@ End Function
 ' =============================================================================
 ' Executada apos o parse da resposta da IA e antes da validacao: garante que
 ' nenhum indice estrutural aponte para um paragrafo vazio (espacamento
-' antes/depois do elemento) e recupera a ementa quando a IA nao a identifica
-' por causa desses paragrafos.
+' antes/depois do elemento) e indexa a ementa nao identificada pela IA
+' executando o fallback heuristico da funcao de indexacao da ementa.
 ' =============================================================================
 Private Sub AI_NormalizarIndicesEstrutura(doc As Document)
     On Error GoTo ErrorHandler
@@ -1533,12 +1533,28 @@ Private Sub AI_NormalizarIndicesEstrutura(doc As Document)
     corpoStartIndex = AI_AjustarIndiceNaoVazio(doc, corpoStartIndex, True)
     corpoEndIndex = AI_AjustarIndiceNaoVazio(doc, corpoEndIndex, False)
 
-    ' Ementa: desloca sobre vazios; se a IA nao a identificou (0), recupera
-    ' como o primeiro paragrafo com texto apos o titulo
+    ' Ementa: desloca sobre vazios; se a IA nao a identificou (0), executa o
+    ' fallback heuristico da funcao de indexacao da ementa
     If ementaParaIndex > 0 Then
         ementaParaIndex = AI_AjustarIndiceUnico(doc, ementaParaIndex)
     End If
     If ementaParaIndex = 0 Then
+        ' A IA nao encontrou o elemento Ementa: o fallback heuristico da
+        ' funcao de indexacao da ementa (FindEmentaParagraphIndex) deve ser
+        ' executado e o resultado usado como indice da ementa
+        ementaParaIndex = FindEmentaParagraphIndex(doc)
+        If ementaParaIndex = tituloParaIndex Then
+            ' Guarda: a ementa nunca e o proprio titulo
+            ementaParaIndex = 0
+        End If
+        If ementaParaIndex > 0 Then
+            LogMessage AI_STRUCT_PREFIX & ": Ementa nao encontrada pela IA - fallback heuristico " & _
+                "da indexacao da ementa aplicado (paragrafo " & ementaParaIndex & ")", LOG_LEVEL_INFO
+        End If
+    End If
+    If ementaParaIndex = 0 Then
+        ' Recuperacao posicional complementar: primeiro paragrafo com texto
+        ' apos o titulo
         ementaParaIndex = AI_RecuperarEmentaAposTitulo(doc)
         If ementaParaIndex > 0 Then
             LogMessage AI_STRUCT_PREFIX & ": Ementa recuperada apos o titulo (paragrafo " & _

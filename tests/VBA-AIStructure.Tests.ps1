@@ -1367,6 +1367,27 @@ Describe 'Z7_STDPROPOSERS - Mod_12_AIStructure' {
 
 
 
+        It 'Ementa nao encontrada pela IA executa o fallback heuristico da indexacao da ementa' {
+
+            $match = [regex]::Match($script:mod12Content, 'Private Sub AI_NormalizarIndicesEstrutura[\s\S]*?End Sub')
+
+            $match.Success | Should Be $true
+
+            # Quando a IA nao encontra o elemento Ementa, o fallback heuristico
+            # da funcao de indexacao da ementa (FindEmentaParagraphIndex) deve
+            # ser executado e o resultado usado como indice
+            $match.Value | Should Match '(?s)If ementaParaIndex = 0 Then\s+[\s\S]*?ementaParaIndex = FindEmentaParagraphIndex\(doc\)'
+
+            # Executado ANTES da recuperacao posicional complementar
+            $match.Value | Should Match '(?s)FindEmentaParagraphIndex\(doc\)[\s\S]*?AI_RecuperarEmentaAposTitulo\(doc\)'
+
+            # Guarda: a ementa nunca e o proprio titulo
+            $match.Value | Should Match 'ementaParaIndex = tituloParaIndex'
+
+        }
+
+
+
         It 'Inicios de intervalo avancam e fins recuam sobre paragrafos vazios' {
 
             $match = [regex]::Match($script:mod12Content, 'Private Sub AI_NormalizarIndicesEstrutura[\s\S]*?End Sub')
